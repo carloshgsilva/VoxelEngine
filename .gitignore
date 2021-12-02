@@ -1,0 +1,13 @@
+*.exe
+*.ilk
+*.pdb
+*.spv
+
+.vs
+.vscode
+
+lib/
+out/
+build/
+
+CMakeSettings.json
