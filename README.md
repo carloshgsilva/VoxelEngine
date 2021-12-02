@@ -25,12 +25,11 @@ Voxel Engine with PBR rendering using Vulkan
   * [VulkanSDK](https://vulkan.lunarg.com/sdk/home)
   * Windows (only currently supported platform)
   * C++17 compiler
+  * CMake 3.7+
 
 If you are using Visual Studio 2019 install the cmake tools so you can just open the folder
 
 Otherwise
-
-You will need cmake 3.7+
 ```
 git clone --recursive https://github.com/carloshgsilva/VoxelEngine
 cd VEngine
