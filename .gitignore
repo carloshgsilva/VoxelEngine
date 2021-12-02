@@ -6,8 +6,8 @@
 .vs
 .vscode
 
-lib/
-out/
-build/
+/lib
+/out
+/build
 
 CMakeSettings.json
