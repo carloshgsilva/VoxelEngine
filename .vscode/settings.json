@@ -1,0 +1,8 @@
+{
+	"files.associations": {
+		"chrono": "cpp",
+		"format": "cpp"
+	},
+	"shaderc-lint.buildOnSave": true,
+	"shaderc-lint.shadercOutputDir": "Assets/Assets/Mods/default/Shaders"
+}
