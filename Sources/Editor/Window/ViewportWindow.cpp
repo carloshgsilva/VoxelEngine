@@ -13,16 +13,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui/ImGuizmo.h>
-#include <imgui/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
-
-#define EVK_INTERNAL_STATE 1
-#include <evk/evk.h>
-
-static inline int currentMap = 0;
-
-
-
 
 ViewportWindow::ViewportWindow() {
 	_World = NewUnique<World>();
@@ -133,11 +124,11 @@ void ViewportWindow::DeleteSelection() {
 
 }
 
-void ViewportWindow::RenderWorld(CmdBuffer& cmd) {
+void ViewportWindow::RenderWorld() {
 	float dt = 0.016f;
-	View view = _Camera->GetView(_WorldRenderer->GetCurrentColorImage().getExtent().width, _WorldRenderer->GetCurrentColorImage().getExtent().height);
-		
-	_WorldRenderer->DrawWorld(dt, cmd, view, *_World);
+	View view = _Camera->GetView(_Width, _Height);
+	
+	_WorldRenderer->DrawWorld(dt, view, *_World);
 }
 
 
@@ -239,8 +230,8 @@ void ViewportWindow::OnGUI() {
 	EUI::SetViewport(view.ViewMatrix, view.ProjectionMatrix, ImGui::GetWindowPos(), ImGui::GetWindowSize(), ImGui::GetWindowDrawList());
 
 	Image& SceneImage = _WorldRenderer->GetCurrentColorImage();
-	if (SceneImage.getExtent().width > 0 && SceneImage.getExtent().height > 0) {
-		ImGui::Image(ImGui_ImplVulkan_Image(SceneImage.state->sampler, SceneImage.state->view, (VkImageLayout)vk::ImageLayout::eShaderReadOnlyOptimal), ImVec2(_Width, _Height));
+	if (_Width > 0 && _Height > 0) {
+		ImGui::Image((ImTextureID)GetRID(SceneImage), ImVec2(_Width, _Height));
 	}
 	ImGui::SetCursorPos(ImVec2(8, 8));
 

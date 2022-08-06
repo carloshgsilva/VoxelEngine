@@ -5,6 +5,9 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <chrono>
+#include <mutex>
 
 #define ACTIVATE_PROFILER 0
 

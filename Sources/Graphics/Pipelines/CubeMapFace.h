@@ -6,7 +6,7 @@
 #include "Util/FileUtil.h"
 
 class CubeMapFacePipeline {
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 	struct PushConstant {
 		int PanoramaTextureRID;
@@ -15,22 +15,22 @@ class CubeMapFacePipeline {
 
 public:
 	CubeMapFacePipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::CubeMapFace())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/CubeMapFace.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/CubeMapFace.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/CubeMapFace.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/CubeMapFace.frag.spv"),
+			.attachments = {Format::RGBA16Sfloat}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Image& panorama, int face) {
-		cmd.bind(_Pipeline);
+	void Use(Image& panorama, int face) {
+		CmdBind(pipeline);
 
 		PushConstant pc;
-		pc.PanoramaTextureRID = panorama.getRID();
+		pc.PanoramaTextureRID = GetRID(panorama);
 		pc.FaceID = face;
 
-		cmd.constant(&pc, sizeof(PushConstant), 0);
-		cmd.draw(6, 1, 0, 0);
+		CmdPush(&pc, sizeof(PushConstant), 0);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static CubeMapFacePipeline& Get() {

@@ -82,5 +82,5 @@ using uint64 = uint64_t;
 
 #define CHECK(expression) \
 if ((!(expression))) { \
-Log::critical("Check Error: {} Line: {}" , __FILE__, __LINE__); throw std::exception(__FILE__); \
+Log::error("Check Error: {} Line: {}" , __FILE__, __LINE__); throw std::exception(__FILE__); \
 } \

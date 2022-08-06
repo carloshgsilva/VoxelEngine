@@ -120,19 +120,19 @@ public:
 		std::map<std::string, std::string> m;
 		int size = 0;
 		s | size;
-		if constexpr (_Debug)Log::debug("  Dictionary<>({})", size);
+		if constexpr (_Debug)Log::info("  Dictionary<>({})", size);
 		for (int i = 0; i < size; i++) {
 			std::string key;
 			std::string value;
 			s | key | value;
-			if constexpr (_Debug)Log::debug("      <{}, {}>", key, value);
+			if constexpr (_Debug)Log::info("      <{}, {}>", key, value);
 			m[key] = value;
 		}
 		return m;
 	}
 
 	void readRGBA(Stream& s) {
-		if constexpr (_Debug)Log::trace("RGBA");
+		if constexpr (_Debug)Log::info("RGBA");
 		s.Serialize(&pallete[1], 256 * 4);
 	}
 
@@ -140,7 +140,7 @@ public:
 		int voxelCount;
 
 		s | voxelCount;
-		if constexpr (_Debug)Log::trace("XYZI ({})", voxelCount);
+		if constexpr (_Debug)Log::info("XYZI ({})", voxelCount);
 
 		auto shapeData = std::make_shared<VoxShapeData>();
 		shapeData->voxels.resize(voxelCount);
@@ -159,7 +159,7 @@ public:
 		int materialId;
 		s | materialId;//materialId
 
-		if constexpr (_Debug)Log::trace("MATL {}", materialId);
+		if constexpr (_Debug)Log::info("MATL {}", materialId);
 
 		auto properties = readDictionary(s);//materialProperties
 
@@ -201,7 +201,7 @@ public:
 	}
 
 	void readnTRN(Stream& s) {
-		if constexpr (_Debug)Log::trace("nTRN");
+		if constexpr (_Debug)Log::info("nTRN");
 		int tempInt;
 
 		std::shared_ptr<VoxTransform> transform = std::make_shared<VoxTransform>();
@@ -252,7 +252,7 @@ public:
 	}
 
 	void readnGRP(Stream& s) {
-		if constexpr (_Debug)Log::trace("nGRP");
+		if constexpr (_Debug)Log::info("nGRP");
 
 		auto group = std::make_shared<VoxGroup>();
 
@@ -266,7 +266,7 @@ public:
 	}
 
 	void readnSHP(Stream& s) {
-		if constexpr (_Debug)Log::trace("nSHP");
+		if constexpr (_Debug)Log::info("nSHP");
 
 		auto shape = std::make_shared<VoxShape>();
 		int tempInt;
@@ -282,7 +282,7 @@ public:
 
 
 	bool Import(Stream& s) {
-		if constexpr (_Debug)Log::trace("Importing a vox file!");
+		if constexpr (_Debug)Log::info("Importing a vox file!");
 
 		//VOX Header
 		char VOX_[4];
@@ -314,7 +314,7 @@ public:
 			s | chunkContentSize;
 			s | childrenChunkContentSize;
 
-			//if constexpr (_Debug)Log::debug("Chunk Size {} Children Size {}", chunkContentSize, childrenChunkContentSize);
+			//if constexpr (_Debug)Log::info("Chunk Size {} Children Size {}", chunkContentSize, childrenChunkContentSize);
 
 			int nodeId = -1;
 			int size = 0;
@@ -323,7 +323,7 @@ public:
 			case 'M': //MAIN
 				switch (Header[2]) {
 				case 'I':
-					if constexpr (_Debug)Log::trace("MAIN");
+					if constexpr (_Debug)Log::info("MAIN");
 					break;
 				case 'T':
 					readMATL(s);
@@ -334,12 +334,12 @@ public:
 
 			case 'P': //PACK
 				s | tempInt;
-				if constexpr (_Debug)Log::trace("PACK {}", tempInt);
+				if constexpr (_Debug)Log::info("PACK {}", tempInt);
 				break;
 
 			case 'S': //SIZE
 				s | sizeX | sizeY | sizeZ;
-				if constexpr (_Debug)Log::trace("SIZE {} {} {}", sizeX, sizeY, sizeZ);
+				if constexpr (_Debug)Log::info("SIZE {} {} {}", sizeX, sizeY, sizeZ);
 				break;
 
 			case 'X': //XYZI (Blocks)
@@ -351,19 +351,19 @@ public:
 				break;
 
 			case 'L': //LAYR (Layer)
-				if constexpr (_Debug)Log::trace("LAYR");
+				if constexpr (_Debug)Log::info("LAYR");
 				s | tempInt;//layerId
 				readDictionary(s);//layerAttributes
 				s | tempInt;//Reserved
 				break;
 
 			case 'I': //IMAP (Vox Index Remap)
-				if constexpr (_Debug)Log::trace("IMAP");
+				if constexpr (_Debug)Log::info("IMAP");
 				readIMAP(s);
 				break;
 
 			case 'r': //rOBJ
-				if constexpr (_Debug)Log::trace("rOBJ");
+				if constexpr (_Debug)Log::info("rOBJ");
 				readDictionary(s);//objectAttributes
 				break;
 
@@ -397,7 +397,7 @@ public:
 static int TEMP_counter = 0;
 static entt::entity CreateEntity(VoxImportContext& ctx, std::shared_ptr<VoxTransform> root) {
 	std::shared_ptr<VoxNode> node = ctx.nodes[root->childId];
-	if constexpr (_Debug_Nodes_Creation)Log::debug("Transform(");
+	if constexpr (_Debug_Nodes_Creation)Log::info("Transform(");
 
 	//Create Entity
 	entt::entity e = ctx.world->Create();
@@ -412,14 +412,14 @@ static entt::entity CreateEntity(VoxImportContext& ctx, std::shared_ptr<VoxTrans
 		//emplace parent Transform Component
 		ctx.world->GetRegistry().emplace<Transform>(e, t);
 
-		if constexpr (_Debug_Nodes_Creation)Log::debug("Group[{}](", group->childrenIds.size());
+		if constexpr (_Debug_Nodes_Creation)Log::info("Group[{}](", group->childrenIds.size());
 		for (int childId : group->childrenIds) {
 			std::shared_ptr<VoxTransform> childTransformNode = std::dynamic_pointer_cast<VoxTransform>(ctx.nodes[childId]);
 
 			entt::entity child = CreateEntity(ctx, childTransformNode);
 			ctx.world->SetParent(child, e);
 		}
-		if constexpr (_Debug_Nodes_Creation)Log::debug(")");
+		if constexpr (_Debug_Nodes_Creation)Log::info(")");
 
 		return e;
 	}
@@ -428,7 +428,7 @@ static entt::entity CreateEntity(VoxImportContext& ctx, std::shared_ptr<VoxTrans
 	std::shared_ptr<VoxShape> shape = std::dynamic_pointer_cast<VoxShape>(node);
 	if (shape != nullptr) {
 		std::shared_ptr<VoxShapeData> shapeData = ctx.shapesData[shape->shapeId];
-		if constexpr (_Debug_Nodes_Creation)Log::debug("Shape()");
+		if constexpr (_Debug_Nodes_Creation)Log::info("Shape()");
 
 
 
@@ -474,7 +474,7 @@ static entt::entity CreateEntity(VoxImportContext& ctx, std::shared_ptr<VoxTrans
 		return e;
 	}
 
-	if constexpr (_Debug_Nodes_Creation)Log::debug(")");
+	if constexpr (_Debug_Nodes_Creation)Log::info(")");
 
 	return entt::null;
 }

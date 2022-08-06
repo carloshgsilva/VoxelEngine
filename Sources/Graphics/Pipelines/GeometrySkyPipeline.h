@@ -13,7 +13,7 @@
 #include <glm/glm.hpp>
 
 class GeometrySkyPipeline {
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 	struct PushConstant {
 		int ViewBufferRID;
@@ -21,21 +21,23 @@ class GeometrySkyPipeline {
 
 public:
 	GeometrySkyPipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Geometry())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/GeometrySky.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/GeometrySky.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/GeometrySky.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/GeometrySky.frag.spv"),
+			.attachments = GBuffer::Attachments(),
+			.depthTest = true,
+			.depthWrite = true
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, glm::vec2 res) {
-		cmd.bind(_Pipeline);
+	void Use(Buffer& viewBuffer, glm::vec2 res) {
+		CmdBind(pipeline);
 
 		PushConstant pc;
-		pc.ViewBufferRID = viewBuffer.getRID();
+		pc.ViewBufferRID = GetRID(viewBuffer);
 
-		cmd.constant(&pc, sizeof(PushConstant), 0);
-		cmd.draw(6, 1, 0, 0);
+		CmdPush(pc);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static GeometrySkyPipeline& Get() {

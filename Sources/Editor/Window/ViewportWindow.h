@@ -37,7 +37,7 @@ public:
 	Unique<WorldRenderer>& GetWorldRenderer() { return _WorldRenderer; }
 
 	World* GetWorld() { return _World.get(); }
-	void RenderWorld(CmdBuffer& cmd);
+	void RenderWorld();
 
 	void SetDirty() { _IsDirty = true; }
 	bool IsDirty() { return _IsDirty; }

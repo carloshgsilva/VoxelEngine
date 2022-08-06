@@ -49,7 +49,7 @@ public:
 			std::filesystem::path newPath = GetTargetPath().make_preferred().parent_path() / _RenamingBuffer;
 			std::filesystem::rename(GetTargetPath(), newPath);
 			_FileExplorer.Invalidate();
-			Log::debug("Renamed from {} to {}", _SelectedItem, newPath.string());
+			Log::info("Renamed from {} to {}", _SelectedItem, newPath.string());
 		}
 		_SelectedItem = item;
 	}

@@ -30,7 +30,7 @@ void AutoAssetImporter::CheckForImport() {
 			long long lastEdit = std::filesystem::last_write_time(path).time_since_epoch().count();
 			if (Get().filesLastEdit[filePath] != lastEdit) {
 				Get().filesLastEdit[filePath] = lastEdit;
-				Log::debug("Auto import {} to {}", filePath, path.path().parent_path().lexically_relative(Mod::MODS).generic_string());
+				Log::info("Auto import {} to {}", filePath, path.path().parent_path().lexically_relative(Mod::MODS).generic_string());
 				AssetImporter::Import(filePath, path.path().parent_path().lexically_relative(Mod::MODS).generic_string());
 			}
 		}

@@ -1,538 +1,387 @@
+#pragma once
 
 #include <vector>
+#include <string>
 
-#ifdef EVK_INTERNAL_STATE
-#include "vulkan/vulkan.hpp"
-#include "vma/vk_mem_alloc.h"
-#endif
-
-/*
-////////////////////////////////////////
-// GLSL to access bindless resources //
-////////////////////////////////////////
-
-#define RID int
-#define IN(code) layout(location=0) in struct { code } In;
-#define OUT(code) layout(location=0) out struct { code } Out;
-#define PUSH_CONSTANT(code) layout(push_constant) uniform uPushConstant { code };
-#define BINDING_BUFFER(name, code) layout(binding = 0) readonly buffer name##_t { code } name[];
-layout(binding = 1) uniform sampler2D _BindingSampler2D[];
-layout(binding = 1) uniform usampler3D _BindingUSampler3D[];
-
-How to access push constant:
-	PUSH_CONSTANT(
-		float Time;
-	)
-	float t = Time;
-
-How to access a buffer:
-	BINDING_BUFFER(ViewBuffer,
-		mat4 ViewMatrix;
-		mat4 ProjectionMatrix;
-	)
-
-	To read just supply with the id
-	mat4 view_matrix = ViewBuffer[resource_id].ViewMatrix;
-
-How to access a sampler:
-	vec4 color = texture(_BindingSampler2D(resource_id), uv);
-
-;*/
+#define EVK_RT 0
 
 namespace evk {
-	/*
-	src: https://developer.samsung.com/galaxy-gamedev/resources/articles/usage.html
+    constexpr int MAX_VERTEX_BINDING_COUNT   = 4;
+    constexpr int MAX_VERTEX_ATTRIBUTE_COUNT = 4;
+    constexpr int MAX_ATTACHMENTS_COUNT      = 8;
+
+    using RID = int;
+    enum class Stage {
+        TopOfPipe,
+        Host,
+        Transfer,
+        Compute,
+        DrawIndirect,
+        VertexInput,
+        VertexShader,
+        EarlyFragmentTest,
+        FragmentShader,
+        LateFragmentTest,
+        ColorAttachmentOutput,
+        BottomOfPipe,
+        AllGraphics,
+        AllCommands
+    };
+    enum class Format {
+        Undefined,
+        R8Uint,
+        R16Uint,
+        R32Uint,
+        R64Uint,
+        BGRA8Unorm,
+        BGRA8Snorm,
+        RGBA8Unorm,
+        RGBA8Snorm,
+        RG16Sfloat,
+        RGBA16Sfloat,
+        RGBA16Unorm,
+        RGBA16Snorm,
+        RG32Sfloat,
+        RGB32Sfloat,
+        RGBA32Sfloat,
+        D24UnormS8Uint,
+        D32Sfloat
+    };
+    enum class Primitive {
+        Triangle,
+        Line
+    };
+    enum class Blend {
+        Disabled,
+        Alpha,
+        Additive
+    };
+    enum class BufferUsage {
+        TransferSrc = 1,
+        TransferDst = 2,
+        Vertex      = 4,  // used in cmd.vertex()
+        Index       = 8,  // used in cmd.drawIndexed() and cmd.drawIndexedIndirect()
+        Indirect    = 16, // used in cmd.drawIndirect() and cmd.drawIndexedIndirect()
+        Storage     = 32,
+        AccelerationStructure = 64, // used internally for ray tracing acceleration structure
+        AccelerationStructureInput = 128, // used on vertex and indices buffer for ray tracing acceleration structure
+    };
+    enum class ImageLayout {
+        Undefined,
+        General,
+        TransferSrc,
+        TransferDst,
+        ShaderRead,
+        Attachment,
+        Present,
+    };
+    enum class ImageUsage {
+        TransferSrc = 1,  // used by CmdCopy()
+        TransferDst = 2,  // used by CmdCopy()
+        Sampled     = 4,  // can be read by shader with texture() or texelFetch()
+        Attachment  = 8,  // used by CmdBeginRender()
+        Storage     = 16, // can access with imageStore and imageLoad
+    };
+    struct ClearDepthStencil {
+        float depth      = 1.0f;
+        uint32_t stencil = 0;
+    };
+    struct ClearColor {
+        union {
+            float float32[4];
+            int32_t int32[4];
+            uint32_t uint32[4];
+        };
+    };
+    struct ClearValue {
+        union {
+            ClearDepthStencil depthStencil;
+            ClearColor color;
+        };
+        ClearValue(ClearColor&& color){ this->color = color; }
+        ClearValue(ClearDepthStencil&& depthStencil){ this->depthStencil = depthStencil; }
+    };
+    enum class Filter {
+        Nearest,
+        Linear
+    };
+    enum class MemoryType {
+        CPU,       // lives in the mains CPU's memory
+        GPU,       // lives in the GPU's memory
+        CPU_TO_GPU, // data that change every frame 
+        GPU_TO_CPU, // useful for read back
+    };
+    enum class Op {
+        Never,
+        Less,
+        Equal,
+        LessOrEqual,
+        Greater,
+        NotEqual,
+        GreaterOrEqual,
+        Always
+    };
+    enum class Cull {
+        None,
+        Front,
+        Back
+    };
+    struct Extent {
+        uint32_t width  = 0;
+        uint32_t height = 0;
+        uint32_t depth  = 1;
+        Extent() { }
+        Extent(uint32_t width, uint32_t height) : width(width), height(height), depth(1) { }
+        Extent(uint32_t width, uint32_t height, uint32_t depth) : width(width), height(height), depth(depth) { }
+    };
+    struct ImageRegion {
+        int x, y, z;
+        int width, height, depth, mip = 0, layer = 0;
+    };
+    struct TimestampEntry {
+        double start, end;
+        const char* name;
+    };
+
+    BufferUsage operator |(BufferUsage a, BufferUsage b);
+    ImageUsage operator |(ImageUsage a, ImageUsage b);
+
+    struct Resource {
+        RID resourceid = -1;
+        uint32_t refCount = 0;
+        void incRef(){ refCount++; }
+        void decRef();
+        virtual ~Resource(){}
+    };
+    struct ResourceRef {
+        Resource* res = nullptr;
+        ResourceRef(){}
+        ResourceRef(Resource* res){ if(res != nullptr){this->res = res; res->incRef();} }
+        ResourceRef& operator= (const ResourceRef& ref){
+            //if(ref.res == nullptr) return *this;
+            if(res != nullptr)res->decRef();
+            res = ref.res;
+            if(res != nullptr)res->incRef();
+            return *this;
+        }
+        ResourceRef(const ResourceRef& ref) { *this = ref; }
+        ResourceRef& operator= (ResourceRef&& ref){
+            //if(ref.res == nullptr) return *this;
+            if(res != nullptr)res->decRef();
+            res = ref.res;
+            if(res != nullptr)ref.res = nullptr;
+            return *this;
+        }
+        ResourceRef(ResourceRef&& ref) { *this = std::move(ref); }
+
+        ~ResourceRef(){ if(res!=nullptr)res->decRef(); }
+        explicit operator bool() const { return res != nullptr; }
+        void release(){
+            if(res!=nullptr){
+                res->decRef();
+                res = nullptr;
+            }
+        }
+        void swap(ResourceRef& other) {
+            Resource* temp = other.res;
+            other.res = res;
+            res = temp;
+        }
+    };
 
 
-	#-------------------------------------------------------------#
-	|                        (AllCommands)                        |
-	#-------------------------------------------------------------#
-	| Host	    | Transfer | Compute	  | Graphics (AllGraphics)|
-	|-----------|----------|--------------|-----------------------|
-	| TopOfPipe |          |              |                       |
-	| Host      |          |              |                       |
-	|-----------| Transfer |              |                       |
-	|           |----------| Compute      |                       |
-	|           |          | DrawIndirect | DrawIndirect          |
-	|           |          |--------------| VertexInput           |
-	|           |          |              | VertexShader          |
-	|           |          |              | EarlyFragmentTest     |
-	|           |          |              | FragmentShader        |
-	|           |          |              | LateFragmentTest      |
-	|-----------#----------#--------------# ColorAttachmentOutput |
-	| BottomOfPipe                                                |
-	#-------------------------------------------------------------#
-	Host = CPU->GPU Memory read/write
+    struct PipelineDesc {
+        std::string name                          = {};
 
-	*/
+        std::vector<uint8_t> VS                   = {};
+        std::vector<uint8_t> FS                   = {};
+        std::vector<uint8_t> CS                   = {};
+        
+        std::vector<std::vector<Format>> bindings = {};
+        std::vector<Format> attachments           = {};
+        std::vector<Blend> blends                 = {};
 
-#ifndef __EVK_INCLUDE_
-#define __EVK_INCLUDE_
+        Primitive primitive                       = Primitive::Triangle;
+        Cull cull                                 = Cull::None;
+        bool wireframe                            = false;
+        bool frontClockwise                       = false;
 
-	using RID = int;
-	enum class Stage {
-		TopOfPipe,
-		Host,
-		Transfer,
-		Compute,
-		DrawIndirect,
-		VertexInput,
-		VertexShader,
-		EarlyFragmentTest,
-		FragmentShader,
-		LateFragmentTest,
-		ColorAttachmentOutput,
-		BottomOfPipe,
-		AllGraphics,
-		AllCommands
-	};
-	enum class Format {
-		R8Uint,
-		B8G8R8A8Unorm,
-		B8G8R8A8Snorm,
-		R8G8B8A8Unorm,
-		R8G8B8A8Snorm,
-		R16G16Sfloat,
-		R16G16B16A16Sfloat,
-		R16G16B16A16Unorm,
-		R16G16B16A16Snorm,
-		R32G32B32A32Sfloat,
-		D24UnormS8Uint,
-	};
-	enum class Blend {
-		Disabled,
-		Alpha,
-		Additive
-	};
-	enum class BufferUsage {
-		TransferSrc = 1,
-		TransferDst = 2,
-		Vertex = 4,
-		Index = 8,
-		Indirect = 16,
-		Storage = 32,
-	};
-	enum class ImageLayout {
-		Undefined,
-		General,
-		TransferSrc,
-		TransferDst,
-		ShaderReadOptimal,
-	};
-	enum class ImageUsage {
-		TransferSrc = 1,
-		TransferDst = 2,
-		Sampled = 4,
-		Attachment = 8,
-	};
-	enum class Filter {
-		Nearest,
-		Linear
-	};
-	enum class MemoryType {
-		CPU,       // lives in the mains CPU's memory
-		GPU,       // lives in the GPU's memory
-		CPU_TO_GPU, // data that change every frame 
-		GPU_TO_CPU, // useful for read back
-	};
-	struct Extent {
-		uint32_t width{ 0 };
-		uint32_t height{ 0 };
-		uint32_t depth{ 0 };
-		Extent() { }
-		Extent(uint32_t width, uint32_t height) : width(width), height(height), depth(1) { }
-		Extent(uint32_t width, uint32_t height, uint32_t depth) : width(width), height(height), depth(depth) { }
-	};
-	struct Viewport {
-		float x;
-		float y;
-		float width;
-		float height;
-	};
-	struct ImageRegion {
-		int x, y, z;
-		uint32_t width, height, depth, mip{ 0 }, layer{ 0 };
-	};
-	struct TimestampEntry {
-		double start, end;
-		const char* name;
-	};
+        Op depthOp                                = Op::Never;
+        bool depthTest                            = false;
+        bool depthWrite                           = false;
+    };
+    struct Pipeline : ResourceRef { Pipeline(Resource* res = nullptr) : ResourceRef(res) {} };
+    Pipeline CreatePipeline(const PipelineDesc& desc);
 
-	BufferUsage operator |(BufferUsage a, BufferUsage b);
-	ImageUsage operator |(ImageUsage a, ImageUsage b);
+    
+    struct BufferDesc{
+        std::string name;
+        uint64_t size;
+        BufferUsage usage     = BufferUsage::TransferSrc;
+        MemoryType memoryType = MemoryType::CPU;
+    };
+    struct Buffer : ResourceRef {
+        Buffer(Resource* res = nullptr) : ResourceRef(res) {}
+        void* GetPtr();
+    };
+    Buffer CreateBuffer(const BufferDesc& desc);
+    void WriteBuffer(Buffer& buffer, void* src, uint64_t size, uint64_t offset = 0u);
+    void ReadBuffer(Buffer& buffer, void* dst, uint64_t size, uint64_t offset = 0u);
 
-	struct Pass {
-		std::shared_ptr<struct Internal_Pass> state;
+    struct ImageDesc {
+        std::string name;
+        Extent extent;
+        Format format    = Format::Undefined;
+        Filter filter    = Filter::Linear; 
+        ImageUsage usage = ImageUsage::Sampled;
+        int mipCount     = 1;
+        int layerCount   = 1;
+        bool isCube      = false;
+    };
+    struct Image : ResourceRef { Image(Resource* res = nullptr) : ResourceRef(res) {} };
+    Image CreateImage(const ImageDesc& desc);
 
-		struct Attachment {
-			Format format;
-			float clearColor[4]{ 0.0f,0.0f,0.0f,0.0f };
-			float clearDepth{ 1.0f };
-			uint32_t clearStencil{ 0 };
-			bool present{ false };
+    struct EvkDesc {
+        std::string applicationName                  = "";
+        std::uint32_t applicationVersion             = 0;
+        std::string engineName                       = "";
+        std::uint32_t engineVersion                  = 0;
+        std::vector<std::string> instanceLayers;
+        std::vector<std::string> instanceExtensions;
+        uint32_t frameBufferingCount                 = 2;
+    };
+    
+    RID GetRID(const ResourceRef& ref);
+    const BufferDesc& GetDesc(const Buffer& res);
+    const ImageDesc& GetDesc(const Image& res);
+    
+    bool InitializeEVK(const EvkDesc& info);
+    void Shutdown();
+    bool InitializeSwapchain(void* vulkanSurfaceKHR);
+    
+    // Returns the frame buffering count
+    uint32_t GetFrameBufferingCount();
+    // Returns the frame buffering index 
+    uint32_t GetFrameIndex();
+    // Should be called at the end of each frame to submit the command buffer to the gpu
+    void Submit();
+    // Ensures that no command buffer are running or have access to any resource
+    void Sync();
+    // Returns the timestamps of the last frame
+    const std::vector<TimestampEntry>& GetTimestamps();
+    // Binds a graphics shader or a compute kernel
+    // Eg. Path/To/Shader
+    // Graphics and Compute shader will not affect each other
+    void CmdBind(Pipeline pipeline);
+    // Dispatches a compute shader
+    void CmdDispatch(uint32_t countX, uint32_t countY, uint32_t countZ);
+    // Transition a image to a layout with dependecy stages
+    void CmdBarrier(Image& image, ImageLayout oldLayout, ImageLayout newLayout, uint32_t mip = 0, uint32_t mipCount = 1, uint32_t layer = 0, uint32_t layerCount = 1);
+    void CmdBarrier(Buffer& buffer);
+    // Fills buffer with value
+    void CmdFill(Buffer dst, uint32_t data, uint64_t size, uint64_t offset = 0);
+    // Updates buffer with small amout of data
+    void CmdUpdate(Buffer& dst, uint64_t dstOffset, uint64_t size, void* src);
+    // Blit a region of a Image to another Image
+    void CmdBlit(Image& src, Image& dst, ImageRegion srcRegion, ImageRegion dstRegion, Filter filter = Filter::Linear);
+    // Copy a Image to another Image of the same size
+    void CmdCopy(Image& src, Image& dst, uint32_t srcMip = 0, uint32_t srcLayer = 0, uint32_t dstMip = 0, uint32_t dstLayer = 0, uint32_t layerCount = 1);
+    // Copy a Buffer to a Image
+    void CmdCopy(Buffer& src, Image& dst, uint32_t mip = 0, uint32_t layer = 0);
+    // Copy regions from a Buffer to a Image
+    void CmdCopy(Buffer& src, Image& dst, const std::vector<ImageRegion>& regions);
+    // Copy regions of a Buffer to Buffer
+    void CmdCopy(Buffer& src, Buffer& dst, uint64_t size, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
+    //Binds a vertex buffer
+    void CmdVertex(Buffer& buffer, uint64_t offset = 0);
+    //Binds a index buffer
+    void CmdIndex(Buffer& buffer, bool useHalf = false, uint64_t offset = 0);
 
-			Attachment(Format format) : format(format) {}
-			/* default: r = 0.0f, g = 0.0f, b = 0.0f, a = 0.0f */
-			Attachment& setClearColor(float r, float g, float b, float a) {
-				clearColor[0] = r;
-				clearColor[1] = g;
-				clearColor[2] = b;
-				clearColor[3] = a;
-				return *this;
-			}
-			/* default: depth = 0.0f, stencil = 0 */
-			Attachment& setClearDepthStencil(float depth, uint32_t stencil) {
-				clearDepth = depth;
-				clearStencil = stencil;
-				return *this;
-			}
-			Attachment& setPresent(bool present) { this->present = present; return *this; }
-		};
+    void CmdBeginRender(Image* attachments, ClearValue* clearValues, int attachmentCount);
+    void CmdEndRender();
+    void CmdBeginPresent();
+    void CmdEndPresent();
+    void CmdViewport(float x, float y, float w, float h, float minDepth = 0.0f, float maxDepth = 1.0f);
+    void CmdScissor(int32_t x, int32_t y, uint32_t w, uint32_t h);
+    void CmdPush(void* data, uint32_t size, uint32_t offset = 0);
+    void CmdDraw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0);
+    void CmdDrawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0);
+    void CmdDrawIndirect(Buffer& buffer, uint64_t offset, uint32_t drawCount, uint32_t stride);
+    void CmdDrawIndexedIndirect(Buffer& buffer, uint64_t offset, uint32_t drawCount, uint32_t stride);
+    void CmdDrawIndirectCount(Buffer& buffer, uint64_t offset, Buffer& countBuffer, uint64_t countBufferOffset, uint32_t drawCount, uint32_t stride);
+    void CmdDrawIndexedIndirectCount(Buffer& buffer, uint64_t offset, Buffer& countBuffer, uint64_t countBufferOffset, uint32_t drawCount, uint32_t stride);
+    void CmdBeginTimestamp(const char* name);
+    void CmdEndTimestamp(const char* name);
 
-		static Pass Create(const std::vector<Attachment>& attachments);
-	};
+    template<typename T> void CmdPush(T& data) {
+        CmdPush((void*)(&data), sizeof(T), 0);
+    }
+    template<typename T> void CmdPresent(T callback) {
+        CmdBeginPresent();
+        callback();
+        CmdEndPresent();
+    }
+    template<typename T> void CmdRender(std::initializer_list<Image> attachments, std::initializer_list<ClearValue> clearValues, T callback) {
+        CmdBeginRender((Image*)attachments.begin(), (ClearValue*)clearValues.begin(), (int)attachments.size());
+        callback();
+        CmdEndRender();
+    }
+    template<typename T> void CmdRender(Image* attachments, ClearValue* clearValues, int attachmentCount, T callback) {
+        CmdBeginRender(attachments, clearValues, attachmentCount);
+        callback();
+        CmdEndRender();
+    }
+    template<typename T> void CmdTimestamp(const char* name, T callback) {
+        CmdBeginTimestamp(name);
+        callback();
+        CmdEndTimestamp(name);
+    }
+    template<typename T> class PerFrame {
+        T data[3];
+    public:
+        operator T& () {
+            return data[GetFrameIndex()];
+        }
+        T& operator [](int i) {
+            //assert(i < 3 && "Only triple buffering supported at max!");
+            return data[i];
+        }
+        T* operator ->() {
+            return &data[GetFrameIndex()];
+        }
+        template<typename Cb> void Build(Cb cb){
+            for(uint32_t i=0; i < GetFrameBufferingCount(); i++){
+                data[i] = cb(i);
+            }
+        }
+        void release() {
+            for(uint32_t i=0; i < GetFrameBufferingCount(); i++){
+                data[i].release();
+            }
+        }
+    };
 
+#if EVK_RT
+    namespace rt {
+        struct BLASDesc {
+            Buffer vertices;
+            uint32_t vertexCount;
+            Buffer indices;
+            uint32_t indexCount;
+            uint32_t stride;
+        };
+        struct BLAS : ResourceRef { BLAS(Resource* res = nullptr) : ResourceRef(res) {} };
+        BLAS CreateBLAS(const BLASDesc& desc);
+        
+        struct BLASInstance {
+            BLAS blas;
+            uint32_t customId;
+            float transform[12];
+        };
 
-	//TODO: Probably going to remove
-	struct Shader {
-		std::shared_ptr<struct Internal_Shader> state;
-
-		static Shader Vertex(const std::vector<uint8_t>& spirv);
-		static Shader Fragment(const std::vector<uint8_t>& spirv);
-	};
-
-	struct GraphicsPipeline {
-		std::shared_ptr<struct Internal_GraphicsPipeline> state;
-
-		struct Info {
-			Blend blend{ Blend::Disabled };
-			std::vector<uint8_t> vertexSpirv;
-			std::vector<uint8_t> fragmentSpirv;
-			Pass pass;
-			bool depthTest;
-			bool depthWrite;
-			//MeshLayout meshLayout;//TODO: 
-			//std::vector<Shader> shaders;//TODO: 
-
-			//default: Blend::Disabled
-			Info& setBlend(Blend blend) { this->blend = blend; return *this; }
-			//default: present pass
-			Info& setPass(Pass pass) { this->pass = pass; return *this; }
-
-			//default: depthTest: false, depthWrite: false
-			Info& setDepth(bool depthTest = true, bool depthWrite = true) { this->depthTest = depthTest; this->depthWrite = depthWrite; return *this; }
-
-			//default: false
-			//default: No mesh
-			//Info& setMeshLayout
-
-			Info& vertexShader(const std::vector<uint8_t>& spirv) { vertexSpirv = spirv; return *this; }
-			Info& fragmentShader(const std::vector<uint8_t>& spirv) { fragmentSpirv = spirv; return *this; }
-		};
-
-		static GraphicsPipeline Create(const Info& info);//TODO: 
-
-	};
-
-	struct MeshLayout {
-		std::shared_ptr<struct Internal_MeshLayout> state;
-		//TODO: MeshLayout Create();
-	};
-
-	struct Buffer {
-		struct Info {
-			MemoryType memoryType{ MemoryType::CPU };
-
-			Info& setMemoryType(MemoryType memoryType) { this->memoryType = memoryType; return *this; }
-		};
-		std::shared_ptr<struct Internal_Buffer> state;
-
-		static Buffer Create(uint64_t size, BufferUsage usage = BufferUsage::TransferSrc, MemoryType memoryType = MemoryType::CPU);
-
-		void* getData();
-		void update(void* src, uint64_t size, uint64_t offset = 0);
-		RID getRID();
-	};
-
-	struct Image {
-		std::shared_ptr<struct Internal_Image> state;
-
-		struct Info {
-			Format format;
-			Extent extent;
-			Filter filter{ Filter::Linear };
-			ImageUsage usage{ ImageUsage::Sampled };
-			int mipCount{ 1 };
-			int layerCount{ 1 };
-			bool isCube{ false };
-
-			Info(Format format, Extent extent) : format(format), extent(extent) {}
-
-			//default: ImageUsage::Sampled
-			Info& setUsage(ImageUsage usage) { this->usage = usage; return *this; }
-			//default: Filter::Linear
-			Info& setFilter(Filter filter) { this->filter = filter; return *this; };
-			//default: 1
-			Info& setMipCount(int count) { this->mipCount = count; return *this; };
-			//default: 1
-			Info& setLayerCount(int count) { this->layerCount = count; return *this; };
-			//default: false
-			Info& setCube(int isCube) { this->isCube = isCube; return *this; };
-		};
-		static Image Create(const Image::Info& info);
-
-		Format getFormat();
-		Extent getExtent();
-		int getMipCount();
-		RID getRID();
-	};
-
-	struct Framebuffer {
-		std::shared_ptr<struct Internal_Framebuffer> state;
-
-		static Framebuffer Create(Pass& pass, uint32_t width, uint32_t height);
-		Extent getExtent();
-		Image& getAttachment(int index);
-	};
-
-	struct CmdBuffer {
-		std::shared_ptr<struct Internal_CmdBuffer> state;
-		static CmdBuffer Create();
-
-		CmdBuffer& submit();
-		CmdBuffer& wait();
-
-		// Transition a image to a layout with dependecy stages
-		CmdBuffer& barrier(Image& image, ImageLayout oldLayout, ImageLayout newLayout, uint32_t mip = 0, uint32_t mipCount = 1, uint32_t layer = 0, uint32_t layerCount = 1);
-
-		// Blit a Image to another Image
-		CmdBuffer& blit(Image& src, Image& dst, ImageRegion srcRegion, ImageRegion dstRegion, Filter filter = Filter::Linear);
-		// Copy a Image to another Image of the same size
-		CmdBuffer& copy(Image& src, Image& dst, uint32_t srcMip = 0, uint32_t srcLayer = 0, uint32_t dstMip = 0, uint32_t dstLayer = 0, uint32_t layerCount = 1);
-		// Copy a Buffer to a Image
-		CmdBuffer& copy(Buffer& buffer, Image& image, uint32_t mip = 0, uint32_t layer = 0);
-		// Copy regions from a Buffer to a Image
-		CmdBuffer& copy(Buffer& buffer, Image& image, const std::vector<ImageRegion>& regions);
-
-		CmdBuffer& begin();
-		CmdBuffer& end();
-		CmdBuffer& beginPresent();
-		CmdBuffer& endPresent();
-		CmdBuffer& beginPass(Framebuffer& frambuffer);
-		CmdBuffer& endPass();
-		CmdBuffer& bind(GraphicsPipeline& pass);
-		CmdBuffer& viewport(const Viewport& viewport);
-		CmdBuffer& constant(void* data, uint32_t size, uint32_t offset);
-		CmdBuffer& draw(int vertexCount, int instanceCount = 1, int firstVertex = 0, int firstInstance = 0);
-		CmdBuffer& beginTimestamp(const char* name);
-		CmdBuffer& endTimestamp(const char* name);
-
-		const std::vector<TimestampEntry> timestamps();
-
-		template<typename T> CmdBuffer& use(T callback) {
-			begin();
-			callback();
-			end();
-			return *this;
-		}
-		template<typename T> CmdBuffer& present(T callback) {
-			beginPresent();
-			callback();
-			endPresent();
-			return *this;
-		}
-		template<typename T> CmdBuffer& use(Framebuffer& framebuffer, T callback) {
-			beginPass(framebuffer);
-			callback();
-			endPass();
-			return *this;
-		}
-		template<typename T> CmdBuffer& timestamp(const char* name, T callback) {
-			beginTimestamp(name);
-			callback();
-			endTimestamp(name);
-			return *this;
-		}
-	};
-
-	struct InitInfo {
-		std::string applicationName{ 0 };
-		std::uint32_t applicationVersion{ 0 };
-		std::string engineName{ 0 };
-		std::uint32_t engineVersion{ 0 };
-		std::vector<std::string> instanceLayers;
-		std::vector<std::string> instanceExtensions;
-		void* surface;
-	public:
-
-		InitInfo& setApplicationName(const std::string& name) { applicationName = name; return *this; }
-		InitInfo& setApplicationVersion(std::uint32_t major, std::uint32_t minor = 0, std::uint32_t patch = 0);
-		InitInfo& setEngineName(const std::string& name) { engineName = name; return *this; }
-		InitInfo& setEngineVersion(std::uint32_t major, std::uint32_t minor = 0, std::uint32_t patch = 0);
-		InitInfo& addInstanceExtension(const std::string& name) { instanceExtensions.push_back(name.c_str()); return *this; }
-		InitInfo& addInstanceLayer(const std::string& name) { instanceLayers.push_back(name.c_str()); return *this; }
-		InitInfo& setSurface(void* vulkanSurface);
-		InitInfo& setExtensionsFilter(std::function<bool(const std::string&)> filter);
-		InitInfo& setLayersFilter(std::function<bool(const std::string&)> filter);
-	};
-
-	bool InitializeEVK(const InitInfo& info);
-	bool InitializeSwapchain(void* vulkanSurfaceKHR);
-	Pass& GetSwapchainPass();
-
-	std::vector<uint8_t> ShaderFromFile(const std::string& path);
-
-#endif
-
-#ifdef EVK_INTERNAL_STATE
-#ifndef __EVK_INCLUDE_INTERNAL
-#define __EVK_INCLUDE_INTERNAL
-	struct State {
-		vk::Instance instance;
-		vk::PhysicalDevice physicalDevice;
-		vk::Device device;
-		vk::Queue queue;
-		uint32_t queueFamily;
-		VmaAllocator allocator;
-		float timestampPeriod;
-
-		//Descriptors
-		vk::DescriptorPool descriptorPool;
-		vk::DescriptorSetLayout descriptorSetLayout;
-		vk::DescriptorSet descriptorSet;
-		int descriptorIndexBuffer{ 0 };
-		int descriptorIndexImage{ 0 };
-		std::vector<int> freeIndexBuffer;
-		std::vector<int> freeIndexImage;
-		vk::PipelineLayout pipelineLayout;
-
-		//Swapchain
-		vk::SurfaceKHR surface;
-		vk::SwapchainKHR swapchain;
-		uint32_t swapchainIndex{ 0 };
-		uint32_t swapchainSemaphoreIndex{ 0 };
-		Pass swapchainPass;
-		std::vector<Framebuffer> swapchainFramebuffers;
-		std::vector<Image> swapchainImages;
-		std::vector<vk::Semaphore> swapchainSemaphores;
-	};
-	State& GetState();
-
-	struct Internal_Pass {
-		vk::RenderPass pass;
-		std::vector<vk::ClearValue> clearValues;
-		std::vector<Format> formats;
-		~Internal_Pass() {
-			GetState().device.destroyRenderPass(pass);
-		}
-	};
-	struct Internal_Buffer {
-		uint64_t size;
-		//TODO: Usage, Types 
-
-		VmaAllocation allocation;
-		int resourceid{ -1 };
-		vk::Buffer buffer;
-		void* mappedData{ nullptr };
-
-		~Internal_Buffer() {
-			vmaDestroyBuffer(GetState().allocator, buffer, allocation);
-			//Free descriptor index
-			{
-				assert(resourceid != -1);
-				GetState().freeIndexBuffer.push_back(resourceid);
-				resourceid = -1;
-			}
-		}
-	};
-	struct Internal_Image {
-		Format format;
-		Extent extent;
-		Filter filter;
-		int mipCount{ 1 };
-		int layerCount{ 1 };
-		bool isCube;
-
-		VmaAllocation allocation;
-		int resourceid;
-		vk::Image image;
-		vk::ImageView view;
-		vk::Sampler sampler;
-
-		~Internal_Image() {
-			auto& S = GetState();
-			S.device.destroySampler(sampler);
-			S.device.destroyImageView(view);
-			if (allocation != nullptr) {
-				vmaFreeMemory(S.allocator, allocation);
-				S.device.destroyImage(image);
-				//Free descriptor index
-				{
-					assert(resourceid != -1);
-					GetState().freeIndexImage.push_back(resourceid);
-					resourceid = -1;
-				}
-			}
-
-		}
-	};
-	struct Internal_Framebuffer {
-		Pass pass{};
-		Extent extent;
-		vk::Framebuffer framebuffer;
-		std::vector<Image> attachments;
-
-		~Internal_Framebuffer() {
-			attachments.clear();
-			GetState().device.destroyFramebuffer(framebuffer);
-		}
-	};
-	struct Internal_Shader {
-		vk::ShaderModule shaderModule;
-		vk::ShaderStageFlags shaderStage;
-
-		~Internal_Shader() {
-			GetState().device.destroyShaderModule(shaderModule);
-		}
-	};
-	struct Internal_GraphicsPipeline {
-		vk::Pipeline pipeline;
-
-		~Internal_GraphicsPipeline() {
-			GetState().device.destroyPipeline(pipeline);
-		}
-	};
-	struct Internal_CmdBuffer {
-		vk::CommandPool pool;
-		vk::CommandBuffer cmd;
-		vk::Fence fence;
-		vk::Semaphore semaphore;
-		vk::QueryPool queryPool;
-
-		std::vector<const char*> timestampNames;
-		std::vector<uint64_t> queries;
-		std::vector<TimestampEntry> timestampEntries;
-
-		Viewport viewport;
-		bool doingPresent{ false };
-
-		inline int timestampId(const char* name) {
-			for (int i = 0; i < timestampNames.size(); i++) {
-				if (std::strcmp(timestampNames[i], name) == 0) {
-					return i;
-				}
-			}
-			timestampNames.push_back(name);
-			return timestampNames.size() - 1;
-		}
-
-		~Internal_CmdBuffer() {
-			auto& D = GetState().device;
-			D.destroyCommandPool(pool);
-			D.destroyFence(fence);
-			D.destroySemaphore(semaphore);
-		}
-	};
-#endif
+        void Initialize();
+        void CmdBuildBLAS(BLAS blas, bool update = false);
+        void CmdBuildTLAS(std::vector<BLASInstance>& instances, bool update = false);
+    }
 #endif
 }

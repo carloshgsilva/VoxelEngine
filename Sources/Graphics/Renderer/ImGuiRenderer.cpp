@@ -24,75 +24,39 @@ ImGuiRenderer::ImGuiRenderer() {
 	SetStyle();
 	//ImGui::StyleColorsDark();
 
-
-	//Create DescriptorPool
-	std::vector<vk::DescriptorPoolSize> poolSizes = {
-			vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 512 },
-			vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 512 },
-			vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 512 },
-	};
-	state->_PerFrameDescriptorPool = evk::GetState().device.createDescriptorPool(vk::DescriptorPoolCreateInfo()
-		.setPoolSizes(poolSizes)
-		.setMaxSets(1024)
-	);
-
-
 	ImGui_ImplGlfw_InitForVulkan(Window::Get().GetNativeWindow(), true);
-	
-	//Init Vulkan Info
-	ImGui_ImplVulkan_InitInfo vulkanInfo = {};
-	vulkanInfo.Instance = evk::GetState().instance;
-	vulkanInfo.PhysicalDevice = evk::GetState().physicalDevice;
-	vulkanInfo.Device = evk::GetState().device;
-	vulkanInfo.QueueFamily = evk::GetState().queueFamily;
-	vulkanInfo.Queue = evk::GetState().queue;
-	vulkanInfo.DescriptorPool = state->_PerFrameDescriptorPool;
-	vulkanInfo.MinImageCount = 2;
-	vulkanInfo.ImageCount = 2;
-	vulkanInfo.CheckVkResultFn = check_vk_result;
-	vulkanInfo.PipelineCache = VK_NULL_HANDLE;
-	vulkanInfo.Allocator = VK_NULL_HANDLE;
-	ImGui_ImplVulkan_Init(&vulkanInfo, Passes::Present().state->pass);
 
 	//Send Fonts to Vulkan
-	Graphics::Transfer([](CmdBuffer& cmd) {
-		//Add Default Font
-		ImFontConfig font_config = {};
-		font_config.OversampleH = 3;
-		font_config.OversampleV = 3;
-		font_config.RasterizerMultiply = 1.2f;
-		font_config.PixelSnapH = false;
-		static const ImWchar font_ranges[] = {0x0020, 0x00FF, 0};
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Assets/Roboto-Medium.ttf", 14, &font_config, font_ranges);
+	//Add Default Font
+	ImFontConfig font_config = {};
+	font_config.OversampleH = 3;
+	font_config.OversampleV = 3;
+	font_config.RasterizerMultiply = 1.2f;
+	font_config.PixelSnapH = false;
+	static const ImWchar font_ranges[] = {0x0020, 0x00FF, 0};
+	ImGui::GetIO().Fonts->AddFontFromFileTTF("Assets/Roboto-Medium.ttf", 14, &font_config, font_ranges);
 
-		//Add Font Awesome 5 Font
-		ImFontConfig icons_config = {};
-		icons_config.MergeMode = true;
-		icons_config.PixelSnapH = true;
-		icons_config.GlyphMaxAdvanceX = 12;
-		icons_config.GlyphMinAdvanceX = 12;
-		static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-		ImGui::GetIO().Fonts->AddFontFromFileTTF("Assets/Font Awesome 5 Free-Solid-900.otf", 13.0f, &icons_config, icons_ranges);
+	//Add Font Awesome 5 Font
+	ImFontConfig icons_config = {};
+	icons_config.MergeMode = true;
+	icons_config.PixelSnapH = true;
+	icons_config.GlyphMaxAdvanceX = 12;
+	icons_config.GlyphMinAdvanceX = 12;
+	static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+	ImGui::GetIO().Fonts->AddFontFromFileTTF("Assets/Font Awesome 5 Free-Solid-900.otf", 13.0f, &icons_config, icons_ranges);
 
-		ImGui_ImplVulkan_CreateFontsTexture(cmd.state->cmd);
-
-	});
+	ImGui_ImplEvk_Init();
 }
 
 ImGuiRenderer::~ImGuiRenderer() {
-	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplEvk_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-	evk::GetState().device.destroyDescriptorPool(state->_PerFrameDescriptorPool);
 }
 
-void ImGuiRenderer::DrawToScreen(CmdBuffer& cmd, std::function<void()> Cb) {
+void ImGuiRenderer::DrawToScreen(std::function<void()> Cb) {
 	PROFILE_FUNC();
 
-	{
-		PROFILE_SCOPE("ImGui_ImplVulkan_NewFrame");
-		ImGui_ImplVulkan_NewFrame();
-	}
 	{
 		PROFILE_SCOPE("ImGui_ImplGlfw_NewFrame");
 		ImGui_ImplGlfw_NewFrame();
@@ -111,9 +75,7 @@ void ImGuiRenderer::DrawToScreen(CmdBuffer& cmd, std::function<void()> Cb) {
 
 	ImGui::Render();
 
-	cmd.present([&] {
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd.state->cmd);
-	});
+	ImGui_ImplEvk_RenderDrawData(ImGui::GetDrawData());
 
 	ImGui::EndFrame();
 }

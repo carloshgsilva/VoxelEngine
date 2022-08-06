@@ -7,8 +7,8 @@ void PalleteCache::UploadPallete(PalleteAsset* InPallete) {
 	constexpr int32 BPP = 4;
 
 	size_t offset = (PalleteWidth * InPallete->PalleteIndex) * BPP;
-	uint8* color =  (uint8*)Get().ColorData.getData() + offset;
-	uint8* mat = (uint8*)Get().MaterialData.getData() + offset;
+	uint8* color =  (uint8*)Get().ColorData.GetPtr() + offset;
+	uint8* mat = (uint8*)Get().MaterialData.GetPtr() + offset;
 	
 	for (int i = 0; i < 256; i++) {
 		VoxMaterial& Mat = InPallete->MaterialAt(i);
@@ -21,17 +21,15 @@ void PalleteCache::UploadPallete(PalleteAsset* InPallete) {
 		mat[i * BPP + 2] = Mat.emit;
 		mat[i * BPP + 3] = 0;
 
-		//Log::debug("Material[{:3}] r = {:3} g = {:3} b = {:3} rough = {:3} metal = {:3} emit = {:3}", i, Mat.r, Mat.g, Mat.b, Mat.roughness, Mat.metallic, Mat.emit);
+		//Log::info("Material[{:3}] r = {:3} g = {:3} b = {:3} rough = {:3} metal = {:3} emit = {:3}", i, Mat.r, Mat.g, Mat.b, Mat.roughness, Mat.metallic, Mat.emit);
 	}
 
-	Graphics::Transfer([&](CmdBuffer& cmd) {
-		cmd.barrier(Get().ColorTexture, ImageLayout::Undefined, ImageLayout::TransferDst);
-		cmd.barrier(Get().MaterialTexture, ImageLayout::Undefined, ImageLayout::TransferDst);
-		cmd.copy(Get().ColorData, Get().ColorTexture);
-		cmd.copy(Get().MaterialData, Get().MaterialTexture);
-		cmd.barrier(Get().ColorTexture, ImageLayout::TransferDst, ImageLayout::ShaderReadOptimal);
-		cmd.barrier(Get().MaterialTexture, ImageLayout::TransferDst, ImageLayout::ShaderReadOptimal);
-	});
+	CmdBarrier(Get().ColorTexture, ImageLayout::Undefined, ImageLayout::TransferDst);
+	CmdBarrier(Get().MaterialTexture, ImageLayout::Undefined, ImageLayout::TransferDst);
+	CmdCopy(Get().ColorData, Get().ColorTexture);
+	CmdCopy(Get().MaterialData, Get().MaterialTexture);
+	CmdBarrier(Get().ColorTexture, ImageLayout::TransferDst, ImageLayout::ShaderRead);
+	CmdBarrier(Get().MaterialTexture, ImageLayout::TransferDst, ImageLayout::ShaderRead);
 }
 
 int32 PalleteCache::AllocatePalleteIndex(PalleteAsset* InPallete) {

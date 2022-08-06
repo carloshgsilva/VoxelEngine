@@ -29,7 +29,7 @@
 #include "Graphics/Pipelines/ComposeTAAPipeline.h"
 #include "Graphics/Pipelines/ColorWorldPipeline.h"
 
-constexpr bool ENABLE_UPSAMPLING = false;
+static inline constexpr bool ENABLE_UPSAMPLING = false;
 
 const int BLOOM_MIP_COUNT = 5;
 
@@ -55,6 +55,22 @@ struct RenderCmds {
 	}
 };
 
+Image CreateLightImage(uint32 width, uint32 height) {
+	return CreateImage({
+		.extent = {width, height},
+		.format = Format::RGBA16Sfloat,
+		.usage = ImageUsage::Sampled | ImageUsage::Attachment
+	});
+}
+
+Image CreateColorImage(uint32 width, uint32 height) {
+		return CreateImage({
+		.extent = {width, height},
+		.format = Format::BGRA8Unorm,
+		.usage = ImageUsage::Sampled | ImageUsage::Attachment
+	});
+}
+
 WorldRenderer::WorldRenderer() {
 	//Create Initial Framebuffers
 	RecreateFramebuffer(320, 240); //Small Initial buffer allocation
@@ -62,13 +78,17 @@ WorldRenderer::WorldRenderer() {
 	Cmds = new RenderCmds();
 	_BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
 	_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
-	_ViewBuffer = Buffer::Create(sizeof(ViewData), BufferUsage::Storage, MemoryType::CPU_TO_GPU);
+	_ViewBuffer = CreateBuffer({
+		.size = sizeof(ViewData),
+		.usage = BufferUsage::Storage,
+		.memoryType = MemoryType::CPU_TO_GPU
+	});
 }
 
 void WorldRenderer::CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color) {
 	OutlineVoxelPipeline::Cmd c;
 	c.WorldMatrix = matrix;
-	c.VolumeRID = vox.getRID();
+	c.VolumeRID = GetRID(vox);
 	c.Color = color;
 	Cmds->outline.push_back(c);
 }
@@ -76,13 +96,13 @@ void WorldRenderer::CmdVoxel(const glm::mat4& matrix, const glm::mat4& lastMatri
 	GeometryVoxelPipeline::Cmd c;
 	c.WorldMatrix = matrix;
 	c.LastWorldMatrix = lastMatrix;
-	c.VolumeRID = vox.getRID();
+	c.VolumeRID = GetRID(vox);
 	c.PalleteIndex = palleteIndex;
 	Cmds->voxel.push_back(c);
 }
 
 
-void WorldRenderer::RecreateFramebuffer(int32 Width, int32 Height) {
+void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
 
 	if (Width <= 1)Width = 1;
 	if (Height <= 1)Height = 1;
@@ -96,24 +116,24 @@ void WorldRenderer::RecreateFramebuffer(int32 Width, int32 Height) {
 	_Bloom2Buffer.clear();
 
 	//Geometry
-	_GeometryBuffer = Framebuffer::Create(Passes::Geometry(), Width, Height);
+	gbuffer = GBuffer(Width, Height);
 
-	//Outline
-	_OutlineBuffer = Framebuffer::Create(Passes::Outline(), Width, Height);
+	//Outlinek
+	_OutlineBuffer = CreateImage({.extent = {Width, Height}, .format = Format::BGRA8Unorm, .usage = ImageUsage::Sampled | ImageUsage::Attachment});
 
 	//Light
-	_LastLightBuffer = Framebuffer::Create(Passes::Light(), Width, Height);
-	_CurrentLightBuffer = Framebuffer::Create(Passes::Light(), Width, Height);
-	_TAALightBuffer = Framebuffer::Create(Passes::Light(), Width, Height);
-	_ReflectionBuffer = Framebuffer::Create(Passes::Light(), Width, Height);
+	_LastLightBuffer = CreateLightImage(Width, Height);
+	_CurrentLightBuffer = CreateLightImage(Width, Height);
+	_TAALightBuffer = CreateLightImage(Width, Height);
+	_ReflectionBuffer = CreateLightImage(Width, Height);
 
-	_BloomStepBuffer = Framebuffer::Create(Passes::Light(), Width >> 1, Height >> 1); // second mip
+	_BloomStepBuffer = CreateLightImage(Width >> 1, Height >> 1); // second mip
 	for (int i = 0; i < BLOOM_MIP_COUNT; i++) {
-		int mip = 2 + i; // third mip
-		int w = std::max(Width >> mip, 1);
-		int h = std::max(Height >> mip, 1);
-		_Bloom1Buffer.push_back(Framebuffer::Create(Passes::Light(), w, h));
-		_Bloom2Buffer.push_back(Framebuffer::Create(Passes::Light(), w, h));
+		uint32 mip = 2 + i; // third mip
+		int w = std::max(Width >> mip, 1u);
+		int h = std::max(Height >> mip, 1u);
+		_Bloom1Buffer.push_back(CreateLightImage(w, h));
+		_Bloom2Buffer.push_back(CreateLightImage(w, h));
 	}
 
 	if (ENABLE_UPSAMPLING) {
@@ -122,23 +142,23 @@ void WorldRenderer::RecreateFramebuffer(int32 Width, int32 Height) {
 	}
 
 	//Compose
-	_LastComposeBuffer = Framebuffer::Create(Passes::Color(), Width, Height);
-	_CurrentComposeBuffer = Framebuffer::Create(Passes::Color(), Width, Height);
-	_TAAComposeBuffer = Framebuffer::Create(Passes::Color(), Width, Height);
+	_LastComposeBuffer = CreateColorImage(Width, Height);
+	_CurrentComposeBuffer = CreateColorImage(Width, Height);
+	_TAAComposeBuffer = CreateColorImage(Width, Height);
 
 	//Present
-	_ColorBuffer = Framebuffer::Create(Passes::Color(), Width, Height);
+	_ColorBuffer = CreateColorImage(Width, Height);
 }
 
 double lastReloadShaders = 0.0f;
-void WorldRenderer::DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world) {
+void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 	PROFILE_FUNC();
 
 	//////////////////
 	// Swap Buffers //
 	//////////////////
-	_LastLightBuffer.state.swap(_TAALightBuffer.state);
-	_LastComposeBuffer.state.swap(_TAAComposeBuffer.state);
+	_LastLightBuffer.swap(_TAALightBuffer);
+	_LastComposeBuffer.swap(_TAAComposeBuffer);
 
 	// Crtl to reload shaders
 	if (Input::IsKeyPressed(Key::LeftControl) && (glfwGetTime()-lastReloadShaders) > 1.0) {
@@ -198,11 +218,11 @@ void WorldRenderer::DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world
 		viewData.CameraPosition = view.Position;
 		viewData.Jitter = OFFSETS[_Frame%16];
 		viewData.Frame = _Frame;
-		viewData.ColorTextureRID = _GeometryBuffer.getAttachment(Passes::Geometry_Color).getRID();
-		viewData.DepthTextureRID = _GeometryBuffer.getAttachment(Passes::Geometry_Depth).getRID();
-		viewData.PalleteColorRID = PalleteCache::GetColorTexture().getRID();
-		viewData.PalleteMaterialRID = PalleteCache::GetMaterialTexture().getRID();
-		_ViewBuffer.update(&viewData, sizeof(ViewData));
+		viewData.ColorTextureRID = GetRID(gbuffer.color);
+		viewData.DepthTextureRID = GetRID(gbuffer.depth);
+		viewData.PalleteColorRID = GetRID(PalleteCache::GetColorTexture());
+		viewData.PalleteMaterialRID = GetRID(PalleteCache::GetMaterialTexture());
+		WriteBuffer(_ViewBuffer, &viewData, sizeof(ViewData));
 	}
 
 	//Build Voxel Cmds
@@ -221,26 +241,26 @@ void WorldRenderer::DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world
 	}
 
 	
-	cmd.timestamp("GBuffer", [&] {
+	CmdTimestamp("GBuffer", [&] {
 		//G-Buffer
-		cmd.use(_GeometryBuffer, [&] {
-			GeometrySkyPipeline::Get().Use(cmd, _ViewBuffer, viewData.Res);
-			GeometryVoxelPipeline::Get().Use(cmd, _ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
+		gbuffer.Render([&] {
+			GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
+			GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
 		});
 	});
 
-	cmd.timestamp("Outline", [&] {
+	CmdTimestamp("Outline", [&] {
 		//Outline
-		cmd.use(_OutlineBuffer, [&] {
-			OutlineVoxelPipeline::Get().Use(cmd, _ViewBuffer, _GeometryBuffer, Cmds->outline);
+		CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] {
+			OutlineVoxelPipeline::Get().Use(_ViewBuffer, gbuffer, Cmds->outline);
 		});
 	});
 
-	cmd.timestamp("Lights", [&] {
+	CmdTimestamp("Lights", [&] {
 		//Lights
-		cmd.use(_CurrentLightBuffer, [&] {
-			LightAmbientPipeline::Get().Use(cmd, _ViewBuffer, _GeometryBuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox());
-			LightPointPipeline::Get().Use(cmd, _ViewBuffer, _GeometryBuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
+		CmdRender({_CurrentLightBuffer}, {ClearColor{}}, [&] {
+			LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox());
+			LightPointPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
 				world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
 					PROFILE_SCOPE("DrawPointLight()");
 					if (l.LightType == Light::Type::Point) {
@@ -248,7 +268,7 @@ void WorldRenderer::DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world
 					}
 				});
 			});
-			LightSpotPipeline::Get().Use(cmd, _ViewBuffer, _GeometryBuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightSpotPipeline& P) {
+			LightSpotPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightSpotPipeline& P) {
 				world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
 					PROFILE_SCOPE("DrawSpotLight()");
 					if (l.LightType == Light::Type::Spot) {
@@ -259,52 +279,52 @@ void WorldRenderer::DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world
 		});
 	});
 
-	cmd.timestamp("LightTAA", [&] {
+	CmdTimestamp("LightTAA", [&] {
 		//Light TAA
-		cmd.use(_TAALightBuffer, [&] {
-			LightTAAPipeline::Get().Use(cmd, _ViewBuffer, _BlueNoise->GetImage(), _LastLightBuffer, _CurrentLightBuffer, _GeometryBuffer);
+		CmdRender({_TAALightBuffer}, {ClearColor{}}, [&] {
+			LightTAAPipeline::Get().Use(_ViewBuffer, _BlueNoise->GetImage(), _LastLightBuffer, _CurrentLightBuffer, gbuffer);
 		});
 	});
 
-	cmd.timestamp("Reflection", [&] {
+	CmdTimestamp("Reflection", [&] {
 		//Reflection
-		cmd.use(_ReflectionBuffer, [&] {
-			LightReflectionPipeline::Get().Use(cmd, _ViewBuffer, _TAALightBuffer.getAttachment(0), _GeometryBuffer, world.ShadowVox->GetVolumeImage(), _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage());
+		CmdRender({_ReflectionBuffer}, {ClearColor{}}, [&] {
+			LightReflectionPipeline::Get().Use(_ViewBuffer, _TAALightBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage());
 		});
 	});
 
-	cmd.timestamp("Bloom", [&] {
-		cmd.use(_BloomStepBuffer, [&] {
-			LightBloomStepPipeline::Get().Use(cmd, _CurrentLightBuffer.getAttachment(0));
+	CmdTimestamp("Bloom", [&] {
+		CmdRender({_BloomStepBuffer}, {ClearColor{}}, [&] {
+			LightBloomStepPipeline::Get().Use(_CurrentLightBuffer);
 		});
 		for (int i = 0; i < BLOOM_MIP_COUNT; i++) {
-			cmd.use(_Bloom1Buffer[i], [&] {
-				LightBlurPipeline::Get().Use(cmd, (i == 0 ? _BloomStepBuffer : _Bloom2Buffer[i-1]).getAttachment(0), true); // use the step for the first input
+			CmdRender({_Bloom1Buffer[i]}, {ClearColor{}}, [&] {
+				LightBlurPipeline::Get().Use((i == 0 ? _BloomStepBuffer : _Bloom2Buffer[i-1]), true); // use the step for the first input
 			});
-			cmd.use(_Bloom2Buffer[i], [&] {
-				LightBlurPipeline::Get().Use(cmd, _Bloom1Buffer[i].getAttachment(0), false);
+			CmdRender({_Bloom2Buffer[i]}, {ClearColor{}}, [&] {
+				LightBlurPipeline::Get().Use(_Bloom1Buffer[i], false);
 			});
 		}
 	});
 
-	cmd.timestamp("Compose", [&] {
+	CmdTimestamp("Compose", [&] {
 		//Compose
-		cmd.use(_CurrentComposeBuffer, [&] {
-			ComposePipeline::Get().Use(cmd, _ViewBuffer, _GeometryBuffer, _TAALightBuffer, _ReflectionBuffer, _Bloom2Buffer);
+		CmdRender({_CurrentComposeBuffer}, {ClearColor{}}, [&] {
+			ComposePipeline::Get().Use(_ViewBuffer, gbuffer, _TAALightBuffer, _ReflectionBuffer, _Bloom2Buffer);
 		});
 	});
 
-	cmd.timestamp("ComposeTAA", [&] {
+	CmdTimestamp("ComposeTAA", [&] {
 		//Compose TAA
-		cmd.use(_TAAComposeBuffer, [&] {
-			ComposeTAAPipeline::Get().Use(cmd, _ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, _GeometryBuffer);
+		CmdRender({_TAAComposeBuffer}, {ClearColor{}}, [&] {
+			ComposeTAAPipeline::Get().Use(_ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, gbuffer);
 		});
 	});
 
-	cmd.timestamp("Color", [&] {
+	CmdTimestamp("Color", [&] {
 		//Color (final world color)
-		cmd.use(_ColorBuffer, [&] {
-			ColorWorldPipeline::Get().Use(cmd, _TAAComposeBuffer.getAttachment(0), _OutlineBuffer);
+		CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
+			ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
 			//ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
 		});
 	});
@@ -316,5 +336,5 @@ void WorldRenderer::DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world
 }
 
 Image& WorldRenderer::GetCurrentColorImage() {
-	return _ColorBuffer.getAttachment(0);
+	return _ColorBuffer;
 }

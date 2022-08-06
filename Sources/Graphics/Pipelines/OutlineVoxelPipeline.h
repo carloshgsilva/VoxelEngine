@@ -12,7 +12,7 @@
 #include <glm/glm.hpp>
 
 class OutlineVoxelPipeline {
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 	struct PushConstant {
 		int ViewBufferRID;
@@ -32,19 +32,19 @@ public:
 	};
 
 	OutlineVoxelPipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Outline())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/OutlineVoxel.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/OutlineVoxel.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/OutlineVoxel.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/OutlineVoxel.frag.spv"),
+			.attachments = {Format::BGRA8Unorm}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, Framebuffer& geometryFB, std::vector<Cmd>& instances) {
+	void Use(Buffer& viewBuffer, GBuffer& gbuffer, std::vector<Cmd>& instances) {
 
-		cmd.bind(_Pipeline);
+		CmdBind(pipeline);
 		PushConstant pc{};
-		pc.ViewBufferRID = viewBuffer.getRID();
-		pc.DepthTextureRID = geometryFB.getAttachment(Passes::Geometry_Depth).getRID();
+		pc.ViewBufferRID = GetRID(viewBuffer);
+		pc.DepthTextureRID = GetRID(gbuffer.depth);
 
 		{
 			PROFILE_SCOPE("Cmd Build");
@@ -54,8 +54,8 @@ public:
 				pc.WorldMatrix = c.WorldMatrix;
 				pc.Color = c.Color;
 
-				cmd.constant(&pc, sizeof(PushConstant), 0);
-				cmd.draw(36, 1, 0, 0);
+				CmdPush(pc);
+				CmdDraw(36, 1, 0, 0);
 			}
 		}
 	}

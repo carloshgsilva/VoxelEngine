@@ -7,7 +7,8 @@
 			"name": "Debug",
 			"program": "${workspaceFolder}/build/bin/VoxelEngine",
 			"args": [],
-			"cwd": "${workspaceFolder}"
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal"
 		}
 	]
 }

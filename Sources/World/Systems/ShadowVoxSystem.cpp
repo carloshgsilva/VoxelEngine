@@ -9,11 +9,12 @@ void ShadowVoxSystem::OnVoxDestroyed(entt::registry& r, entt::entity e) {
 	if (!v.IsValid())return;
 	Transform& t = r.get<Transform>(e);
 
-	int sx = v->GetImage().getExtent().width;
-	int sy = v->GetImage().getExtent().height;
-	int sz = v->GetImage().getExtent().depth;
+	Extent extent = GetDesc(v->GetImage()).extent;
+	int sx = extent.width;
+	int sy = extent.height;
+	int sz = extent.depth;
 
-	glm::ivec3 startmin = glm::vec3(_Volume.getExtent().width - 1, _Volume.getExtent().height - 1, _Volume.getExtent().depth - 1);
+	glm::ivec3 startmin = glm::vec3(extent.width - 1, extent.height - 1, extent.depth - 1);
 	glm::ivec3 startmax = glm::vec3(0, 0, 0);
 
 	glm::ivec3 aabbmin = startmin;
@@ -48,7 +49,7 @@ void ShadowVoxSystem::OnVoxDestroyed(entt::registry& r, entt::entity e) {
 		aabbmax = glm::min(aabbmax, startmin);
 
 		glm::ivec3 size = aabbmax - aabbmin + glm::ivec3(1, 1, 1);
-		_UpdateRegions.push_back(ImageRegion{ aabbmin.x, aabbmin.y, aabbmin.z, (uint32)size.x, (uint32)size.y, (uint32)size.z, 0 });
+		_UpdateRegions.push_back(ImageRegion{ aabbmin.x, aabbmin.y, aabbmin.z, size.x, size.y, size.z, 0 });
 	}
 }
 
@@ -58,24 +59,29 @@ ShadowVoxSystem::ShadowVoxSystem() {
 	_SizeZ = 524;
 	_SizeXtimes_SizeY = _SizeX * _SizeY;
 
-	_Volume = Image::Create(Image::Info(Format::R8Uint, { _SizeX, _SizeY, _SizeZ }));
-	uint64_t size = _Volume.getExtent().width * _Volume.getExtent().height * _Volume.getExtent().depth;
-	_Buffer = Buffer::Create(size);
+	_Volume = CreateImage({
+		.extent = { _SizeX, _SizeY, _SizeZ },
+		.format = Format::R8Uint,
+		.usage = ImageUsage::Storage | ImageUsage::TransferDst
+	});
+	uint64_t size = _SizeX * _SizeY * _SizeZ;
+	_Buffer = CreateBuffer({
+		.size = size, 
+		.memoryType = MemoryType::CPU
+		});
 	_Data.resize(size);
 
+	return;
 	//Clear Volume
 	for (int i = 0; i < _SizeX*_SizeY*_SizeZ; i++) {
-		uint8* data = (uint8*)_Buffer.getData() + i;
+		uint8* data = (uint8*)_Buffer.GetPtr() + i;
 		*data = 0;
 	} 
 
-	Graphics::Transfer([&](CmdBuffer& cmd) {
-		cmd.barrier(_Volume, ImageLayout::Undefined, ImageLayout::TransferDst);
-		cmd.copy(_Buffer, _Volume, _UpdateRegions);
-		cmd.barrier(_Volume, ImageLayout::TransferDst, ImageLayout::ShaderReadOptimal);
-	});
-
-	_UpdateRegions.push_back(ImageRegion{0,0,0, _Volume.getExtent().width, _Volume.getExtent().height, _Volume.getExtent().depth, 0});
+	_UpdateRegions.push_back(ImageRegion{0,0,0, (int)_SizeX, (int)_SizeY, (int)_SizeZ, 0});
+	CmdBarrier(_Volume, ImageLayout::Undefined, ImageLayout::TransferDst);
+	CmdCopy(_Buffer, _Volume, _UpdateRegions);
+	CmdBarrier(_Volume, ImageLayout::TransferDst, ImageLayout::ShaderRead);
 }
 
 
@@ -89,12 +95,13 @@ inline void ShadowVoxSystem::SetVolumeAt(int x, int y, int z, int value) {
 	y /= 2;
 	z /= 2;
 
-	uint8* data = ((uint8*)_Buffer.getData()) + ((size_t)x + ((size_t)y * (size_t)_SizeX) + ((size_t)z * (size_t)(_SizeXtimes_SizeY)));
+	uint8* data = ((uint8*)_Buffer.GetPtr()) + ((size_t)x + ((size_t)y * (size_t)_SizeX) + ((size_t)z * (size_t)(_SizeXtimes_SizeY)));
 	*data = (*data & ~mask) | (value << bit);
 }
 
 inline bool ShadowVoxSystem::GetVolumeAt(int x, int y, int z) {
-	if (x < 0 || y < 0 || z < 0 || x >= _Volume.getExtent().width || y >= _Volume.getExtent().height || z >= _Volume.getExtent().depth)return false;
+	Extent extent = GetDesc(_Volume).extent;
+	if (x < 0 || y < 0 || z < 0 || x >= extent.width || y >= extent.height || z >= extent.depth)return false;
 
 	int bit = (x & 1) | ((y & 1) << 1) | ((z & 1) << 2);
 	int mask = 1 << bit;
@@ -103,7 +110,7 @@ inline bool ShadowVoxSystem::GetVolumeAt(int x, int y, int z) {
 	y /= 2;
 	z /= 2;
 
-	uint8* data = ((uint8*)_Buffer.getData()) + ((size_t)x + ((size_t)y * (size_t)_Volume.getExtent().width) + ((size_t)z * (size_t)_Volume.getExtent().width * (size_t)_Volume.getExtent().height));
+	uint8* data = ((uint8*)_Buffer.GetPtr()) + ((size_t)x + ((size_t)y * (size_t)extent.width) + ((size_t)z * (size_t)extent.width * (size_t)extent.height));
 	return (*data & mask) != 1;
 }
 
@@ -114,6 +121,7 @@ void ShadowVoxSystem::OnCreate() {
 }
 
 void ShadowVoxSystem::OnUpdate(float dt) {
+	return;
 	PROFILE_FUNC();
 
 	R->view<Transform, VoxRenderer, Changed>().each([&](const entt::entity e, Transform& t, VoxRenderer& vr) {
@@ -121,11 +129,11 @@ void ShadowVoxSystem::OnUpdate(float dt) {
 
 		AssetRefT<VoxAsset>& v = vr.Vox;
 		
-		int sx = v->GetImage().getExtent().width;
-		int sy = v->GetImage().getExtent().height;
-		int sz = v->GetImage().getExtent().depth;
+		int sx = GetDesc(v->GetImage()).extent.width;
+		int sy = GetDesc(v->GetImage()).extent.height;
+		int sz = GetDesc(v->GetImage()).extent.depth;
 
-		glm::ivec3 startmin = glm::vec3(_Volume.getExtent().width-1, _Volume.getExtent().height-1, _Volume.getExtent().depth-1);
+		glm::ivec3 startmin = glm::vec3(GetDesc(_Volume).extent.width-1, GetDesc(_Volume).extent.height-1, GetDesc(_Volume).extent.depth-1);
 		glm::ivec3 startmax = glm::vec3(0, 0, 0);
 
 		glm::ivec3 aabbmin = startmin;
@@ -186,16 +194,14 @@ void ShadowVoxSystem::OnUpdate(float dt) {
 			aabbmax = glm::min(aabbmax, startmin);
 
 			glm::ivec3 size = aabbmax - aabbmin + glm::ivec3(1, 1, 1);
-			_UpdateRegions.push_back(ImageRegion{ aabbmin.x, aabbmin.y, aabbmin.z, (uint32)size.x, (uint32)size.y, (uint32)size.z, 0 });
+			_UpdateRegions.push_back(ImageRegion{ aabbmin.x, aabbmin.y, aabbmin.z, size.x, size.y, size.z, 0 });
 		}
 	});
 	
 	if (!_UpdateRegions.empty()) {
-		Graphics::Transfer([&](CmdBuffer& cmd) {
-			cmd.barrier(_Volume, ImageLayout::ShaderReadOptimal, ImageLayout::TransferDst);
-			cmd.copy(_Buffer, _Volume, _UpdateRegions);
-			cmd.barrier(_Volume, ImageLayout::TransferDst, ImageLayout::ShaderReadOptimal);
-		});
+		CmdBarrier(_Volume, ImageLayout::ShaderRead, ImageLayout::TransferDst);
+		CmdCopy(_Buffer, _Volume, _UpdateRegions);
+		CmdBarrier(_Volume, ImageLayout::TransferDst, ImageLayout::ShaderRead);
 		_UpdateRegions.clear();
 	}
 }

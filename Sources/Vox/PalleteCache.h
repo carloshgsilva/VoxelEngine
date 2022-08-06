@@ -27,10 +27,24 @@ class PalleteCache : public ModuleDef<PalleteCache> {
 public:
 	PalleteCache() {
 		uint64_t size = PalleteWidth * MaxPalleteCount * 4;
-		ColorTexture = Image::Create(Image::Info(Format::R8G8B8A8Unorm, {PalleteWidth, MaxPalleteCount}));
-		ColorData = Buffer::Create(size);
-		MaterialTexture = Image::Create(Image::Info(Format::R8G8B8A8Unorm, { PalleteWidth, MaxPalleteCount }));
-		MaterialData = Buffer::Create(size);
+		ColorTexture = CreateImage({
+			.extent = {PalleteWidth, MaxPalleteCount},
+			.format = Format::RGBA8Unorm,
+			.usage = ImageUsage::Sampled | ImageUsage::TransferDst,
+		});
+		ColorData = CreateBuffer({
+			.size = size,
+			.usage = BufferUsage::Storage | BufferUsage::TransferSrc,
+		});
+		MaterialTexture = CreateImage({
+			.extent = {PalleteWidth, MaxPalleteCount},
+			.format = Format::RGBA8Unorm,
+			.usage = ImageUsage::Sampled | ImageUsage::TransferDst,
+		});
+		MaterialData = CreateBuffer({
+			.size = size,
+			.usage = BufferUsage::Storage | BufferUsage::TransferSrc,
+		});
 	}
 
 	static int32 AllocatePalleteIndex(PalleteAsset* InPallete);

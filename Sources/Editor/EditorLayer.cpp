@@ -131,18 +131,6 @@ void EditorLayer::OnGui() {
 		ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
 		ImGui::Text("benchmark: %f", totalTime / count);
 
-		if (Graphics::GetTimestamps().size() > 0) {
-			float scale = 0.00001f;
-			for (auto& ts : Graphics::GetTimestamps()) {
-				ImVec2 cursor = ImGui::GetCursorScreenPos();
-				cursor.x += 58.0f;
-				ImVec2 min = { static_cast<float>(cursor.x + ts.start * scale), cursor.y };
-				ImVec2 max = { static_cast<float>(cursor.x + ts.end * scale), min.y + ImGui::GetFontSize() };
-				ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(255, 0, 0, 255));
-				ImGui::GetWindowDrawList()->AddText(min, IM_COL32(255, 255, 255, 255), ts.name);
-				ImGui::Text("%.2f", static_cast<float>(ts.end - ts.start) * 10e-6);
-			}
-		}
 		ImGui::End();
 	}
 	
@@ -172,14 +160,16 @@ void EditorLayer::OnUpdate(float dt) {
 	{
 		PROFILE_SCOPE("Render Windows")
 		//Render Gui
+
 		if (Window::Get().GetWidth() != 0 && Window::Get().GetHeight() != 0) {
-			Graphics::Frame([&](CmdBuffer& cmd) {
-				if (this->Viewport != nullptr)this->Viewport->RenderWorld(cmd);
-				_imguiRenderer.DrawToScreen(cmd, [&] {
+			if (this->Viewport != nullptr)this->Viewport->RenderWorld();
+			CmdPresent([&] {
+				_imguiRenderer.DrawToScreen([&] {
 					OnGui();
 				});
 			});
 		}
+		evk::Submit();
 	}
 }
 
@@ -193,7 +183,7 @@ void EditorLayer::OnEvent(Event& e) {
 		Log::info("[Debug] Files Dropped! Importing to: {}", _Assets->GetCurrentFolder());
 		for (auto& f : E.Files) {
 			if (AssetImporter::CanImport(f)) {
-				Log::debug("[Debug] Import File: {}", f);
+				Log::info("[Debug] Import File: {}", f);
 				if (!AssetImporter::Import(f, _Assets->GetCurrentFolder())) {
 					Log::error("[Debug] Error while importing the file: {}", f);
 				}

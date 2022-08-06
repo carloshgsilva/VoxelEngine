@@ -13,7 +13,7 @@
 //TODO: LightPointPipeline
 class LightPointPipeline {
 	constexpr static inline int MAX_POINT_LIGHTS = 64;
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 	Buffer _DataBuffer;
 
 	//TODO: Store in the PushConstant
@@ -46,13 +46,17 @@ class LightPointPipeline {
 public:
 
 	LightPointPipeline() {
-		_DataBuffer = Buffer::Create(sizeof(Data), BufferUsage::Storage, MemoryType::CPU_TO_GPU);
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Light())
-			.setBlend(Blend::Additive)
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightPoint.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightPoint.frag.spv"))
-		);
+		_DataBuffer = CreateBuffer({
+			.size = sizeof(Data),
+			.usage = BufferUsage::Storage,
+			.memoryType = MemoryType::CPU_TO_GPU
+		});
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightPoint.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightPoint.frag.spv"),
+			.attachments = {Format::RGBA16Sfloat},
+			.blends = {Blend::Additive}
+		});
 	}
 	
 	void DrawLight(glm::vec3 position, float range, glm::vec3 color, float attenuation) {
@@ -71,31 +75,31 @@ public:
 		}
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, Framebuffer& geometryFB, Image& ShadowVox, Image& BlueNoise, int Frame, std::function<void(LightPointPipeline& P)> cb) {
+	void Use(Buffer& viewBuffer, GBuffer& gbuffer, Image& ShadowVox, Image& BlueNoise, int Frame, std::function<void(LightPointPipeline& P)> cb) {
 		_CurrentLightIndex = 0;
 
 		PushConstant pc;
-		pc.ViewBufferRID = viewBuffer.getRID();
-		pc.ColorTextureRID = geometryFB.getAttachment(Passes::Geometry_Color).getRID();
-		pc.NormalTextureRID = geometryFB.getAttachment(Passes::Geometry_Normal).getRID();
-		pc.MaterialTextureRID = geometryFB.getAttachment(Passes::Geometry_Material).getRID();
-		pc.DepthTextureRID = geometryFB.getAttachment(Passes::Geometry_Depth).getRID();
-		pc.BlueNoiseTextureRID = BlueNoise.getRID();
-		pc.ShadowVoxRID = ShadowVox.getRID();
-		pc.PointLightsBufferRID = _DataBuffer.getRID();
+		pc.ViewBufferRID = GetRID(viewBuffer);
+		pc.ColorTextureRID = GetRID(gbuffer.color);
+		pc.NormalTextureRID = GetRID(gbuffer.normal);
+		pc.MaterialTextureRID = GetRID(gbuffer.material);
+		pc.DepthTextureRID = GetRID(gbuffer.depth);
+		pc.BlueNoiseTextureRID = GetRID(BlueNoise);
+		pc.ShadowVoxRID = GetRID(ShadowVox);
+		pc.PointLightsBufferRID = GetRID(_DataBuffer);
 
 		cb(*this);
 
 		//Send to GPU
-		_DataBuffer.update(&_Data, sizeof(Data));
+		WriteBuffer(_DataBuffer, &_Data, sizeof(Data));
 
 		//Fill cmds
-		cmd.bind(_Pipeline);
+		CmdBind(pipeline);
 
 		for (int i = 0; i < _CurrentLightIndex; i++) {
 			pc.LightIndex = i;
-			cmd.constant((void*)&pc, sizeof(PushConstant), 0);
-			cmd.draw(6, 1, 0, 0);
+			CmdPush(pc);
+			CmdDraw(6, 1, 0, 0);
 		}
 	}
 

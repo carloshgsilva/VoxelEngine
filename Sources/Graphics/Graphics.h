@@ -10,83 +10,72 @@
 
 using namespace evk;
 
-class Graphics : public ModuleDef<Graphics> {
-	
-	CmdBuffer frameCmdBuffer;
-	CmdBuffer transferCmdBuffer;
+struct GBuffer {
+	Image color;
+	Image normal;
+	Image material;
+	Image motion;
+	Image depth;
 
+	GBuffer() {}
+	GBuffer(uint32 width, uint32 height) {
+		ImageDesc desc = {
+			.extent = {width, height},
+			.usage = ImageUsage::Sampled | ImageUsage::Attachment
+		};
+
+		desc.format = Format::BGRA8Unorm;
+		color = CreateImage(desc);
+
+		desc.format = Format::RGBA8Snorm;
+		normal = CreateImage(desc);
+
+		desc.format = Format::BGRA8Unorm;
+		material = CreateImage(desc);
+		
+		desc.format = Format::RG16Sfloat;
+		motion = CreateImage(desc);
+
+		desc.format = Format::D24UnormS8Uint;
+		depth = CreateImage(desc);
+	}
+	
+	inline static std::vector<Format> Attachments() {
+		return std::vector<Format>{
+			Format::BGRA8Unorm,
+			Format::RGBA8Snorm,
+			Format::BGRA8Unorm,
+			Format::RG16Sfloat,
+			Format::D24UnormS8Uint
+		};
+	}
+
+	template<typename T> void Render(T callback) {
+		CmdBarrier(color, ImageLayout::Undefined, ImageLayout::Attachment);
+		CmdBarrier(normal, ImageLayout::Undefined, ImageLayout::Attachment);
+		CmdBarrier(material, ImageLayout::Undefined, ImageLayout::Attachment);
+		CmdBarrier(motion, ImageLayout::Undefined, ImageLayout::Attachment);
+		CmdBarrier(depth, ImageLayout::Undefined, ImageLayout::Attachment);
+		CmdRender(
+			{color, normal, material, motion, depth},
+			{ClearColor{}, ClearColor{}, ClearColor{}, ClearColor{}, ClearDepthStencil{}},
+			callback
+		);
+		CmdBarrier(color, ImageLayout::Attachment, ImageLayout::ShaderRead);
+		CmdBarrier(normal, ImageLayout::Attachment, ImageLayout::ShaderRead);
+		CmdBarrier(material, ImageLayout::Attachment, ImageLayout::ShaderRead);
+		CmdBarrier(motion, ImageLayout::Attachment, ImageLayout::ShaderRead);
+		CmdBarrier(depth, ImageLayout::Attachment, ImageLayout::ShaderRead);
+	}
+};
+
+class Graphics : public ModuleDef<Graphics> {
 public:
 	Graphics();
 
-	static const std::vector<TimestampEntry> GetTimestamps() { return Get().frameCmdBuffer.timestamps(); }
-
 	template<typename T>
 	static void Frame(T callback) {
-		Get().frameCmdBuffer.use([&] { callback(Get().frameCmdBuffer); }).submit().wait();
-	}
-
-	//Used to synchonous transfer data from CPU to GPU
-	template<typename T>
-	static void Transfer(T callback) {
-		Get().transferCmdBuffer.use([&] { callback(Get().transferCmdBuffer); }).submit().wait();
-	}
-
-	//TODO: Async transfer
-};
-
-class Passes {
-public:
-	static Pass& Present() {
-		static Pass p = Pass::Create({
-			Pass::Attachment(Format::B8G8R8A8Unorm).setPresent(true)
-		});
-		return p;
-	}
-
-	static inline constexpr int Geometry_Color = 0;
-	static inline constexpr int Geometry_Normal = 1;
-	static inline constexpr int Geometry_Material = 2;
-	static inline constexpr int Geometry_Motion = 3;
-	static inline constexpr int Geometry_Depth = 4;
-	static Pass& Geometry() {
-		static Pass p = Pass::Create({
-			/* [0] Color     */ Pass::Attachment(Format::B8G8R8A8Unorm),
-			/* [1] Normal    */ Pass::Attachment(Format::R8G8B8A8Snorm),
-			/* [2] Material  */ Pass::Attachment(Format::B8G8R8A8Unorm),
-			/* [3] Motion    */ Pass::Attachment(Format::R16G16Sfloat),
-			/* [4] Depth     */ Pass::Attachment(Format::D24UnormS8Uint),
-		});
-		return p;
-	}
-
-	static inline constexpr int Outline_Color = 0;
-	static inline constexpr int Outline_Depth = 1;
-	static Pass& Outline() {
-		static Pass p = Pass::Create({
-			/* [0] Color     */ Pass::Attachment(Format::B8G8R8A8Unorm),
-			/* [1] Depth     */ Pass::Attachment(Format::D24UnormS8Uint),
-			});
-		return p;
-	}
-
-	static Pass& Light() {
-		static Pass p = Pass::Create({
-			/* [0] */ Pass::Attachment(Format::R16G16B16A16Sfloat),
-			});
-		return p;
-	}
-
-	static Pass& Color() {
-		static Pass p = Pass::Create({
-			/* [0] */ Pass::Attachment(Format::B8G8R8A8Unorm),
-			});
-		return p;
-	}
-
-	static Pass& CubeMapFace() {
-		static Pass p = Pass::Create({
-			/* [0] */ Pass::Attachment(Format::R16G16B16A16Sfloat),
-			});
-		return p;
+		
+		evk::Submit();
 	}
 };

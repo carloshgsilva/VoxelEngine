@@ -24,7 +24,7 @@ Voxel Engine with PBR rendering using Vulkan
 * **Requirements**
   * [VulkanSDK](https://vulkan.lunarg.com/sdk/home)
   * Windows (only currently supported platform)
-  * C++17 compiler. Tested with `Visual Studio 2019`
+  * C++20 compiler. Tested with `Visual Studio 2019`
   * CMake 3.7+
 
 ```

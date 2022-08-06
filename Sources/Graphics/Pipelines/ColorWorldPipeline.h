@@ -4,7 +4,7 @@
 #include "Util/FileUtil.h"
 
 class ColorWorldPipeline {
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 	struct PushConstant {
 		int ColorTextureRID;
@@ -13,22 +13,22 @@ class ColorWorldPipeline {
 
 public:
 	ColorWorldPipeline() {
-		_Pipeline = GraphicsPipeline::Create( GraphicsPipeline::Info()
-			.setPass(Passes::Color())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/ColorWorld.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/ColorWorld.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ColorWorld.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ColorWorld.frag.spv"),
+			.attachments = {Format::BGRA8Unorm}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Image& compose, Framebuffer& outlineFB) {
-		cmd.bind(_Pipeline);
+	void Use(Image& compose, Image& outline) {
+		CmdBind(pipeline);
 		
 		PushConstant pc;
-		pc.ColorTextureRID = compose.getRID();
-		pc.OutlineTextureRID = outlineFB.getAttachment(Passes::Outline_Color).getRID();
+		pc.ColorTextureRID = GetRID(compose);
+		pc.OutlineTextureRID = GetRID(outline);
 	
-		cmd.constant(&pc, sizeof(PushConstant), 0);
-		cmd.draw(6, 1, 0, 0);
+		CmdPush(pc);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static ColorWorldPipeline& Get() {

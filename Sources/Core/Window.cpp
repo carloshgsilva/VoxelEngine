@@ -13,7 +13,7 @@ Window::Window() {
 
 	//Init GLFW
 	if (!glfwInit()) {
-		Log::critical("Failed to Init GLFW!");
+		Log::error("Failed to Init GLFW!");
 		exit(-1);
 	}
 
@@ -25,7 +25,7 @@ Window::Window() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
 	if (!window) {
-		Log::critical("Failed to open Window!");
+		Log::error("Failed to open Window!");
 		exit(-1);
 	}
 

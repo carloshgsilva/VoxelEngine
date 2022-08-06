@@ -6,18 +6,9 @@
 #include "GLFW/glfw3.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_vulkan.h"
+#include "imgui/imgui_impl_evk.h""
 
 #include "imgui/IconsFontAwesome5.h"
-
-static void check_vk_result(VkResult err)
-{
-	if (err == 0)
-		return;
-
-	Log::critical("ImGui Vulkan Error: VkResult = {}", err);
-	abort();
-}
 
 //TODO: Make it a Singleton (Module) as ImGui is already is singleton
 class ImGuiRenderer {
@@ -33,7 +24,7 @@ public:
 
 	const ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	
-	void DrawToScreen(CmdBuffer& cmd, std::function<void()> Cb);
+	void DrawToScreen(std::function<void()> Cb);
 
 
 

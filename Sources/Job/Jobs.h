@@ -1,11 +1,12 @@
 #pragma once
 
 #include "Core/Module.h"
-
 #include "Core/Core.h"
 
 #include <queue>
 #include <thread>
+#include <mutex>
+#include <functional>
 
 class Jobs : public ModuleDef<Jobs> {
 public:

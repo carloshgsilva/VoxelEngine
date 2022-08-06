@@ -8,6 +8,8 @@
 class VoxAsset : public Asset {
 	ASSET(VoxAsset, v)
 
+	inline static constexpr int MIP_COUNT = 3;
+
 	//Serialized data
 	uint32 SizeX;
 	uint32 SizeY;
@@ -29,13 +31,25 @@ public:
 		SizeZ = ((SizeZ - 1) & (~0b11)) + 4;
 
 		Data.resize(SizeX * SizeY * SizeZ);
-		_Image = Image::Create(Image::Info(Format::R8Uint, {SizeX, SizeY, SizeZ}).setMipCount(3).setFilter(Filter::Nearest));
+		_Image = CreateImage({
+			.extent = {SizeX, SizeY, SizeZ},
+			.format = Format::R8Uint,
+			.filter = Filter::Nearest,
+			.usage = ImageUsage::Sampled | ImageUsage::TransferDst,
+			.mipCount = MIP_COUNT,
+		});
 	}
 
 	void Upload();
 
 	virtual void OnLoad() {
-		_Image = Image::Create(Image::Info(Format::R8Uint, { SizeX, SizeY, SizeZ }).setMipCount(3).setFilter(Filter::Nearest));
+		_Image = CreateImage({
+			.extent = {SizeX, SizeY, SizeZ},
+			.format = Format::R8Uint,
+			.filter = Filter::Nearest,
+			.usage = ImageUsage::Sampled | ImageUsage::TransferDst,
+			.mipCount = 3,
+		});
 		Upload();
 	}
 

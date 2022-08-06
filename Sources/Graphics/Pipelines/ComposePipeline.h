@@ -8,7 +8,7 @@
 #include <functional>
 
 class ComposePipeline {
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 	struct PushConstant {
 		int ViewBufferRID;
@@ -26,36 +26,35 @@ class ComposePipeline {
 
 public:
 	ComposePipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Color())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.frag.spv"),
+			.attachments = {Format::BGRA8Unorm}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, Framebuffer& geometryFB, Framebuffer& lightFB, Framebuffer& reflectionFB, std::vector<Framebuffer>& bloomFBs) {
-		CHECK(bloomFBs.size() == 5);
+	void Use(Buffer viewBuffer, GBuffer& gbuffer, Image light, Image reflection, std::vector<Image>& blooms) {
+		CHECK(blooms.size() == 5);
+
 		//Update Push Constances
 		PushConstant pc = {};
-		pc.ViewBufferRID = viewBuffer.getRID();
-		pc.ColorTextureRID = geometryFB.getAttachment(Passes::Geometry_Color).getRID();
-		pc.DepthTextureRID = geometryFB.getAttachment(Passes::Geometry_Depth).getRID();
-		pc.NormalTextureRID = geometryFB.getAttachment(Passes::Geometry_Normal).getRID();
-		pc.LightTextureRID = lightFB.getAttachment(0).getRID();
-		pc.ReflectionTextureRID = reflectionFB.getAttachment(0).getRID();
-		pc.Bloom0TextureRID = bloomFBs[0].getAttachment(0).getRID();
-		pc.Bloom1TextureRID = bloomFBs[1].getAttachment(0).getRID();
-		pc.Bloom2TextureRID = bloomFBs[2].getAttachment(0).getRID();
-		pc.Bloom3TextureRID = bloomFBs[3].getAttachment(0).getRID();
-		pc.Bloom4TextureRID = bloomFBs[4].getAttachment(0).getRID();
+		pc.ViewBufferRID = GetRID(viewBuffer);
+		pc.ColorTextureRID = GetRID(gbuffer.color);
+		pc.DepthTextureRID = GetRID(gbuffer.depth);
+		pc.NormalTextureRID = GetRID(gbuffer.normal);
+		pc.LightTextureRID = GetRID(light);
+		pc.ReflectionTextureRID = GetRID(reflection);
+		pc.Bloom0TextureRID = GetRID(blooms[0]);
+		pc.Bloom1TextureRID = GetRID(blooms[1]);
+		pc.Bloom2TextureRID = GetRID(blooms[2]);
+		pc.Bloom3TextureRID = GetRID(blooms[3]);
+		pc.Bloom4TextureRID = GetRID(blooms[4]);
 
-		cmd.constant((void*)&pc, sizeof(PushConstant), 0);
-
-
-		cmd.bind(_Pipeline);
+		CmdPush(pc);
+		CmdBind(pipeline);
 
 		constexpr bool ENABLE_UPSAMPLING = false;
-		cmd.draw(6, 1, 0, 0);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static ComposePipeline& Get() {

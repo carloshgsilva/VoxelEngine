@@ -54,15 +54,16 @@ void GameLayer::OnUpdate(float dt) {
 	_Camera->Update(dt);
 	_World->Update(dt);
 
-	Graphics::Frame([&](CmdBuffer& cmd) {
-		View view = _Camera->GetView(_WorldRenderer->GetCurrentColorImage().getExtent().width, _WorldRenderer->GetCurrentColorImage().getExtent().height);
+	//TODO: 
+	// Graphics::Frame([&]() {
+	// 	View view = _Camera->GetView(_WorldRenderer->GetCurrentColorImage().getExtent().width, _WorldRenderer->GetCurrentColorImage().getExtent().height);
 		
-		_WorldRenderer->DrawWorld(dt, cmd, view, *_World);
+	// 	_WorldRenderer->DrawWorld(dt, view, *_World);
 
-		cmd.present([&] {
-			PresentPipeline::Get().Use(cmd, _WorldRenderer->GetCurrentColorImage());
-		});
-	});
+	// 	CmdPresent([&] {
+	// 		PresentPipeline::Get().Use(_WorldRenderer->GetCurrentColorImage());
+	// 	});
+	// });
 
 	
 }

@@ -21,33 +21,33 @@ class LightReflectionPipeline {
 		int ShadowVoxRID;
 	};
 
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 public:
 	LightReflectionPipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Light())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightReflection.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightReflection.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightReflection.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightReflection.frag.spv"),
+			.attachments = {Format::RGBA16Sfloat},
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, Image& lightDiffuse, Framebuffer& geometryFB, Image& shadowVox, Image& skybox, Image& blueNoise) {
+	void Use(Buffer& viewBuffer, Image& lightDiffuse, GBuffer& gbuffer, Image& shadowVox, Image& skybox, Image& blueNoise) {
 		//Update Push Constances
 		PushConstant pc = {};
-		pc.ViewBufferRID = viewBuffer.getRID();
-		pc.LightTextureRID = lightDiffuse.getRID();
-		pc.NormalTextureRID = geometryFB.getAttachment(Passes::Geometry_Normal).getRID();
-		pc.MaterialTextureRID = geometryFB.getAttachment(Passes::Geometry_Material).getRID();
-		pc.DepthTextureRID = geometryFB.getAttachment(Passes::Geometry_Depth).getRID();
-		pc.BlueNoiseTextureRID = blueNoise.getRID();
-		pc.ShadowVoxRID = shadowVox.getRID();
-		pc.SkyBoxTextureRID = skybox.getRID();
+		pc.ViewBufferRID = GetRID(viewBuffer);
+		pc.LightTextureRID = GetRID(lightDiffuse);
+		pc.NormalTextureRID = GetRID(gbuffer.normal);
+		pc.MaterialTextureRID = GetRID(gbuffer.material);
+		pc.DepthTextureRID = GetRID(gbuffer.depth);
+		pc.BlueNoiseTextureRID = GetRID(blueNoise);
+		pc.ShadowVoxRID = GetRID(shadowVox);
+		pc.SkyBoxTextureRID = GetRID(skybox);
 
 		//TODO: Fill with
-		cmd.constant(&pc, sizeof(PushConstant), 0);
+		CmdPush(pc);
 
-		cmd.bind(_Pipeline);
-		cmd.draw(6, 1, 0, 0);
+		CmdBind(pipeline);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static LightReflectionPipeline& Get() {

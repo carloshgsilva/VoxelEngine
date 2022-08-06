@@ -43,7 +43,6 @@ void Engine::Update() {
 
 	if (elapsedFrameTime >= 1.0f) {
 		float t = elapsedFrameTime / elapsedFrameCount;
-		//Log::info("Engine::Tick() {}ms {}fps", t * 1000.0, 1.0f / t);
 		elapsedFrameTime = 0;
 		elapsedFrameCount = 0;
 	}

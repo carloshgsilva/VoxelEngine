@@ -50,7 +50,7 @@ WrenForeignClassMethods bindForignClass(WrenVM* vm, const char* module, const ch
 		return context->_ForeignClasses[hashed];
 	}
 	else {
-		Log::critical("[wren] could not find foreign class implementation {}:{}", module, className);
+		Log::error("[wren] could not find foreign class implementation {}:{}", module, className);
 	}
 
 	//Default One
@@ -77,7 +77,7 @@ WrenForeignMethodFn bindForeignMethod(WrenVM* vm,
 		return context->_ForeignMethods[hashed];
 	}
 	else {
-		Log::critical("[wren] could not find foreign method implementation {}{}:{}.{}", isStatic ? "static " : "", module, className, signature);
+		Log::error("[wren] could not find foreign method implementation {}{}:{}.{}", isStatic ? "static " : "", module, className, signature);
 	}
 
 	return WrenForeignMethodFn{};

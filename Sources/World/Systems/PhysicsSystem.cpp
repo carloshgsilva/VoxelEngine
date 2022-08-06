@@ -163,7 +163,7 @@ bool PhysicsSystem::RayCast(glm::vec3 start, glm::vec3 dir, float& hitt, entt::e
 			}
 		}while(te != entt::null);
 
-		auto s = v.Vox->GetImage().getExtent();
+		auto s = GetDesc(v.Vox->GetImage()).extent;
 
 		glm::mat4 worldMatrix = tr.WorldMatrix;
 		worldMatrix = glm::translate(worldMatrix, -v.Pivot);

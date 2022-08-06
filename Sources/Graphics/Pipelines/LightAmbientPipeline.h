@@ -21,34 +21,34 @@ class LightAmbientPipeline {
 		int SkyBoxRID;
 	};
 
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 public:
 	LightAmbientPipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Light())
-			.setBlend(Blend::Additive)
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightAmbient.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightAmbient.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightAmbient.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightAmbient.frag.spv"),
+			.attachments = {Format::RGBA16Sfloat},
+			.blends = {Blend::Additive}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, Framebuffer& geometryFB, Image& shadowVox, Image& blueNoise, Image& skyBox) {
+	void Use(Buffer& viewBuffer, GBuffer& gbuffer, Image& shadowVox, Image& blueNoise, Image& skyBox) {
 		//Update Push Constances
 		PushConstant pc = {};
-		pc.ViewBufferRID = viewBuffer.getRID();
-		pc.ColorTextureRID = geometryFB.getAttachment(Passes::Geometry_Color).getRID();
-		pc.NormalTextureRID = geometryFB.getAttachment(Passes::Geometry_Normal).getRID();
-		pc.MaterialTextureRID = geometryFB.getAttachment(Passes::Geometry_Material).getRID();
-		pc.DepthTextureRID = geometryFB.getAttachment(Passes::Geometry_Depth).getRID();
-		pc.BlueNoiseTextureRID = blueNoise.getRID();
-		pc.ShadowVoxRID = shadowVox.getRID();
-		pc.SkyBoxRID = skyBox.getRID();
+		pc.ViewBufferRID = GetRID(viewBuffer);
+		pc.ColorTextureRID = GetRID(gbuffer.color);
+		pc.NormalTextureRID = GetRID(gbuffer.normal);
+		pc.MaterialTextureRID = GetRID(gbuffer.material);
+		pc.DepthTextureRID = GetRID(gbuffer.depth);
+		pc.BlueNoiseTextureRID = GetRID(blueNoise);
+		pc.ShadowVoxRID = GetRID(shadowVox);
+		pc.SkyBoxRID = GetRID(skyBox);
 
 		//TODO: Fill with
-		cmd.constant(&pc, sizeof(PushConstant), 0);
+		CmdPush(pc);
 
-		cmd.bind(_Pipeline);
-		cmd.draw(6, 1, 0, 0);
+		CmdBind(pipeline);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static LightAmbientPipeline& Get() {

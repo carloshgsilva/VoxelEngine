@@ -6,11 +6,11 @@
 class SkyBoxAsset : public Asset {
 	ASSET(SkyBoxAsset, hdr)
 
-	Image _Image;
+	Image hdriImage;
 
 	virtual void Serialize(Stream& S);
 
 public:
-	Image& GetSkyBox() { return _Image; }
+	Image& GetSkyBox() { return hdriImage; }
 
 };

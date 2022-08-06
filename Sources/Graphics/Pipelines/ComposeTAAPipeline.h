@@ -17,27 +17,27 @@ class ComposeTAAPipeline {
 		int ColorTextureRID;
 	};
 
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 public:
 	ComposeTAAPipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Color())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/ComposeTAA.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/ComposeTAA.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ComposeTAA.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ComposeTAA.frag.spv"),
+			.attachments = {Format::BGRA8Unorm}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Buffer& viewBuffer, Framebuffer& LastComposeTAAFB, Framebuffer& CurrentLightFB, Framebuffer& GeometryFB) {
+	void Use(Buffer& viewBuffer, Image lastComposeTAA, Image currentLight, GBuffer& gbuffer) {
 		PushConstant pc = {};
-		pc.ViewBufferRID = viewBuffer.getRID();
-		pc.MotionTextureRID = GeometryFB.getAttachment(Passes::Geometry_Motion).getRID();
-		pc.LastColorTextureRID = LastComposeTAAFB.getAttachment(0).getRID();
-		pc.ColorTextureRID = CurrentLightFB.getAttachment(0).getRID();
-		cmd.constant(&pc, sizeof(PushConstant), 0);
+		pc.ViewBufferRID = GetRID(viewBuffer);
+		pc.MotionTextureRID = GetRID(gbuffer.motion);
+		pc.LastColorTextureRID = GetRID(lastComposeTAA);
+		pc.ColorTextureRID = GetRID(currentLight);
+		CmdPush(pc);
 
-		cmd.bind(_Pipeline);
-		cmd.draw(6, 1, 0, 0);
+		CmdBind(pipeline);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static ComposeTAAPipeline& Get() {

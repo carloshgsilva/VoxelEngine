@@ -1,19 +1,23 @@
 #include "VoxAsset.h"
 
 void VoxAsset::Upload() {
+	uint64_t bufferSize = SizeX * SizeY * SizeZ;
 
 	// MipMaps
-	Buffer buffer = Buffer::Create(SizeX * SizeY * SizeZ, BufferUsage::TransferSrc);
+	Buffer buffer = CreateBuffer({
+		.size = bufferSize,
+		.usage = BufferUsage::TransferSrc
+	});
 	int parentSizeX = SizeX, parentSizeY = SizeY, parentSizeZ = SizeZ;
-	uint8_t* parentData = (uint8_t*)malloc(SizeX * SizeY * SizeZ);
-	uint8_t* data = (uint8_t*)buffer.getData();
+	uint8_t* parentData = (uint8_t*)malloc(bufferSize);
+	uint8_t* data = (uint8_t*)malloc(bufferSize);
 
 	//Copy First mip level
 	std::memcpy(data, Data.data(), Data.size());
 
 	//TODO: Correct Mip
 
-	for (int mip = 0; mip < _Image.getMipCount(); mip++) {
+	for (int mip = 0; mip < MIP_COUNT; mip++) {
 
 		if (mip > 0) {
 			int mipSizeX = parentSizeX > 1 ? parentSizeX / 2 : 1;
@@ -52,13 +56,13 @@ void VoxAsset::Upload() {
 			if (parentSizeZ > 1) parentSizeZ /= 2;
 		}
 
-		Graphics::Transfer([&](CmdBuffer& cmd){
-			cmd.barrier(_Image, ImageLayout::Undefined, ImageLayout::TransferDst, mip);
-			cmd.copy(buffer, _Image, mip);
-			cmd.barrier(_Image, ImageLayout::TransferDst, ImageLayout::ShaderReadOptimal, mip);
-		});
-
+		WriteBuffer(buffer, data, bufferSize);
+		CmdBarrier(_Image, ImageLayout::Undefined, ImageLayout::TransferDst, mip);
+		CmdCopy(buffer, _Image, mip);
+		CmdBarrier(_Image, ImageLayout::TransferDst, ImageLayout::ShaderRead, mip);
+		Sync();
 	}
 
 	free(parentData);
+	free(data);
 }

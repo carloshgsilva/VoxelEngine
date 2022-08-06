@@ -4,7 +4,7 @@
 #include "Util/FileUtil.h"
 
 class LightBlurPipeline {
-	GraphicsPipeline _Pipeline;
+	Pipeline pipeline;
 
 	struct PushConstant {
 		int LightTextureRID;
@@ -13,22 +13,22 @@ class LightBlurPipeline {
 
 public:
 	LightBlurPipeline() {
-		_Pipeline = GraphicsPipeline::Create(GraphicsPipeline::Info()
-			.setPass(Passes::Light())
-			.vertexShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightBlur.vert.spv"))
-			.fragmentShader(FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightBlur.frag.spv"))
-		);
+		pipeline = CreatePipeline({
+			.VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightBlur.vert.spv"),
+			.FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/LightBlur.frag.spv"),
+			.attachments = {Format::RGBA16Sfloat}
+		});
 	}
 
-	void Use(CmdBuffer& cmd, Image& light, bool horizontal) {
-		cmd.bind(_Pipeline);
+	void Use(Image& light, bool horizontal) {
+		CmdBind(pipeline);
 
 		PushConstant pc;
-		pc.LightTextureRID = light.getRID();
+		pc.LightTextureRID = GetRID(light);
 		pc.Horizontal = horizontal ? 1 : 0;
 
-		cmd.constant(&pc, sizeof(PushConstant), 0);
-		cmd.draw(6, 1, 0, 0);
+		CmdPush(pc);
+		CmdDraw(6, 1, 0, 0);
 	}
 
 	static LightBlurPipeline& Get() {

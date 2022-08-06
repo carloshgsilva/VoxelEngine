@@ -22,24 +22,24 @@ class WorldRenderer {
 	int _Frame{ 0 };
 	
 	//Framebuffers
-	Framebuffer _GeometryBuffer;
+	GBuffer gbuffer;
 
-	Framebuffer _LastLightBuffer;
-	Framebuffer _CurrentLightBuffer;
-	Framebuffer _TAALightBuffer;
-	Framebuffer _ReflectionBuffer;
+	Image _LastLightBuffer;
+	Image _CurrentLightBuffer;
+	Image _TAALightBuffer;
+	Image _ReflectionBuffer;
 
-	Framebuffer _BloomStepBuffer;
-	std::vector<Framebuffer> _Bloom1Buffer;
-	std::vector<Framebuffer> _Bloom2Buffer;
+	Image _BloomStepBuffer;
+	std::vector<Image> _Bloom1Buffer;
+	std::vector<Image> _Bloom2Buffer;
 
-	Framebuffer _OutlineBuffer;
+	Image _OutlineBuffer;
 
-	Framebuffer _LastComposeBuffer;
-	Framebuffer _CurrentComposeBuffer;
-	Framebuffer _TAAComposeBuffer;
+	Image _LastComposeBuffer;
+	Image _CurrentComposeBuffer;
+	Image _TAAComposeBuffer;
 
-	Framebuffer _ColorBuffer;
+	Image _ColorBuffer;
 
 	struct RenderCmds* Cmds;
 
@@ -53,9 +53,9 @@ public:
 	void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
 	void CmdVoxel(const glm::mat4& matrix, const glm::mat4& lastMatrix, Image& vox, int palleteIndex, int id = 0);
 
-	void RecreateFramebuffer(int32 Width, int32 Height);
+	void RecreateFramebuffer(uint32 Width, uint32 Height);
 
-	void DrawWorld(float dt, CmdBuffer& cmd, View& view, World& world);
+	void DrawWorld(float dt, View& view, World& world);
 
 	Image& GetCurrentColorImage();
 };

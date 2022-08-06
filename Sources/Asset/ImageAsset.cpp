@@ -4,7 +4,7 @@
 
 void ImageAsset::Serialize(Stream& S) {
 	if (!S.IsLoading()) {
-		Log::critical("ImageAsset saving not supported!");
+		Log::error("ImageAsset saving not supported!");
 		CHECK(0);
 	}
 
@@ -20,16 +20,22 @@ void ImageAsset::Serialize(Stream& S) {
 		Log::error("Failed to load Image {}", S.GetIdentifier());
 	}
 	else {
-		_Image = Image::Create(Image::Info(Format::R8G8B8A8Unorm, { (uint32)w, (uint32)h }));
-		
-		Buffer staging = Buffer::Create(w*h*c);
-		staging.update(result, w*h*c);
-
-		Graphics::Transfer([&](CmdBuffer& cmd) {
-			cmd.barrier(_Image, ImageLayout::Undefined, ImageLayout::TransferDst);
-			cmd.copy(staging, _Image);
-			cmd.barrier(_Image, ImageLayout::TransferDst, ImageLayout::ShaderReadOptimal);
+		_Image = CreateImage({
+			.extent = { (uint32)w, (uint32)h },
+			.format = Format::RGBA8Unorm,
+			.usage = ImageUsage::Sampled | ImageUsage::TransferDst
 		});
+		
+		Buffer staging = CreateBuffer({
+			.size = (uint64_t)w*h*c,
+			.usage = BufferUsage::TransferSrc,
+			.memoryType = MemoryType::CPU
+		});
+		WriteBuffer(staging, result, w*h*c);
+
+		CmdBarrier(_Image, ImageLayout::Undefined, ImageLayout::TransferDst);
+		CmdCopy(staging, _Image);
+		CmdBarrier(_Image, ImageLayout::TransferDst, ImageLayout::ShaderRead);
 
 		stbi_image_free(result);
 	}
