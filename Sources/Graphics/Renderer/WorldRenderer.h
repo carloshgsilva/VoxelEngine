@@ -4,7 +4,9 @@
 
 #include "World/World.h"
 
+#include "Graphics/Renderer/BVH.h"
 #include "Graphics/Renderer/View.h"
+
 #include "Asset/ImageAsset.h"
 #include "Asset/SkyBoxAsset.h"
 
@@ -18,6 +20,10 @@ class WorldRenderer {
 	AssetRefT<ImageAsset> _BlueNoise;
 	AssetRefT<SkyBoxAsset> _DefaultSkyBox;
 	Buffer _ViewBuffer;
+
+	BVHBuilder bvhBuilder = {};
+	Buffer bvhBuffer;
+	Buffer bvhLeafsBuffer;
 
 	int _Frame{ 0 };
 	

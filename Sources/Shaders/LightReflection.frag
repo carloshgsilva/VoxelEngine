@@ -1,6 +1,5 @@
-#version 450
-
 #include "lib/Common.frag"
+#include "lib/PBR.frag"
 
 layout(push_constant) uniform uPushConstant{
     int _ViewBufferRID;
@@ -10,15 +9,14 @@ layout(push_constant) uniform uPushConstant{
     int _DepthTextureRID;
     int _BlueNoiseTextureRID;
     int _SkyBoxTextureRID;
-    int _ShadowVoxRID;
+    int BVHBufferRID;
+    int BVHLeafsBufferRID;
 };
 
-BINDING_VIEW_BUFFER()
-
 #define IMPORT
-#include "lib/PBR.frag"
 #include "lib/Light.frag"
 
+BINDING_VIEW_BUFFER()
 
 layout(location=0) in struct {
     vec2 UV;
@@ -110,7 +108,7 @@ void main() {
                 ambient += getSkyColor(wd);
             }
         #else
-            float t = raycastShadowVolumeSparse(wcp+normal, wd, 256.0);
+            float t = raycastWorldDistance(wcp*0.1+normal*0.001, wd, 256.0);
             
             vec3 pos = (GetViewMatrix()*vec4((wcp + wd*t)*0.1, 1)).xyz;
             vec4 projPos = GetProjectionMatrix()*vec4(pos, 1);

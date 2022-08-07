@@ -1,20 +1,20 @@
 #include "WorldRenderer.h"
 
-#include "World/World.h"
-#include "World/Components.h"
-#include "World/Systems/CameraSystem.h"
-#include "World/Systems/ShadowVoxSystem.h"
-
 #include "Core/Engine.h"
 #include "Core/Input.h"
 
-#include "Graphics/Graphics.h"
 #include "Profiler/Profiler.h"
-
 #include "GLFW/glfw3.h"
+
+#include "World/World.h"
+#include "World/Components.h"
+#include "World/Systems/TransformSystem.h"
+#include "World/Systems/CameraSystem.h"
+#include "World/Systems/ShadowVoxSystem.h"
 
 #include "Editor/Importer/AssetImporter.h"
 
+#include "Graphics/Graphics.h"
 #include "Graphics/Pipelines/GeometrySkyPipeline.h"
 #include "Graphics/Pipelines/GeometryVoxelPipeline.h"
 #include "Graphics/Pipelines/LightAmbientPipeline.h"
@@ -32,18 +32,7 @@
 static inline constexpr bool ENABLE_UPSAMPLING = false;
 
 const int BLOOM_MIP_COUNT = 5;
-
-//TimeStamp Points
-
-const int TS_GBUFFER = 0;
-const int TS_OUTLINE = 1;
-const int TS_LIGHTS = 2;
-const int TS_LIGHTS_TAA = 3;
-const int TS_REFLECTION = 4;
-const int TS_COMPOSE = 5;
-const int TS_COMPOSE_TAA = 6;
-const int TS_TOTAL = 7;
-
+const int MAX_BVH_COUNT = 16384;
 
 struct RenderCmds {
 	std::vector<OutlineVoxelPipeline::Cmd> outline;
@@ -80,6 +69,17 @@ WorldRenderer::WorldRenderer() {
 	_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
 	_ViewBuffer = CreateBuffer({
 		.size = sizeof(ViewData),
+		.usage = BufferUsage::Storage,
+		.memoryType = MemoryType::CPU_TO_GPU
+	});
+	
+	bvhBuffer = CreateBuffer({
+		.size = sizeof(BVHNode) * MAX_BVH_COUNT,
+		.usage = BufferUsage::Storage,
+		.memoryType = MemoryType::CPU_TO_GPU
+	});
+	bvhLeafsBuffer = CreateBuffer({
+		.size = sizeof(BVHLeaf) * MAX_BVH_COUNT,
 		.usage = BufferUsage::Storage,
 		.memoryType = MemoryType::CPU_TO_GPU
 	});
@@ -197,6 +197,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 		world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) {
 			vr.VoxSlot = -1;
 		});
+
+		Log::info("Shaders Reloaded!");
 	}
 
 	////////////
@@ -240,7 +242,14 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 		WriteBuffer(_ViewBuffer, &viewData, sizeof(ViewData));
 	}
 
-	//Build Voxel Cmds
+	// Build BVHs
+	if(!world.GetRegistry().empty<Changed>()){
+		bvhBuilder.buildFrom(world.GetRegistry());
+		WriteBuffer(bvhBuffer, bvhBuilder.nodes.data(), sizeof(BVHNode) * bvhBuilder.nodes.size());
+		WriteBuffer(bvhLeafsBuffer, bvhBuilder.leafs.data(), sizeof(BVHLeaf) * bvhBuilder.leafs.size());
+	}
+
+	// Build Voxel Cmds
 	{
 		PROFILE_SCOPE("Build Voxel Cmds");
 		world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
@@ -273,7 +282,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 	CmdTimestamp("Lights", [&] {
 		//Lights
 		CmdRender({_CurrentLightBuffer}, {ClearColor{}}, [&] {
-			LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox());
+			LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox());
 			LightPointPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
 				world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
 					PROFILE_SCOPE("DrawPointLight()");
@@ -303,7 +312,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 	CmdTimestamp("Reflection", [&] {
 		//Reflection
 		CmdRender({_ReflectionBuffer}, {ClearColor{}}, [&] {
-			LightReflectionPipeline::Get().Use(_ViewBuffer, _TAALightBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage());
+			LightReflectionPipeline::Get().Use(_ViewBuffer, _TAALightBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage());
 		});
 	});
 

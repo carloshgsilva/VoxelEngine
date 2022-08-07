@@ -13,12 +13,12 @@
 using entt::operator""_hs;
 // Used to indicate that the Transform has changed
 // and needs to have its matrix updated
-// it means that the PreviosWorldMatrix and WorldMatrix are invalid
+// it means that the PreviousWorldMatrix and WorldMatrix are invalid
 // Is automatically set when the Transform component is replaced
 using Dirty = entt::tag<"Dirty"_hs>;
 
 // Used to indicate that the Transform has changed
-// you can use PreviosWorldMatrix and WorldMatrix safely
+// you can use PreviousWorldMatrix and WorldMatrix safely
 using Changed = entt::tag<"Changed"_hs>;
 
 class TransformSystem : public System {

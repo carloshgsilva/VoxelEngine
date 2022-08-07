@@ -18,7 +18,8 @@ class LightReflectionPipeline {
 		int DepthTextureRID;
 		int BlueNoiseTextureRID;
 		int SkyBoxTextureRID;
-		int ShadowVoxRID;
+		int BVHBuffer;
+		int BVHLeafsBuffer;
 	};
 
 	Pipeline pipeline;
@@ -31,7 +32,7 @@ public:
 		});
 	}
 
-	void Use(Buffer& viewBuffer, Image& lightDiffuse, GBuffer& gbuffer, Image& shadowVox, Image& skybox, Image& blueNoise) {
+	void Use(Buffer& viewBuffer, Image& lightDiffuse, GBuffer& gbuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, Image& skybox, Image& blueNoise) {
 		//Update Push Constances
 		PushConstant pc = {};
 		pc.ViewBufferRID = GetRID(viewBuffer);
@@ -40,8 +41,9 @@ public:
 		pc.MaterialTextureRID = GetRID(gbuffer.material);
 		pc.DepthTextureRID = GetRID(gbuffer.depth);
 		pc.BlueNoiseTextureRID = GetRID(blueNoise);
-		pc.ShadowVoxRID = GetRID(shadowVox);
 		pc.SkyBoxTextureRID = GetRID(skybox);
+		pc.BVHBuffer = GetRID(bvhBuffer);
+		pc.BVHLeafsBuffer = GetRID(bvhLeafsBuffer);
 
 		//TODO: Fill with
 		CmdPush(pc);

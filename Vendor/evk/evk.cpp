@@ -527,7 +527,7 @@ namespace evk {
                 break;
             case Blend::Additive:
                 blendAttach.blendEnable = true;
-                blendAttach.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+                blendAttach.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
                 blendAttach.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
                 blendAttach.colorBlendOp = VK_BLEND_OP_ADD;
                 blendAttach.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;

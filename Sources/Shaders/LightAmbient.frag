@@ -1,10 +1,7 @@
-#version 450
-
 #include "lib/Common.frag"
 
 #define ENABLE_SHADOWS 1
 #define ENABLE_OCCLUSION 1
-#define HIGH_PRECISION_SHADOWS 0
 
 const float OCCLUSION_STRENGTH = 3.0;
 const float OCCLUSION_SIZE = 0.2;
@@ -23,7 +20,8 @@ layout(push_constant) uniform uPushConstant{
     int _MaterialTextureRID;
     int _DepthTextureRID;
     int _BlueNoiseTextureRID;
-    int _ShadowVoxRID;
+    int BVHBufferRID;
+    int BVHLeafsBufferRID;
     int _SkyBoxTextureRID;
 };
 
@@ -118,7 +116,7 @@ vec3 calculateAmbientIrradiance(vec3 pos, vec3 normal) {
     vec3 randomVec = cosineSampleHemisphere(randNoise.xy);
     vec3 dir = tangent*randomVec.x + bitangent*randomVec.y + normal*randomVec.z;
     
-    float d = raycastShadowVolumeSuperSparse(pos, dir,128.0)/128.0;
+    float d = raycastWorldDistance(pos*0.1+normal*0.001, dir,128.0)/128.0;
     occlusion += 1.0/(d);
     //return vec3((1.0-occlusion*0.3)*AMBIENT_LIGHT_FACTOR);
     //return (d==1)?texture(SKY_BOX_TEXTURE, dir).rgb*0.5:vec3(0.0);
@@ -140,6 +138,15 @@ void main() {
         vec4 matl = texture(MATERIAL_TEXTURE, uv);
         vec3 pos = In.FarVec*(depth*(1.0+1/FAR)); // ViewSpace
         vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
+        
+        if(false) {
+            vec3 pos = (GetInverseViewMatrix() * vec4(0,0,0,1)).xyz;
+            vec3 dir = (GetInverseViewMatrix()*vec4(normalize(In.FarVec), 0.0)).xyz;
+            float v = raycastWorldDistance(pos, dir, 128.0);
+
+            out_Color = vec4(v < 128.0, 0.0, 0.0, 1.0);
+            return;
+        }
 
         float shadow = 1.0;
         vec3 ambientIrradiance = vec3(0.0);
@@ -152,28 +159,15 @@ void main() {
             randomVec.z *= sign(getNoise().z-0.5);
             wd = mix(wd, randomVec, 0.5);
             wd = normalize(wd);
-            wcp += wd * (getNoise().w*1.0);
-            wcp += randomVec*2.5;
+            wcp += wd * (getNoise().w*0.5);
 
-            float bias = smoothstep(0.0,0.2, depth)*50.0+1.5;
             #if ENABLE_SHADOWS
-                #if HIGH_PRECISION_SHADOWS
-                    vec3 hitPos;
-                    vec3 hitNormal;
-                    if(raycastShadowVolume(wcp+normal, wd, 100.0, hitPos, hitNormal)){
-                        shadow = 0.0;
-                    }
-                #else
-                    if(raycastShadowVolumeSparse(wcp+normal*bias, wd, 128.0) != 128.0){
-                        shadow = 0.0;
-                    }
-                #endif
+                shadow = raycastWorldDistance(wcp*0.1 + normal*0.001, wd, 10000.0) > 1000.0 ? 1.0 : 0.0;
             #endif
             #if ENABLE_OCCLUSION
-                ambientIrradiance = calculateAmbientIrradiance(wcp+normal*bias, normal);
+                //TODO: ambientIrradiance = calculateAmbientIrradiance(wcp+normal*0.001, normal);
             #endif
         }
-    
 
         vec3 lightPos = (GetViewMatrix()*vec4(0,10,0, 1.0)).xyz;
 
@@ -212,7 +206,6 @@ void main() {
         }
         
         out_Color = vec4(ambient + Lo, 0.0);
-        
     } 
     else {
         vec3 eyeDir = normalize((GetInverseViewMatrix()*vec4(In.FarVec, 0.0)).xyz);

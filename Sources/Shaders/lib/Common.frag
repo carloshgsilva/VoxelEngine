@@ -1,6 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include "evk.glsl"
+
 // requires: 
 //  that push_constant have 'int _ViewBufferRID';
 

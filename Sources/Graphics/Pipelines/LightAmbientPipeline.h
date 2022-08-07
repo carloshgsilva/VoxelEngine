@@ -17,7 +17,8 @@ class LightAmbientPipeline {
 		int MaterialTextureRID;
 		int DepthTextureRID;
 		int BlueNoiseTextureRID;
-		int ShadowVoxRID;
+		int BVHBufferRID;
+		int BVHLeafsBufferRID;
 		int SkyBoxRID;
 	};
 
@@ -32,7 +33,7 @@ public:
 		});
 	}
 
-	void Use(Buffer& viewBuffer, GBuffer& gbuffer, Image& shadowVox, Image& blueNoise, Image& skyBox) {
+	void Use(Buffer& viewBuffer, GBuffer& gbuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, Image& blueNoise, Image& skyBox) {
 		//Update Push Constances
 		PushConstant pc = {};
 		pc.ViewBufferRID = GetRID(viewBuffer);
@@ -41,7 +42,8 @@ public:
 		pc.MaterialTextureRID = GetRID(gbuffer.material);
 		pc.DepthTextureRID = GetRID(gbuffer.depth);
 		pc.BlueNoiseTextureRID = GetRID(blueNoise);
-		pc.ShadowVoxRID = GetRID(shadowVox);
+		pc.BVHBufferRID = GetRID(bvhBuffer);
+		pc.BVHLeafsBufferRID = GetRID(bvhLeafsBuffer);
 		pc.SkyBoxRID = GetRID(skyBox);
 
 		//TODO: Fill with

@@ -1,3 +1,6 @@
+#ifndef PBR_H
+#define PBR_H
+
 const float PI = 3.14159265359;
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
@@ -67,3 +70,5 @@ vec3 PBRDirectLight(vec3 radiance, vec3 albedo, vec3 V, vec3 N, vec3 L, float ro
 
     return Lo;
 }
+
+#endif
