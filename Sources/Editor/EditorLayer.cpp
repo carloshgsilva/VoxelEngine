@@ -163,10 +163,11 @@ void EditorLayer::OnUpdate(float dt) {
 
 		if (Window::Get().GetWidth() != 0 && Window::Get().GetHeight() != 0) {
 			if (this->Viewport != nullptr)this->Viewport->RenderWorld();
+			_imguiRenderer.OnGUI([&] {
+				OnGui();
+			});
 			CmdPresent([&] {
-				_imguiRenderer.DrawToScreen([&] {
-					OnGui();
-				});
+				_imguiRenderer.Draw();
 			});
 		}
 		evk::Submit();

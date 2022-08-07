@@ -1267,12 +1267,14 @@ namespace evk {
     //////////
     void CmdBind(Pipeline pipeline) {
         EVK_ASSERT(pipeline.res != nullptr, "Null pipeline");
+        EVK_ASSERT(GetFrame().insideRenderPass, "must be inside a render pass.");
         vkCmdBindPipeline(GetFrame().cmd, ToInternal(pipeline).isCompute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,  ToInternal(pipeline).pipeline);
     }
     void CmdDispatch(uint32_t countX, uint32_t countY, uint32_t countZ) {
         vkCmdDispatch(GetFrame().cmd, countX, countY, countZ);
     }
     void CmdBarrier(Image& image, ImageLayout oldLayout, ImageLayout newLayout, uint32_t mip, uint32_t mipCount, uint32_t layer, uint32_t layerCount) {
+        EVK_ASSERT(GetFrame().insideRenderPass == false, "can't be used inside a render pass.");
         bool isDepth = DoesFormatHaveDepth(GetDesc(image).format);
         VkImageAspectFlags aspects = {};
         if (isDepth) {
@@ -1626,6 +1628,7 @@ namespace evk {
         vkCmdPushConstants(GetFrame().cmd, GetState().pipelineLayout, VK_SHADER_STAGE_ALL, offset, size, data);
     }
     void CmdClear(Image image, ClearValue value) {
+        EVK_ASSERT(GetFrame().insideRenderPass == false, "can't be used inside a render pass.");
         CmdBarrier(image, ImageLayout::Undefined, ImageLayout::TransferDst);
         const ImageDesc& desc = GetDesc(image);
         if(DoesFormatHaveDepth(desc.format)) {

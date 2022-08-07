@@ -17,16 +17,14 @@ class ImGuiRenderer {
 public:
 
 	ImGuiRenderer();
-
 	~ImGuiRenderer();
 
 	void SetStyle();
 
 	const ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	
-	void DrawToScreen(std::function<void()> Cb);
-
-
+	void OnGUI(std::function<void()> cb);
+	void Draw();
 
 	static const inline ImVec4 TextPrimary = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 	static const inline ImVec4 TextSecondary = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);

@@ -322,10 +322,16 @@ namespace evk {
         callback();
         CmdEndPresent();
     }
-    template<typename T> void CmdRender(std::initializer_list<Image> attachments, std::initializer_list<ClearValue> clearValues, T callback) {
+    template<typename T> void CmdRender(std::initializer_list<Image> attachments, std::initializer_list<ClearValue> clearValues, T callback, ImageLayout finalLayout = ImageLayout::ShaderRead) {
+        for(auto a : attachments) {
+            CmdBarrier(a, ImageLayout::Undefined, ImageLayout::Attachment);
+        }
         CmdBeginRender((Image*)attachments.begin(), (ClearValue*)clearValues.begin(), (int)attachments.size());
         callback();
         CmdEndRender();
+        for(auto a : attachments) {
+            CmdBarrier(a, ImageLayout::Attachment, finalLayout);
+        }
     }
     template<typename T> void CmdRender(Image* attachments, ClearValue* clearValues, int attachmentCount, T callback) {
         CmdBeginRender(attachments, clearValues, attachmentCount);

@@ -54,7 +54,7 @@ ImGuiRenderer::~ImGuiRenderer() {
 	ImGui::DestroyContext();
 }
 
-void ImGuiRenderer::DrawToScreen(std::function<void()> Cb) {
+void ImGuiRenderer::OnGUI(std::function<void()> cb) {
 	PROFILE_FUNC();
 
 	{
@@ -65,19 +65,19 @@ void ImGuiRenderer::DrawToScreen(std::function<void()> Cb) {
 		PROFILE_SCOPE("ImGui::NewFram");
 		ImGui::NewFrame();
 	}
-
 	{
 		PROFILE_SCOPE("ImGui::DockSpaceOverViewport");
 		ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 	}
 
-	Cb();
-
-	ImGui::Render();
-
-	ImGui_ImplEvk_RenderDrawData(ImGui::GetDrawData());
+	cb();
 
 	ImGui::EndFrame();
+}
+
+void ImGuiRenderer::Draw() {
+	ImGui::Render();
+	ImGui_ImplEvk_RenderDrawData(ImGui::GetDrawData());
 }
 
 void ImGuiRenderer::SetStyle() {

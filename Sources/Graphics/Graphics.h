@@ -51,21 +51,11 @@ struct GBuffer {
 	}
 
 	template<typename T> void Render(T callback) {
-		CmdBarrier(color, ImageLayout::Undefined, ImageLayout::Attachment);
-		CmdBarrier(normal, ImageLayout::Undefined, ImageLayout::Attachment);
-		CmdBarrier(material, ImageLayout::Undefined, ImageLayout::Attachment);
-		CmdBarrier(motion, ImageLayout::Undefined, ImageLayout::Attachment);
-		CmdBarrier(depth, ImageLayout::Undefined, ImageLayout::Attachment);
 		CmdRender(
 			{color, normal, material, motion, depth},
 			{ClearColor{}, ClearColor{}, ClearColor{}, ClearColor{}, ClearDepthStencil{}},
 			callback
 		);
-		CmdBarrier(color, ImageLayout::Attachment, ImageLayout::ShaderRead);
-		CmdBarrier(normal, ImageLayout::Attachment, ImageLayout::ShaderRead);
-		CmdBarrier(material, ImageLayout::Attachment, ImageLayout::ShaderRead);
-		CmdBarrier(motion, ImageLayout::Attachment, ImageLayout::ShaderRead);
-		CmdBarrier(depth, ImageLayout::Attachment, ImageLayout::ShaderRead);
 	}
 };
 

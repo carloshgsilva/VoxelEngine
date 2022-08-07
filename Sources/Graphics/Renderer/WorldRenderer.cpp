@@ -150,10 +150,10 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
 	_ColorBuffer = CreateColorImage(Width, Height);
 
 	CmdClear(_ColorBuffer, ClearColor{});
-	CmdClear(_LastLightBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
-	CmdClear(_CurrentLightBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
-	CmdClear(_TAALightBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
-	CmdClear(_ReflectionBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
+	CmdClear(_LastLightBuffer, ClearColor{});
+	CmdClear(_CurrentLightBuffer, ClearColor{});
+	CmdClear(_TAALightBuffer, ClearColor{});
+	CmdClear(_ReflectionBuffer, ClearColor{});
 
 	CmdClear(_LastComposeBuffer, ClearColor{});
 	CmdClear(_CurrentComposeBuffer, ClearColor{});
