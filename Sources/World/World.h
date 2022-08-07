@@ -16,7 +16,7 @@ class World {
 	entt::entity _Root;
 	AssetRefT<PrefabAsset> _Level;
 
-	bool _isSimulating;
+	bool _isSimulating = false;
 
 public:
 

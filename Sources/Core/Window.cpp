@@ -23,12 +23,12 @@ Window::Window() {
 	}
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 	window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
 	if (!window) {
 		Log::error("Failed to open Window!");
 		exit(-1);
 	}
-
 
 	glfwSetWindowUserPointer(window, this);
 	

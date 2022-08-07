@@ -1302,6 +1302,7 @@ namespace evk {
         VkPipelineStageFlags dstStage;
 
         {
+            /*
             if (oldLayout == ImageLayout::Undefined) {
                 srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
                 barrier.srcAccessMask = VK_ACCESS_NONE_KHR;
@@ -1320,7 +1321,7 @@ namespace evk {
             }
             else if (oldLayout == ImageLayout::Attachment) {
                 srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
             }
             else if (oldLayout == ImageLayout::General) {
                 srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -1352,7 +1353,7 @@ namespace evk {
             }
             else if (newLayout == ImageLayout::Attachment) {
                 dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-                barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
             }
             else if (newLayout == ImageLayout::Present) {
                 dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -1361,6 +1362,7 @@ namespace evk {
             else {
                 EVK_ASSERT(false, "Unsupported new layout transition!")
             }
+            */
             srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
             dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
             barrier.srcAccessMask = VK_ACCESS_NONE_KHR;
