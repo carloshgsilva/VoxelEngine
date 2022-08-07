@@ -20,9 +20,9 @@ GameLayer::GameLayer() : Layer("GameLayer") {
 	_World->SetLevel(prefab);
 
 	_Camera = NewUnique<EditorCamera>();
-	_Camera->Position = { 26, 15, 25 };
-	_Camera->Yaw = 0.81f;
-	_Camera->Pitch = -0.43f;
+	_Camera->position = { 26, 15, 25 };
+	_Camera->yaw = 0.81f;
+	_Camera->pitch = -0.43f;
 	
 	_WorldRenderer = NewUnique<WorldRenderer>();
 	_WorldRenderer->RecreateFramebuffer(Window::Get().GetWidth(), Window::Get().GetHeight());
@@ -36,18 +36,18 @@ void GameLayer::OnUpdate(float dt) {
 
 	float t = 0.0f;
 	entt::entity e;
-	if (_World->Physics->RayCast(_Camera->Position, glm::vec3(0, -1, 0), t, e) && t < 2.0f) {
-		_Camera->Position.y = _Camera->Position.y + (1.5f - t)*dt*10.0f;
+	if (_World->Physics->RayCast(_Camera->position, glm::vec3(0, -1, 0), t, e) && t < 2.0f) {
+		_Camera->position.y = _Camera->position.y + (1.5f - t)*dt*10.0f;
 		camYVel = 0.0f;
 		if (Input::IsKeyPressed(Key::Space)) {
 			camYVel = -10.5f;
 		}
 	}
 
-	_Camera->Position.y -= camYVel * dt;
+	_Camera->position.y -= camYVel * dt;
 
 	if (Input::IsKeyPressed(Key::E)) {
-		_Camera->Position = { 26, 15, 25 };
+		_Camera->position = { 26, 15, 25 };
 	}
 
 	_Camera->SetMoving(Input::IsButtonPressed(Button::Right));

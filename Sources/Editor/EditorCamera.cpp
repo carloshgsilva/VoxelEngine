@@ -11,66 +11,67 @@ inline constexpr float CAMERA_MUL = 10.0f;
 inline constexpr float CAMERA_RESISTANCE = 10.0f;
 
 void EditorCamera::OnEvent(Event& e) {
-	_Input.OnEvent(e);
+	input.OnEvent(e);
 	if (e.Is<MouseMoveEvent>()) {
 		auto& E = e.As<MouseMoveEvent>();
 		const float sensitivity = 0.001;
-		if (_Input.IsButtonDown(Button::Right)) {
-			Pitch -= E.DeltaY * sensitivity;
-			Yaw -= E.DeltaX * sensitivity;
+		if (input.IsButtonDown(Button::Right)) {
+			pitch -= E.DeltaY * sensitivity;
+			yaw -= E.DeltaX * sensitivity;
 		}
 	}
 }
 
 static double lastFullscreenTime = 0.0;
 void EditorCamera::Update(float dt) {
+	pitch = glm::clamp(pitch, -1.5f, 1.5f);
 
-	glfwSetInputMode(Window::Get().GetNativeWindow(), GLFW_CURSOR, _Moving ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-
+	glfwSetInputMode(Window::Get().GetNativeWindow(), GLFW_CURSOR, moving ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+	
 	//Only Move When Holding Right Mouse Button
-	if (_Moving) {
+	if (moving) {
 		//Sprint
 		float acc = CAMERA_SPEED * dt;
-		if (_Input.IsKeyDown(Key::LeftShift)) {
+		if (input.IsKeyDown(Key::LeftShift)) {
 			acc *= CAMERA_MUL;
 		}
 
 		//AWSD Movement
-		if (_Input.IsKeyDown(Key::D)) { Velocity += GetRight() * acc; }
-		if (_Input.IsKeyDown(Key::A)) { Velocity -= GetRight() * acc; }
-		if (_Input.IsKeyDown(Key::E)) { Velocity += GetUp() * acc; }
-		if (_Input.IsKeyDown(Key::Q)) { Velocity -= GetUp() * acc; }
-		if (_Input.IsKeyDown(Key::S)) { Velocity += GetForward() * acc; }
-		if (_Input.IsKeyDown(Key::W)) { Velocity -= GetForward() * acc; }
+		if (input.IsKeyDown(Key::D)) { velocity += GetRight() * acc; }
+		if (input.IsKeyDown(Key::A)) { velocity -= GetRight() * acc; }
+		if (input.IsKeyDown(Key::E)) { velocity += GetUp() * acc; }
+		if (input.IsKeyDown(Key::Q)) { velocity -= GetUp() * acc; }
+		if (input.IsKeyDown(Key::S)) { velocity += GetForward() * acc; }
+		if (input.IsKeyDown(Key::W)) { velocity -= GetForward() * acc; }
 	}
 
 	//Fullscreen Toggle
-	if (_Input.IsKeyDown(Key::F) && ((Engine::GetTime() - lastFullscreenTime) > 1.0)) {
+	if (input.IsKeyDown(Key::F) && ((Engine::GetTime() - lastFullscreenTime) > 1.0)) {
 		lastFullscreenTime = Engine::GetTime();
 		Window::Get().FullscreenToggle();
 	}
 
 	//Integrate Movement
-	Position += Velocity * (float)dt;
+	position += velocity * (float)dt;
 
 	//Air Resistance
-	Velocity -= Velocity * (float)dt * CAMERA_RESISTANCE;
+	velocity -= velocity * (float)dt * CAMERA_RESISTANCE;
 
 	//Calculate Matrix
-	Matrix = glm::identity<glm::mat4>();
-	Matrix = glm::identity<glm::mat4>();
-	Matrix = glm::translate(Matrix, Position);
-	Matrix = glm::rotate(Matrix, Yaw, glm::vec3(0, 1, 0));
-	Matrix = glm::rotate(Matrix, Pitch, glm::vec3(1, 0, 0));
+	matrix = glm::identity<glm::mat4>();
+	matrix = glm::identity<glm::mat4>();
+	matrix = glm::translate(matrix, position);
+	matrix = glm::rotate(matrix, yaw, glm::vec3(0, 1, 0));
+	matrix = glm::rotate(matrix, pitch, glm::vec3(1, 0, 0));
 }
 
 View EditorCamera::GetView(uint32 width, uint32 height) {
 	View view = {};
 
-	view.Position = Position;
-	view.CameraMatrix = Matrix;
+	view.Position = position;
+	view.CameraMatrix = matrix;
 	view.ViewMatrix = glm::inverse(view.CameraMatrix);
-	view.ProjectionMatrix = glm::perspective(Fov, (float)width / (float)height, Near, Far);
+	view.ProjectionMatrix = glm::perspective(fov, (float)width / (float)height, near, far);
 	view.Width = width;
 	view.Height = height;
 

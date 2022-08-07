@@ -3,11 +3,16 @@
 #ifndef NOMINMAX
     #define NOMINMAX // prevent windows redefining min/max
 #endif
+
 #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
 #endif
+
 #include <windows.h>
+
 #undef LoadImage
+#undef near
+#undef far
 
 #include <fmt/core.h>
 #include <fmt/format.h>

@@ -20,9 +20,9 @@ ViewportWindow::ViewportWindow() {
 	Selection.SetWorld(_World.get());
 
 	_Camera = NewUnique<EditorCamera>();
-	_Camera->Position = {26, 15, 25};
-	_Camera->Yaw = 0.81f;
-	_Camera->Pitch = -0.43f;
+	_Camera->position = {26, 15, 25};
+	_Camera->yaw = 0.81f;
+	_Camera->pitch = -0.43f;
 
 	_WorldRenderer = NewUnique<WorldRenderer>();
 }
@@ -430,7 +430,7 @@ void ViewportWindow::OnGUI() {
 		if (ImGui::IsItemClicked() && !ImGuizmo::IsUsing()) {
 			float t;
 			entt::entity e;
-			if (_World->Physics->RayCast(_Camera->Position, EUI::ScreenToWorld(ImGui::GetMousePos()), t, e)) {
+			if (_World->Physics->RayCast(_Camera->position, EUI::ScreenToWorld(ImGui::GetMousePos()), t, e)) {
 				if (ImGui::GetIO().KeyCtrl) {
 					Selection.ToggleEntity(e);
 				}
@@ -458,7 +458,7 @@ void ViewportWindow::OnGUI() {
 
 			float t;
 			entt::entity hitEntity;
-			glm::vec3 pos = _Camera->Position;
+			glm::vec3 pos = _Camera->position;
 			glm::vec3 dir = EUI::ScreenToWorld(ImGui::GetMousePos());
 			if (!_World->Physics->RayCast(pos, dir, t, hitEntity)) {
 				t = 10.0f;
