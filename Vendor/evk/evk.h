@@ -234,8 +234,8 @@ namespace evk {
         Format format    = Format::Undefined;
         Filter filter    = Filter::Linear; 
         ImageUsage usage = ImageUsage::Sampled;
-        int mipCount     = 1;
-        int layerCount   = 1;
+        uint32_t mipCount     = 1;
+        uint32_t layerCount   = 1;
         bool isCube      = false;
     };
     struct Image : ResourceRef { Image(Resource* res = nullptr) : ResourceRef(res) {} };
@@ -304,6 +304,7 @@ namespace evk {
     void CmdViewport(float x, float y, float w, float h, float minDepth = 0.0f, float maxDepth = 1.0f);
     void CmdScissor(int32_t x, int32_t y, uint32_t w, uint32_t h);
     void CmdPush(void* data, uint32_t size, uint32_t offset = 0);
+    void CmdClear(Image image, ClearValue value);
     void CmdDraw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0);
     void CmdDrawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0);
     void CmdDrawIndirect(Buffer& buffer, uint64_t offset, uint32_t drawCount, uint32_t stride);

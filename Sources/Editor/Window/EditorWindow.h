@@ -9,8 +9,8 @@ class EditorLayer;
 class EditorWindow {
 	std::string _Name;
 protected:
-	int _Width;
-	int _Height;
+	int _Width = 0;
+	int _Height = 0;
 	bool Focused{ false };
 
 public:

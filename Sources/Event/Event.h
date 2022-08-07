@@ -11,6 +11,7 @@
 struct Event {
 	template<typename T> bool Is() { return GetType() == TypeOf<T>(); }
 	template<typename T> T& As() { return *static_cast<T*>(this); }
+	template<typename T> void Handle(std::function<void(T&)>&& cb) { if(Is<T>())cb(As<T>()); }
 	virtual Type GetType() { return TypeOf<Event>(); }
 };
 

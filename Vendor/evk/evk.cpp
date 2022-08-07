@@ -304,8 +304,8 @@ namespace evk {
         //Usage flags
         ImageUsage usage = desc.usage;
         VkImageUsageFlags usageBits{};
-        if ((int)usage & (int)ImageUsage::TransferSrc) usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        if ((int)usage & (int)ImageUsage::TransferDst) usageBits |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usageBits |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         if ((int)usage & (int)ImageUsage::Sampled) usageBits     |= VK_IMAGE_USAGE_SAMPLED_BIT;
         if ((int)usage & (int)ImageUsage::Attachment) usageBits  |= DoesFormatHaveDepth(desc.format) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         if ((int)usage & (int)ImageUsage::Storage) usageBits     |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -653,6 +653,7 @@ namespace evk {
 
         F.timestampNames.clear();
         F.doingPresent = false;
+        F.insideRenderPass = false;
         CHECK_VK(vkResetCommandPool(S.device, F.pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
 
         VkCommandBufferBeginInfo cmdbi = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -689,7 +690,9 @@ namespace evk {
             present.pSwapchains = &S.swapchain;
             present.pImageIndices = &S.swapchainIndex;
             VkResult r = vkQueuePresentKHR(S.queue, &present);
+
             if(r == VK_ERROR_OUT_OF_DATE_KHR) {
+                S.frame = (int)S.frames.size() - 1;
                 RecreateSwapchain();
             }
 
@@ -1258,6 +1261,10 @@ namespace evk {
     const std::vector<TimestampEntry>& GetTimestamps() {
         return GetFrame().timestampEntries;
     }
+
+    //////////
+    // Cmds //
+    //////////
     void CmdBind(Pipeline pipeline) {
         EVK_ASSERT(pipeline.res != nullptr, "Null pipeline");
         vkCmdBindPipeline(GetFrame().cmd, ToInternal(pipeline).isCompute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,  ToInternal(pipeline).pipeline);
@@ -1491,9 +1498,12 @@ namespace evk {
         vkCmdBindIndexBuffer(GetFrame().cmd, ToInternal(buffer).buffer, rawOffset, useHalf ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
     }
     void CmdBeginRender(Image* attachments, ClearValue* clearValues, int attachmentCount){
+        EVK_ASSERT(GetFrame().insideRenderPass == false, "render pass already bound!");
         EVK_ASSERT(attachments, "attachments = nullptr");
         EVK_ASSERT(attachmentCount > 0, "attachmentCount = 0");
         EVK_ASSERT(attachmentCount < MAX_ATTACHMENTS_COUNT, "Number of attachments %d greater than %d", attachmentCount, MAX_ATTACHMENTS_COUNT);
+        
+        GetFrame().insideRenderPass = true;
 
         bool hasDepthStencil = false;
         uint32_t colorAttachmentCount = 0;
@@ -1570,6 +1580,8 @@ namespace evk {
         vkCmdBeginRendering(GetFrame().cmd, &info);
     }
     void CmdEndRender(){
+        EVK_ASSERT(GetFrame().insideRenderPass == true, "no render pass bound!");
+        GetFrame().insideRenderPass = false;
         vkCmdEndRendering(GetFrame().cmd);
     }
     void CmdBeginPresent() {
@@ -1579,9 +1591,6 @@ namespace evk {
 
         auto& S = GetState();
         VkResult r = vkAcquireNextImageKHR(S.device, S.swapchain, 0, S.frames[S.swapchainSemaphoreIndex].imageReadySemaphore, 0, &S.swapchainIndex);
-        if (r == VK_ERROR_OUT_OF_DATE_KHR) {
-            RecreateSwapchain();
-        }
 
         CmdBarrier(F.image, ImageLayout::Undefined, ImageLayout::Attachment);
 
@@ -1615,6 +1624,38 @@ namespace evk {
         EVK_ASSERT(offset % 4 == 0, "Push constant 'offset' must be aligned by 4 bytes!");
         EVK_ASSERT(offset + size <= 128, "Push constant offset+size must be smaller than 128 bytes!");
         vkCmdPushConstants(GetFrame().cmd, GetState().pipelineLayout, VK_SHADER_STAGE_ALL, offset, size, data);
+    }
+    void CmdClear(Image image, ClearValue value) {
+        CmdBarrier(image, ImageLayout::Undefined, ImageLayout::TransferDst);
+        const ImageDesc& desc = GetDesc(image);
+        if(DoesFormatHaveDepth(desc.format)) {
+            VkClearDepthStencilValue vkValue = {
+                .depth = value.depthStencil.depth,
+                .stencil = value.depthStencil.stencil
+            };
+            VkImageSubresourceRange range = {
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                .baseMipLevel = 0,
+                .levelCount = desc.mipCount,
+                .baseArrayLayer = 0,
+                .layerCount = desc.layerCount
+            };
+            vkCmdClearDepthStencilImage(GetFrame().cmd, ToInternal(image).image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &vkValue, 1, &range);
+        } else {
+            
+            VkClearColorValue vkValue = {
+                .uint32 = {value.color.uint32[0], value.color.uint32[1], value.color.uint32[3], value.color.uint32[4]}
+            };
+            VkImageSubresourceRange range = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = desc.mipCount,
+                .baseArrayLayer = 0,
+                .layerCount = desc.layerCount
+            };
+            vkCmdClearColorImage(GetFrame().cmd, ToInternal(image).image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &vkValue, 1, &range);
+        }
+        
     }
     void CmdDraw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) {
         vkCmdDraw(GetFrame().cmd, vertexCount, instanceCount, firstVertex, firstInstance);

@@ -26,7 +26,7 @@ public:
 
 	bool IsMoving() { return _Moving; }
 	void SetMoving(bool value) { _Moving = value; }
-	View GetView(float width, float height);
+	View GetView(uint32 width, uint32 height);
 
 	glm::vec3 GetRight() { return glm::vec3(Matrix[0]); }
 	glm::vec3 GetUp() { return glm::vec3(Matrix[1]); }

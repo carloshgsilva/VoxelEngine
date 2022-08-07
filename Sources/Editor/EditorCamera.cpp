@@ -64,13 +64,13 @@ void EditorCamera::Update(float dt) {
 	Matrix = glm::rotate(Matrix, Pitch, glm::vec3(1, 0, 0));
 }
 
-View EditorCamera::GetView(float width, float height) {
+View EditorCamera::GetView(uint32 width, uint32 height) {
 	View view = {};
 
 	view.Position = Position;
 	view.CameraMatrix = Matrix;
 	view.ViewMatrix = glm::inverse(view.CameraMatrix);
-	view.ProjectionMatrix = glm::perspective(Fov, width / height, Near, Far);
+	view.ProjectionMatrix = glm::perspective(Fov, (float)width / (float)height, Near, Far);
 	view.Width = width;
 	view.Height = height;
 

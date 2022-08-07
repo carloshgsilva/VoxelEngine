@@ -118,7 +118,7 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
 	//Geometry
 	gbuffer = GBuffer(Width, Height);
 
-	//Outlinek
+	//Outline
 	_OutlineBuffer = CreateImage({.extent = {Width, Height}, .format = Format::BGRA8Unorm, .usage = ImageUsage::Sampled | ImageUsage::Attachment});
 
 	//Light
@@ -148,11 +148,26 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
 
 	//Present
 	_ColorBuffer = CreateColorImage(Width, Height);
+
+	CmdClear(_ColorBuffer, ClearColor{});
+	CmdClear(_LastLightBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
+	CmdClear(_CurrentLightBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
+	CmdClear(_TAALightBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
+	CmdClear(_ReflectionBuffer, ClearColor{1.0f,0.0f,0.0f,1.0f});
+
+	CmdClear(_LastComposeBuffer, ClearColor{});
+	CmdClear(_CurrentComposeBuffer, ClearColor{});
+	CmdClear(_TAAComposeBuffer, ClearColor{});
 }
 
 double lastReloadShaders = 0.0f;
 void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 	PROFILE_FUNC();
+	if(view.Width == 0 || view.Height == 0) return;
+	
+	if(view.Width != lastView.Width || view.Height != lastView.Height) {
+		RecreateFramebuffer(view.Width, view.Height);
+	}
 
 	//////////////////
 	// Swap Buffers //
@@ -208,7 +223,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
 	ViewData viewData;
 	{
-		viewData.LastViewMatrix = _LastView.ViewMatrix;
+		viewData.LastViewMatrix = lastView.ViewMatrix;
 		viewData.ViewMatrix = view.ViewMatrix;
 		viewData.InverseViewMatrix = glm::inverse(view.ViewMatrix);
 		viewData.ProjectionMatrix = view.ProjectionMatrix;
@@ -240,7 +255,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 		});
 	}
 
-	
 	CmdTimestamp("GBuffer", [&] {
 		//G-Buffer
 		gbuffer.Render([&] {
@@ -248,7 +262,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 			GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
 		});
 	});
-
+	
 	CmdTimestamp("Outline", [&] {
 		//Outline
 		CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] {
@@ -329,7 +343,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 		});
 	});
 	
-	_LastView = view;
+	lastView = view;
 	_Frame++;
 	if (_Frame > 16 * 100)_Frame = 0;
 	Cmds->Clear();

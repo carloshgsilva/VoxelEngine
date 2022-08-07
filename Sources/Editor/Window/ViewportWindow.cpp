@@ -125,6 +125,7 @@ void ViewportWindow::DeleteSelection() {
 }
 
 void ViewportWindow::RenderWorld() {
+	if(_Width == 0 || _Height == 0)return;
 	float dt = 0.016f;
 	View view = _Camera->GetView(_Width, _Height);
 	
@@ -141,8 +142,8 @@ void ViewportWindow::OnEvent(Event& E) {
 	}
 	else if (E.Is<ViewportChangeEvent>()) {
 		Engine::OnBeforeUpdate([=] {
-			_WorldRenderer->RecreateFramebuffer(_Width, _Height);
-			OnUpdate(0.016f);
+			//_WorldRenderer->RecreateFramebuffer(_Width, _Height);
+			//OnUpdate(0.016f);
 		});
 	}
 	else if (E.Is<KeyEvent>()) {

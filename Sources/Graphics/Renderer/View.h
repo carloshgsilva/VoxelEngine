@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glm/glm.hpp"
+#include "Core/Core.h"
 
 // Represents the view of a camera
 class View {
@@ -9,7 +10,7 @@ public:
 	glm::mat4 CameraMatrix;
 	glm::mat4 ViewMatrix;//Inverse of CameraMatrix
 	glm::mat4 ProjectionMatrix;
-	float Width, Height;
+	uint32 Width, Height;
 };
 
 // The raw data needed for the GPU to render

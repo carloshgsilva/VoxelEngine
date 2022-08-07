@@ -13,7 +13,7 @@
 //Handles all the state required to Render a World
 class WorldRenderer {
 
-	View _LastView;
+	View lastView = {};
 
 	AssetRefT<ImageAsset> _BlueNoise;
 	AssetRefT<SkyBoxAsset> _DefaultSkyBox;

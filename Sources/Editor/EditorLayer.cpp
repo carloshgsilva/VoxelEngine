@@ -174,9 +174,12 @@ void EditorLayer::OnUpdate(float dt) {
 }
 
 void EditorLayer::OnEvent(Event& e) {
+	e.Handle<ViewportChangeEvent>([&](ViewportChangeEvent& e) {
+		OnUpdate(0.0f);
+	});
+
 	Viewport->OnEvent(e);
 
-	
 	//TODO: Put in some sort of EditorModule
 	if (e.Is<DropFileEvent>()) {
 		auto& E = e.As<DropFileEvent>();

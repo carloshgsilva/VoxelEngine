@@ -28,6 +28,7 @@ namespace evk {
         VkCommandBuffer cmd;
         VkSemaphore cmdDoneSemaphore;
         bool doingPresent = false;
+        bool insideRenderPass = false;
         VkFence fence; // for the queue submit
 
         // performance queries
