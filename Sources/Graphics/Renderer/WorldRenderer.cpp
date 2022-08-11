@@ -67,10 +67,12 @@ WorldRenderer::WorldRenderer() {
 	Cmds = new RenderCmds();
 	_BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
 	_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
-	_ViewBuffer = CreateBuffer({
-		.size = sizeof(ViewData),
-		.usage = BufferUsage::Storage,
-		.memoryType = MemoryType::CPU_TO_GPU
+	_ViewBuffer.Build([&] (int i) {
+		return CreateBuffer({
+			.size = sizeof(ViewData),
+			.usage = BufferUsage::Storage,
+			.memoryType = MemoryType::CPU_TO_GPU
+		});
 	});
 	
 	bvhBuffer = CreateBuffer({

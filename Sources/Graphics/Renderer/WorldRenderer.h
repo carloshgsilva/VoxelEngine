@@ -19,7 +19,7 @@ class WorldRenderer {
 
 	AssetRefT<ImageAsset> _BlueNoise;
 	AssetRefT<SkyBoxAsset> _DefaultSkyBox;
-	Buffer _ViewBuffer;
+	PerFrame<Buffer> _ViewBuffer;
 
 	BVHBuilder bvhBuilder = {};
 	Buffer bvhBuffer;

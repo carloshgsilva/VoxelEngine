@@ -85,5 +85,14 @@
 		"variant": "cpp"
 	},
 	"shaderc-lint.buildOnSave": true,
-	"shaderc-lint.shadercOutputDir": "Assets/Assets/Mods/default/Shaders"
+	"shaderc-lint.shadercOutputDir": "Assets/Mods/default/Shaders",
+	"shaderc-lint.defaultGLSLVersion": "460",
+	"C_Cpp.default.includePath": [
+		"${workspaceFolder}/Sources/**",
+		"${workspaceFolder}/Vendor/**"
+	],
+	"C_Cpp.default.cppStandard": "c++20",
+	"C_Cpp.default.cStandard": "c17",
+	"C_Cpp.default.intelliSenseMode": "windows-msvc-x64",
+	"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
 }
