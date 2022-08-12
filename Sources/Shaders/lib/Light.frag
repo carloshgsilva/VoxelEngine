@@ -69,8 +69,6 @@ float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
     int visit_next_index = -1;
     int visit_next[32];
 
-    float test = 0.0;
-
     for(int i=0;i<100;i++){
         BVHNode node = BVHBuffer[BVHBufferRID].nodes[current_node];
         float nt =  RayCastAABB(pos, dir, node.min, node.max);
@@ -98,8 +96,7 @@ float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
                         mat4 invMat = inverse(mat);
                         vec3 rayPos = (invMat*vec4(pos,1)).xyz*10.0;
                         if(volumeSparseRaycastDistance(rayPos, normalize((invMat*vec4(dir,0)).xyz), hitPos, size, leaf.volumeRID)){
-                            //test += 0.01;
-                            best_t = min(best_t, t + distance(rayPos, hitPos)*0.1);
+                            best_t = min(best_t, t + distance(rayPos, hitPos));
                         }
                     }
                 }

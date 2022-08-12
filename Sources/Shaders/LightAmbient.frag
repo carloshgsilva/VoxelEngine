@@ -127,16 +127,17 @@ void main() {
     vec3 pos = UVDepthToView(uv, depth); // ViewSpace
     vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
 
+    if(false) {
+        vec3 wpos = (GetInverseViewMatrix() * vec4(0,0,0,1)).xyz;
+        vec3 wdir = (GetInverseViewMatrix()*vec4(normalize(pos), 0.0)).xyz;
+        float v = raycastWorldDistance(wpos, wdir, 128.0);
+
+        out_Color = vec4(v < 128.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
     if(depth < 0.999){
         
-        if(false) {
-            vec3 wpos = (GetInverseViewMatrix() * vec4(0,0,0,1)).xyz;
-            vec3 wdir = (GetInverseViewMatrix()*vec4(normalize(pos), 0.0)).xyz;
-            float v = raycastWorldDistance(wpos, wdir, 128.0);
-
-            out_Color = vec4(v < 128.0, 0.0, 0.0, 1.0);
-            return;
-        }
 
         float shadow = 1.0;
         vec3 ambientIrradiance = vec3(0.0);

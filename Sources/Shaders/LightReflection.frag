@@ -1,7 +1,7 @@
-#include "lib/Common.frag"
-#include "lib/PBR.frag"
+#include "Common.frag"
+#include "PBR.frag"
 
-layout(push_constant) uniform uPushConstant{
+PUSH(
     int _ViewBufferRID;
     int _LightTextureRID;
     int _NormalTextureRID;
@@ -11,33 +11,24 @@ layout(push_constant) uniform uPushConstant{
     int _SkyBoxTextureRID;
     int BVHBufferRID;
     int BVHLeafsBufferRID;
-};
+)
 
 #define IMPORT
-#include "lib/Light.frag"
+#include "View.frag"
+#include "Light.frag"
 
-BINDING_VIEW_BUFFER()
-
-layout(location=0) in struct {
-    vec2 UV;
-    vec3 FarVec;
-} In;
+IN(0) vec2 UV;
 
 layout(location=0) out vec4 out_Color;
 
 vec4 getNoise(int s) {
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
-    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((In.UV+vec2(GOLDEN_RATIO*(mod(GetFrame()+s*5,64)), GOLDEN_RATIO*(mod(GetFrame()+s*7+1,64))))*res)%512, 0);
+    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame()+s*5,64)), GOLDEN_RATIO*(mod(GetFrame()+s*7+1,64))))*res)%512, 0);
 }
 
 vec4 getNoise(){
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
-    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((In.UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
-}
-
-vec2 worldToUV(vec3 pos){
-    vec4 p = GetProjectionMatrix() * vec4(pos, 1.0);
-    return (p.xy / (p.w)*vec2(1.0, -1.0) )*0.5 + 0.5;
+    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
 }
 
 vec3 cosineSampleHemisphere(vec2 rand) {
@@ -56,10 +47,10 @@ vec3 getSkyColor(vec3 e) {
 
 //Everything is calculated in ViewSpace to avoid float precision issues
 void main() {
-    vec2 uv = In.UV;
+    vec2 uv = UV;
     vec4 matl = texture(MATERIAL_TEXTURE, uv);
     float depth = texture(DEPTH_TEXTURE, uv).r;
-    vec3 pos = In.FarVec*(depth*(1.0+1/FAR)); // ViewSpace
+    vec3 pos = UVDepthToView(uv, depth); // ViewSpace
     vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
 
     //PBR Material
@@ -102,7 +93,7 @@ void main() {
             if(raycastShadowVolume(wcp+normal, wd, 256.0, hitPos, hitNormal)){
                 
                 vec3 pos = (GetViewMatrix()*vec4((hitPos)*0.1, 1)).xyz;
-                vec2 uv = worldToUV(pos);
+                vec2 uv = ViewToUV(pos);
                 ambient += texture(LIGHT_TEXTURE, uv).rgb;
             }else{
                 ambient += getSkyColor(wd);
@@ -113,7 +104,7 @@ void main() {
             vec3 pos = (GetViewMatrix()*vec4((wcp + wd*t)*0.1, 1)).xyz;
             vec4 projPos = GetProjectionMatrix()*vec4(pos, 1);
             float linearDepth = ((projPos.w-NEAR)/(FAR-NEAR));
-            vec2 uv = worldToUV(pos);
+            vec2 uv = ViewToUV(pos);
             float depth = texture(DEPTH_TEXTURE, uv).r;
             
             if(t == 256.0){
