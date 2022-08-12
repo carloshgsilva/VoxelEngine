@@ -7,7 +7,7 @@
 //  push_constant BVHLeafBufferRID;
 
 #include "Common.frag"
-#include "Math.glsl"
+#include "Math.frag"
 
 #ifndef IMPORT
 const int BVHBufferRID = 0;
@@ -23,7 +23,7 @@ struct BVHLeaf {
 };
 
 const int MAX_BVH_LEAF_COUNT = 1024;
-BINDING_BUFFER(BVHLeafsBuffer, 
+BINDING_BUFFER_R(BVHLeafsBuffer, 
 	BVHLeaf leafs[MAX_BVH_LEAF_COUNT];
 )
 
@@ -35,7 +35,7 @@ struct BVHNode {
 };
 
 const int MAX_BVH_COUNT = 16384;
-BINDING_BUFFER(BVHBuffer, 
+BINDING_BUFFER_R(BVHBuffer, 
 	BVHNode nodes[MAX_BVH_COUNT];
 )
 

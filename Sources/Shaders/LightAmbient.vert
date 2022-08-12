@@ -1,6 +1,4 @@
-#version 450
-
-#include "lib/Common.frag"
+#include "Common.frag"
 
 const vec3 QUAD[]={
     vec3(-1.0,-1.0,0.0),
@@ -11,7 +9,7 @@ const vec3 QUAD[]={
     vec3(1.0,1.0,0.0),
 };
 
-layout(push_constant) uniform uPushConstant{
+PUSH(
     int _ViewBufferRID;
     int _ColorTextureRID;
     int _NormalTextureRID;
@@ -20,27 +18,17 @@ layout(push_constant) uniform uPushConstant{
     int _BlueNoiseTextureRID;
     int _ShadowVoxRID;
     int _SkyBoxTextureRID;
-};
+)
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 
-layout(location=0) out struct{
-    vec2 UV;
-    vec3 FarVec;
-} Out;
-
-vec3 ComputeFarVec(vec2 pos){
-    vec4 v = vec4(pos, 1.0, 1.0);
-    v = GetInverseProjectionMatrix() * v;
-    return v.xyz / v.w;// - CameraPosition;
-}
+OUT(0) vec2 UV;
 
 void main() {
     vec3 Pos = QUAD[gl_VertexIndex];
-    Out.UV = (Pos * 0.5 + 0.5).xy;
-    Out.UV.y = 1.0 - Out.UV.y;
-
-    Out.FarVec = ComputeFarVec(Pos.xy);
+    UV = (Pos * 0.5 + 0.5).xy;
+    UV.y = 1.0 - UV.y;
 
     gl_Position = vec4(Pos, 1.0);
 }

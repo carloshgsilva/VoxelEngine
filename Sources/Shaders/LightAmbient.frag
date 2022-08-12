@@ -1,4 +1,4 @@
-#include "lib/Common.frag"
+#include "Common.frag"
 
 #define ENABLE_SHADOWS 1
 #define ENABLE_OCCLUSION 1
@@ -13,7 +13,7 @@ const vec3 SUN_DIR = normalize(vec3(0.3,0.4,0.5));
 const vec3 SUN_COLOR = vec3(0.9,0.9,0.8)*0.5;
 const float AMBIENT_LIGHT_FACTOR = 0.05;
 
-layout(push_constant) uniform uPushConstant{
+PUSH(
     int _ViewBufferRID;
     int _ColorTextureRID;
     int _NormalTextureRID;
@@ -23,35 +23,25 @@ layout(push_constant) uniform uPushConstant{
     int BVHBufferRID;
     int BVHLeafsBufferRID;
     int _SkyBoxTextureRID;
-};
-
-BINDING_VIEW_BUFFER()
+)
 
 #define IMPORT
-#include "lib/PBR.frag"
-#include "lib/Light.frag"
+#include "View.frag"
+#include "PBR.frag"
+#include "Light.frag"
 
-
-layout(location=0) in struct {
-    vec2 UV;
-    vec3 FarVec;
-} In;
+IN(0) vec2 UV;
 
 layout(location=0) out vec4 out_Color;
 
 vec4 getNoise(int s) {
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
-    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((In.UV+vec2(GOLDEN_RATIO*(mod(GetFrame()+s*5,64)), GOLDEN_RATIO*(mod(GetFrame()+s*7+1,64))))*res)%512, 0);
+    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame()+s*5,64)), GOLDEN_RATIO*(mod(GetFrame()+s*7+1,64))))*res)%512, 0);
 }
 
 vec4 getNoise(){
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
-    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((In.UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
-}
-
-vec2 worldToUV(vec3 pos){
-    vec4 p = GetProjectionMatrix() * vec4(pos, 1.0);
-    return (p.xy / (p.w)*vec2(1.0, -1.0) )*0.5 + 0.5;
+    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
 }
 
 float screenspaceOcclusion(vec3 pos, vec3 dir, float dist){
@@ -61,7 +51,7 @@ float screenspaceOcclusion(vec3 pos, vec3 dir, float dist){
     float sampleDepth = (midProj.w-NEAR)/(FAR-NEAR);
 
 
-    vec2 uv = worldToUV(mid);
+    vec2 uv = ViewToUV(mid);
     float minDepth = texture(DEPTH_TEXTURE, uv).r;
     float maxDepth = minDepth+OCCLUSION_TICKNESS/FAR;
     
@@ -84,12 +74,11 @@ vec3 cosineSampleHemisphere(vec2 rand) {
 	return vec3(x, y, sqrt(max(0.0, 1.0 - rand.x)));
 }
 
-float calculateOcclusion(vec3 normal){
+float calculateOcclusion(vec3 pos, vec3 normal){
     vec3 tangent = normalize(abs(normal.z) > 0.5 ? vec3(0.0, -normal.z, normal.y) : vec3(-normal.y, normal.x, 0.0));
     vec3 bitangent = normalize(cross(normal, tangent));
 
-    float depth = texture(DEPTH_TEXTURE, In.UV).r;
-    vec3 pos = In.FarVec*(depth*(1.0+1.0/(FAR))+NEAR/FAR);
+    float depth = texture(DEPTH_TEXTURE, UV).r;
     
     float occlusion = 0.0;
     float sizeMultiplier = OCCLUSION_SIZE*(1.0+depth*OCCLUSION_SIZE_BY_DISTANCE);
@@ -130,19 +119,20 @@ vec3 getSkyColor(vec3 e) {
 
 //Everything is calculated in ViewSpace to avoid float precision issues
 void main() {
-    vec2 uv = In.UV;
+    vec2 uv = UV;
     float depth = texture(DEPTH_TEXTURE, uv).r;
 
+    vec3 albedo = texture(COLOR_TEXTURE, uv).rgb;
+    vec4 matl = texture(MATERIAL_TEXTURE, uv);
+    vec3 pos = UVDepthToView(uv, depth); // ViewSpace
+    vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
+
     if(depth < 0.999){
-        vec3 albedo = texture(COLOR_TEXTURE, uv).rgb;
-        vec4 matl = texture(MATERIAL_TEXTURE, uv);
-        vec3 pos = In.FarVec*(depth*(1.0+1/FAR)); // ViewSpace
-        vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
         
         if(false) {
-            vec3 pos = (GetInverseViewMatrix() * vec4(0,0,0,1)).xyz;
-            vec3 dir = (GetInverseViewMatrix()*vec4(normalize(In.FarVec), 0.0)).xyz;
-            float v = raycastWorldDistance(pos, dir, 128.0);
+            vec3 wpos = (GetInverseViewMatrix() * vec4(0,0,0,1)).xyz;
+            vec3 wdir = (GetInverseViewMatrix()*vec4(normalize(pos), 0.0)).xyz;
+            float v = raycastWorldDistance(wpos, wdir, 128.0);
 
             out_Color = vec4(v < 128.0, 0.0, 0.0, 1.0);
             return;
@@ -165,7 +155,7 @@ void main() {
                 shadow = raycastWorldDistance(wcp*0.1 + normal*0.001, wd, 10000.0) > 1000.0 ? 1.0 : 0.0;
             #endif
             #if ENABLE_OCCLUSION
-                //TODO: ambientIrradiance = calculateAmbientIrradiance(wcp+normal*0.001, normal);
+                ambientIrradiance = calculateAmbientIrradiance(wcp+normal*0.001, normal);
             #endif
         }
 
@@ -202,13 +192,13 @@ void main() {
             vec3 irradiance = getSkyColor(vec3(1,0,0));
             vec3 diffuse = irradiance*albedo;
             
-            ambient += diffuse * (emit*10.0 + kD * ambientIrradiance * calculateOcclusion(N));
+            ambient += diffuse * (emit*10.0 + kD * ambientIrradiance * calculateOcclusion(pos, N));
         }
         
         out_Color = vec4(ambient + Lo, 0.0);
     } 
     else {
-        vec3 eyeDir = normalize((GetInverseViewMatrix()*vec4(In.FarVec, 0.0)).xyz);
+        vec3 eyeDir = normalize((GetInverseViewMatrix()*vec4(pos, 0.0)).xyz);
         out_Color = texture(SKY_BOX_TEXTURE, eyeDir);
     }
     //out_Color = vec4(vec3(occlusion), 0.0);
