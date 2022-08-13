@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 
 #include "Graphics/Graphics.h"
 #include "Util/FileUtil.h"

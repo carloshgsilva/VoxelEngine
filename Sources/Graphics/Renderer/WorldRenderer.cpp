@@ -28,6 +28,7 @@
 #include "Graphics/Pipelines/ComposePipeline.h"
 #include "Graphics/Pipelines/ComposeTAAPipeline.h"
 #include "Graphics/Pipelines/ColorWorldPipeline.h"
+#include "Graphics/Pipelines/RayTracePass.h"
 
 static inline constexpr bool ENABLE_UPSAMPLING = false;
 
@@ -56,7 +57,7 @@ Image CreateColorImage(uint32 width, uint32 height) {
 		return CreateImage({
 		.extent = {width, height},
 		.format = Format::BGRA8Unorm,
-		.usage = ImageUsage::Sampled | ImageUsage::Attachment
+		.usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage
 	});
 }
 
@@ -195,6 +196,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 		ComposePipeline::Get() = ComposePipeline();
 		ComposeTAAPipeline::Get() = ComposeTAAPipeline();
 		ColorWorldPipeline::Get() = ColorWorldPipeline();
+		RayTracePass::Get() = RayTracePass();
 		//Rest VoxSlot
 		world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) {
 			vr.VoxSlot = -1;
@@ -347,12 +349,17 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 	});
 
 	CmdTimestamp("Color", [&] {
-		//Color (final world color)
 		CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
 			ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
 			//ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
 		});
 	});
+
+	// CmdTimestamp("RayTrace", [&] {
+	// 	CmdBarrier(_ColorBuffer, ImageLayout::ShaderRead, ImageLayout::General);
+	// 	RayTracePass::Get().Use(_ColorBuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer);
+	// 	CmdBarrier(_ColorBuffer, ImageLayout::General, ImageLayout::ShaderRead);
+	// });
 	
 	lastView = view;
 	_Frame++;

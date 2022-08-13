@@ -137,8 +137,6 @@ void main() {
     }
 
     if(depth < 0.999){
-        
-
         float shadow = 1.0;
         vec3 ambientIrradiance = vec3(0.0);
 
@@ -148,9 +146,7 @@ void main() {
             vec3 wcp = (GetInverseViewMatrix()*vec4(pos, 1.0)).xyz*10.0;
             vec3 randomVec = cosineSampleHemisphere(getNoise().xy)*0.1;
             randomVec.z *= sign(getNoise().z-0.5);
-            wd = mix(wd, randomVec, 0.5);
-            wd = normalize(wd);
-            wcp += wd * (getNoise().w*0.5);
+            wd = normalize(mix(wd, randomVec, 0.5));
 
             #if ENABLE_SHADOWS
                 shadow = raycastWorldDistance(wcp*0.1 + normal*0.001, wd, 10000.0) > 1000.0 ? 1.0 : 0.0;

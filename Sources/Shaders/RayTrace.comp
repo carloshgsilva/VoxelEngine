@@ -1,0 +1,24 @@
+#include "Common.frag"
+
+PUSH(
+    int ColorTextureRID;
+    int _ViewBufferRID;
+    int BVHBufferRID;
+    int BVHLeafsBufferRID;
+)
+
+#define IMPORT
+#include "View.frag"
+#include "Light.frag"
+
+COMPUTE(8, 8, 1)
+void main() {
+    vec2 uv = vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)*GetiRes();
+    vec3 o = GetCameraPosition();
+    vec3 d = UVToRayDir(uv);
+
+    float t = raycastWorldDistance(o, d, 2024.0);
+
+    vec3 outColor = vec3(fract(t));
+    imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(outColor,1));
+}

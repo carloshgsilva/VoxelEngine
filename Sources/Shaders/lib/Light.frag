@@ -39,7 +39,7 @@ BINDING_BUFFER_R(BVHBuffer,
 	BVHNode nodes[MAX_BVH_COUNT];
 )
 
-bool volumeSparseRaycastDistance(vec3 origin, vec3 dir, out vec3 hit, vec3 volumeDimension, int volumeRID){
+bool volumeSparseRaycastDistance(vec3 origin, vec3 dir, out vec3 hit, int volumeRID){
     float stepFactor = 0.5;
     vec3 stepDir = dir * stepFactor;
 
@@ -60,6 +60,69 @@ bool volumeSparseRaycastDistance(vec3 origin, vec3 dir, out vec3 hit, vec3 volum
     }
     return false;
 }
+
+bool intersectVolume(vec3 origin, vec3 direction, out vec3 hit, out vec3 normal, out uint material, int volumeRID){
+    ivec3 u_VolumeDimension = textureSize(USampler3D[volumeRID], 0);
+
+    vec3 stepSign = sign(direction);
+    vec3 t_delta = 1.0/(direction*stepSign);
+
+    int mip = 0;
+    
+    int i = 0, nt = 0;
+    do{
+        float mipSize = float(1 << mip);
+
+        origin /= mipSize;
+        ivec3 current_voxel = ivec3(floor(origin));
+        vec3 next_voxel_bounds = vec3(current_voxel) + (stepSign*0.5 + 0.5);
+        vec3 t_max = (next_voxel_bounds - origin)/direction;
+        
+        int n = 0;
+        
+        do{
+            vec3 select = step(t_max.xyz, t_max.zxy) * step(t_max.xyz, t_max.yzx);
+            current_voxel += ivec3(select*stepSign);
+            
+            if(clamp(current_voxel, ivec3(-1), ivec3(u_VolumeDimension/mipSize)+1) != current_voxel){ return false; }
+
+            uint voxel = texelFetch(USampler3D[volumeRID], ivec3(current_voxel), mip).r;
+            
+            
+            if(voxel != 0u){
+            float best_t = dot(t_max, select);
+                if(mip == 0 
+                    #if LOD
+                        || mip < 0.003*distance(In.localCameraPos, (origin + direction*best_t)*mipSize)
+                    #endif
+                ){
+                    normal = -stepSign * select;
+                    hit = (origin + direction*best_t)*mipSize;
+                    material = voxel;
+                    return true;
+                } else {
+                    mip--;
+                    origin = origin + direction*best_t/mipSize;
+                    break;
+                }
+            }
+            
+            t_max += t_delta * select;
+            nt++;
+        }while(++n < 512);
+
+        origin *= mipSize;
+
+    }while(++i < 4);
+    return false;
+}
+
+struct TraceHit {
+    float t;
+    int objectId;
+    ivec3 voxel;
+    vec3 normal;
+};
 
 float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
     float best_t = max_t;
@@ -91,13 +154,30 @@ float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
                         //best_t = t;
 
                         if(t < 0)t = 0;
+
+                        #if 0
+
                         vec3 pos = pos + dir*(t-0.0001);
                         vec3 hitPos;
                         mat4 invMat = inverse(mat);
                         vec3 rayPos = (invMat*vec4(pos,1)).xyz*10.0;
-                        if(volumeSparseRaycastDistance(rayPos, normalize((invMat*vec4(dir,0)).xyz), hitPos, size, leaf.volumeRID)){
+                        if(volumeSparseRaycastDistance(rayPos, normalize((invMat*vec4(dir,0)).xyz), hitPos, leaf.volumeRID)){
                             best_t = min(best_t, t + distance(rayPos, hitPos));
                         }
+
+                        #else
+
+                        vec3 pos = pos + dir*(t-0.0001);
+                        vec3 hitPos;
+                        mat4 invMat = inverse(mat);
+                        vec3 rayPos = (invMat*vec4(pos,1)).xyz*10.0;
+                        vec3 outNormal = vec3(0.0);
+                        uint outMat = 0;
+                        if(intersectVolume(rayPos, normalize((invMat*vec4(dir,0)).xyz), hitPos, outNormal, outMat, leaf.volumeRID)){
+                            best_t = min(best_t, t + distance(rayPos, hitPos));
+                        }
+
+                        #endif
                     }
                 }
 

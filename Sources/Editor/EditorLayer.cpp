@@ -131,6 +131,19 @@ void EditorLayer::OnGui() {
 		ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
 		ImGui::Text("benchmark: %f", totalTime / count);
 
+		if (GetTimestamps().size() > 0) {
+			float scale = 0.0001f;
+			for (auto& ts : GetTimestamps()) {
+				ImVec2 cursor = ImGui::GetCursorScreenPos();
+				cursor.x += 58.0f;
+				ImVec2 min = { static_cast<float>(cursor.x + ts.start * scale), cursor.y };
+				ImVec2 max = { static_cast<float>(cursor.x + ts.end * scale), min.y + ImGui::GetFontSize() };
+				ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(255, 0, 0, 255));
+				ImGui::GetWindowDrawList()->AddText(min, IM_COL32(255, 255, 255, 255), ts.name);
+				ImGui::Text("%.2f", static_cast<float>(ts.end - ts.start) * 10e-6);
+			}
+		}
+
 		ImGui::End();
 	}
 	

@@ -82,9 +82,9 @@ void main() {
         vec3 wcp = (GetInverseViewMatrix()*vec4(pos, 1.0)).xyz*10.0;
         vec3 randomVec = cosineSampleHemisphere(getNoise().xy);
         randomVec.z *= sign(getNoise().z-0.5);
-        wd = mix(wd, randomVec, roughness*0.1);
-        wcp += normal*getNoise().w;
-        wd *= 1.0+getNoise().w*0.5;
+        wd = normalize(mix(wd, randomVec, roughness*0.1));
+        // wcp += normal*getNoise().w;
+        // wd *= 1.0+getNoise().w*0.5;
 
 
         #if 0

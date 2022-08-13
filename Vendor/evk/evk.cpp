@@ -1266,9 +1266,12 @@ namespace evk {
     // Cmds //
     //////////
     void CmdBind(Pipeline pipeline) {
+        bool isCompute = ToInternal(pipeline).isCompute;
+        bool isGraphics = !isCompute;
         EVK_ASSERT(pipeline.res != nullptr, "Null pipeline");
-        EVK_ASSERT(GetFrame().insideRenderPass, "must be inside a render pass.");
-        vkCmdBindPipeline(GetFrame().cmd, ToInternal(pipeline).isCompute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,  ToInternal(pipeline).pipeline);
+        EVK_ASSERT(!isGraphics || GetFrame().insideRenderPass, "graphics pipeline bind must be inside a render pass.");
+        EVK_ASSERT(!isCompute || !GetFrame().insideRenderPass, "compute pipeline bind must be outside a render pass.");
+        vkCmdBindPipeline(GetFrame().cmd, isCompute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,  ToInternal(pipeline).pipeline);
     }
     void CmdDispatch(uint32_t countX, uint32_t countY, uint32_t countZ) {
         vkCmdDispatch(GetFrame().cmd, countX, countY, countZ);

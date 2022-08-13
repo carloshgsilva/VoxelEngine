@@ -34,7 +34,7 @@ int GetFrame(){ return ViewBuffer[_ViewBufferRID].Frame; }
 
 vec2 ViewToUV(vec3 pos) {
     vec4 p = GetProjectionMatrix() * vec4(pos, 1.0);
-    return (p.xy / (p.w)*vec2(1.0, -1.0) )*0.5 + 0.5;
+    return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;
 }
 vec3 UVDepthToView(vec2 uv, float depth) {
     vec4 v = GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2,-2), 1.0, 1.0);
@@ -43,4 +43,8 @@ vec3 UVDepthToView(vec2 uv, float depth) {
 }
 vec3 ViewToWorld(vec3 p) {
     return (GetInverseViewMatrix()*vec4(p, 1)).xyz;
+}
+vec3 UVToRayDir(vec2 uv) {
+    vec3 viewSpace = (GetProjectionMatrix() * vec4((uv-0.5)*vec2(2.0, -2.0), 1.0, 0.0)).xyz;
+    return (GetInverseViewMatrix() * vec4(viewSpace, 0.0)).xyz;
 }
