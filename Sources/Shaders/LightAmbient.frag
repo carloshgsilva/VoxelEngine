@@ -105,7 +105,7 @@ vec3 calculateAmbientIrradiance(vec3 pos, vec3 normal) {
     vec3 randomVec = cosineSampleHemisphere(randNoise.xy);
     vec3 dir = tangent*randomVec.x + bitangent*randomVec.y + normal*randomVec.z;
     
-    float d = raycastWorldDistance(pos*0.1+normal*0.001, dir,128.0)/128.0;
+    float d = raycastWorldDistance(pos+normal*EPS, dir,32.0)/32.0;
     occlusion += 1.0/(d);
     //return vec3((1.0-occlusion*0.3)*AMBIENT_LIGHT_FACTOR);
     //return (d==1)?texture(SKY_BOX_TEXTURE, dir).rgb*0.5:vec3(0.0);
@@ -143,21 +143,22 @@ void main() {
         //ShadowVox Shadow Tracing
         {
             vec3 wd = SUN_DIR;
-            vec3 wcp = (GetInverseViewMatrix()*vec4(pos, 1.0)).xyz*10.0;
+            vec3 wcp = (GetInverseViewMatrix()*vec4(pos, 1.0)).xyz;
             vec3 randomVec = cosineSampleHemisphere(getNoise().xy)*0.1;
             randomVec.z *= sign(getNoise().z-0.5);
             wd = normalize(mix(wd, randomVec, 0.5));
 
             #if ENABLE_SHADOWS
-                shadow = raycastWorldDistance(wcp*0.1 + normal*0.001, wd, 10000.0) > 1000.0 ? 1.0 : 0.0;
+                if(RayTraceShadow(wcp + normal*EPS, wd, INF)) {
+                    shadow = 0.0;
+                }
             #endif
             #if ENABLE_OCCLUSION
-                ambientIrradiance = calculateAmbientIrradiance(wcp+normal*0.001, normal);
+                ambientIrradiance = calculateAmbientIrradiance(wcp+normal*EPS, normal);
             #endif
         }
 
         vec3 lightPos = (GetViewMatrix()*vec4(0,10,0, 1.0)).xyz;
-
         vec3 sunDir = (GetViewMatrix()*vec4(SUN_DIR, 0.0)).xyz;
 
         //PBR Material

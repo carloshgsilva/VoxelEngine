@@ -11,6 +11,9 @@
 #define GOLDEN_RATIO 2.118033988749895
 #define MATH_PI 3.14159265359
 
+#define INF 100000.0
+#define EPS 0.0001
+
 const float NEAR = 0.1;
 const float FAR = 4096.0;
 

@@ -99,7 +99,7 @@ void main() {
                 ambient += getSkyColor(wd);
             }
         #else
-            float t = raycastWorldDistance(wcp*0.1+normal*0.001, wd, 256.0);
+            float t = raycastWorldDistance(wcp*0.1+normal*EPS, wd, 256.0);
             
             vec3 pos = (GetViewMatrix()*vec4((wcp + wd*t)*0.1, 1)).xyz;
             vec4 projPos = GetProjectionMatrix()*vec4(pos, 1);

@@ -131,6 +131,8 @@ void EditorLayer::OnGui() {
 		ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
 		ImGui::Text("benchmark: %f", totalTime / count);
 
+		ImGui::Checkbox("RayTrace", &Viewports[0]->GetWorldRenderer()->raytracing);
+
 		if (GetTimestamps().size() > 0) {
 			float scale = 0.0001f;
 			for (auto& ts : GetTimestamps()) {
@@ -190,6 +192,11 @@ void EditorLayer::OnUpdate(float dt) {
 void EditorLayer::OnEvent(Event& e) {
 	e.Handle<ViewportChangeEvent>([&](ViewportChangeEvent& e) {
 		OnUpdate(0.0f);
+	});
+	e.Handle<KeyEvent>([&](KeyEvent& e) {
+		if(e.Press && e.KeyCode == Key::F11) {
+			Window::Get().SetFullscreen(true);
+		}
 	});
 
 	Viewport->OnEvent(e);

@@ -50,6 +50,7 @@ class WorldRenderer {
 	struct RenderCmds* Cmds;
 
 public:
+	bool raytracing = true;
 
 	WorldRenderer();
 	~WorldRenderer() {

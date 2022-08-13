@@ -14,7 +14,6 @@ const int BVHBufferRID = 0;
 const int BVHLeafsBufferRID = 0;
 #endif
 
-
 struct BVHLeaf {
     vec3 right;    float sizeX;
     vec3 up;       float sizeY;
@@ -89,7 +88,7 @@ bool intersectVolume(vec3 origin, vec3 direction, out vec3 hit, out vec3 normal,
             uint voxel = texelFetch(USampler3D[volumeRID], ivec3(current_voxel), mip).r;
             
             
-            if(voxel != 0u){
+            if(voxel >= 15u){
             float best_t = dot(t_max, select);
                 if(mip == 0 
                     #if LOD
@@ -122,7 +121,77 @@ struct TraceHit {
     int objectId;
     ivec3 voxel;
     vec3 normal;
+
+    vec3 debug;
 };
+
+bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
+    hit.debug = vec3(0);
+    hit.t = t;
+    int current_node = 0;
+
+    int visit_next_index = -1;
+    int visit_next[32];
+
+    while(true) {
+        BVHNode node = BVHBuffer[BVHBufferRID].nodes[current_node];
+
+        float aabb_t = 0.0;
+        if(IntersectRayAABB(o, d, node.min, node.max, aabb_t) && aabb_t < hit.t) {
+            hit.debug += vec3(0.01);
+
+            if(node.leaf != -1){
+                BVHLeaf leaf = BVHLeafsBuffer[BVHLeafsBufferRID].leafs[node.leaf];
+                mat4 mat = mat4(
+                    vec4(leaf.right, 0),
+                    vec4(leaf.up, 0),
+                    vec4(leaf.forward, 0),
+                    vec4(leaf.position, 1)
+                );
+                vec3 size = vec3(leaf.sizeX, leaf.sizeY, leaf.sizeZ);
+
+                mat4 inv_mat = inverse(mat);
+                vec3 local_o = (inv_mat * vec4(o, 1.0)).xyz;
+                vec3 local_d = (inv_mat * vec4(d, 0.0)).xyz;
+
+                float local_t = 0.0;
+                if(IntersectRayAABB(local_o, local_d, vec3(0), vec3(size), local_t)) {
+                    hit.debug.y += 0.05;
+
+                    local_o += local_d * (local_t-EPS);
+                    vec3 hitPos;
+                    vec3 outNormal = vec3(0.0);
+                    uint outMat = 0;
+                    if(intersectVolume(local_o*10.0, local_d, hitPos, outNormal, outMat, leaf.volumeRID)){
+                        hit.debug.z += 0.05;
+                        float v_t = dot((mat*vec4(hitPos*0.1, 1.0)).xyz - o, d);
+                        if(v_t < hit.t) {
+                            hit.t = v_t;
+                            hit.normal = (mat*vec4(outNormal, 0)).xyz;
+                        }
+                    }
+                }
+
+            }else{
+                visit_next[++visit_next_index] = node.second;
+                current_node++;
+                continue;
+            }
+        }
+
+        if(visit_next_index == -1){
+            break;
+        }else{
+            current_node = visit_next[visit_next_index--];
+        }
+    }
+    return hit.t < t;
+}
+
+bool RayTraceShadow(vec3 o, vec3 d, float t) {
+    TraceHit hit;
+    return RayTrace(o, d, hit, t);
+}
 
 float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
     float best_t = max_t;
@@ -137,7 +206,7 @@ float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
         float nt =  RayCastAABB(pos, dir, node.min, node.max);
 
         if(nt < best_t){
-            if(node.leaf != 0){
+            if(node.leaf != -1){
                 
                 BVHLeaf leaf = BVHLeafsBuffer[BVHLeafsBufferRID].leafs[node.leaf];
                 mat4 mat = mat4(

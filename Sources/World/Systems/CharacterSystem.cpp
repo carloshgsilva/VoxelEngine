@@ -241,7 +241,7 @@ void CharacterSystem::OnUpdate(float dt) {
 				glm::quat rot = glm::quat(t.Rotation);
 				glm::quat target_rot = glm::quat(glm::vec3(0, target_angle, 0));
 
-				rot = glm::slerp(rot, target_rot, 0.2f);
+				rot = glm::slerp(rot, target_rot, 1.0f - powf(0.003f, dt));
 				glm::vec3 newRot = glm::eulerAngles(rot);
 
 
