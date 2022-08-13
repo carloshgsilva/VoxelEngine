@@ -19,6 +19,7 @@ BINDING_BUFFER_R(ViewBuffer,
     int _DepthTextureRID;
     int _PalleteColorRID;
     int _PalleteMaterialRID;
+	int BlueNoiseRID;
 )
 
 mat4 GetLastViewMatrix(){ return ViewBuffer[_ViewBufferRID].LastViewMatrix; }

@@ -1,6 +1,4 @@
-#version 450
-
-#include "lib/Common.frag"
+#include "Common.frag"
 
 const vec3 SUN_DIR = normalize(vec3(0.3,0.4,0.5));
 
@@ -33,7 +31,8 @@ layout(push_constant) uniform uPushConstant{
     int _Bloom4TextureRID;
 };
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 
 layout(location=0) in struct {
     vec2 UV;
@@ -170,14 +169,14 @@ void main() {
     vec3 light = texelFetch(LIGHT_TEXTURE, ivec2 (uv*res), 0).rgb;
     vec3 reflection = texelFetch(REFLECTION_TEXTURE, ivec2(uv*res), 0).rgb;
     
-    vec3 color = light+reflection*albedo.rgb;
+    vec3 color = light*albedo.rgb+reflection*albedo.rgb;
     
     // Add Bloom
-    color += texture(_BindingSampler2D[_Bloom0TextureRID], uv).rgb;
-    color += texture(_BindingSampler2D[_Bloom1TextureRID], uv).rgb;
-    color += texture(_BindingSampler2D[_Bloom2TextureRID], uv).rgb;
-    color += texture(_BindingSampler2D[_Bloom3TextureRID], uv).rgb;
-    color += texture(_BindingSampler2D[_Bloom4TextureRID], uv).rgb;
+    color += texture(Sampler2D[_Bloom0TextureRID], uv).rgb;
+    color += texture(Sampler2D[_Bloom1TextureRID], uv).rgb;
+    color += texture(Sampler2D[_Bloom2TextureRID], uv).rgb;
+    color += texture(Sampler2D[_Bloom3TextureRID], uv).rgb;
+    color += texture(Sampler2D[_Bloom4TextureRID], uv).rgb;
     
     //color = vec3(texture(LIGHT_TEXTURE, In.UV).a);
    

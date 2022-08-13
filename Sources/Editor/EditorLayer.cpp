@@ -132,6 +132,7 @@ void EditorLayer::OnGui() {
 		ImGui::Text("benchmark: %f", totalTime / count);
 
 		ImGui::Checkbox("RayTrace", &Viewports[0]->GetWorldRenderer()->raytracing);
+		ImGui::Checkbox("RayTrace GBuffer", &Viewports[0]->GetWorldRenderer()->raytraceGBuffer);
 
 		if (GetTimestamps().size() > 0) {
 			float scale = 0.0001f;

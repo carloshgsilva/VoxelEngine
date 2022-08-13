@@ -15,9 +15,9 @@ const int BVHLeafsBufferRID = 0;
 #endif
 
 struct BVHLeaf {
-    vec3 right;    float sizeX;
-    vec3 up;       float sizeY;
-    vec3 forward;  float sizeZ;
+    vec3 right;    uint packedSize;
+    vec3 up;       int PADDING;
+    vec3 forward;  int palleteID;
     vec3 position; int volumeRID;
 };
 
@@ -118,8 +118,9 @@ bool intersectVolume(vec3 origin, vec3 direction, out vec3 hit, out vec3 normal,
 
 struct TraceHit {
     float t;
+    int palleteId;
+    uint voxel;
     int objectId;
-    ivec3 voxel;
     vec3 normal;
 
     vec3 debug;
@@ -128,8 +129,8 @@ struct TraceHit {
 bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
     hit.debug = vec3(0);
     hit.t = t;
-    int current_node = 0;
 
+    int current_node = 0;
     int visit_next_index = -1;
     int visit_next[32];
 
@@ -138,7 +139,7 @@ bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
 
         float aabb_t = 0.0;
         if(IntersectRayAABB(o, d, node.min, node.max, aabb_t) && aabb_t < hit.t) {
-            hit.debug += vec3(0.01);
+            //hit.debug += vec3(0.01);
 
             if(node.leaf != -1){
                 BVHLeaf leaf = BVHLeafsBuffer[BVHLeafsBufferRID].leafs[node.leaf];
@@ -148,7 +149,7 @@ bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
                     vec4(leaf.forward, 0),
                     vec4(leaf.position, 1)
                 );
-                vec3 size = vec3(leaf.sizeX, leaf.sizeY, leaf.sizeZ);
+                vec3 size = vec3((leaf.packedSize >> 0) & 0x3FFu, (leaf.packedSize >> 10) & 0x3FFu , (leaf.packedSize >> 20) & 0x3FFu)*0.1;
 
                 mat4 inv_mat = inverse(mat);
                 vec3 local_o = (inv_mat * vec4(o, 1.0)).xyz;
@@ -156,14 +157,14 @@ bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
 
                 float local_t = 0.0;
                 if(IntersectRayAABB(local_o, local_d, vec3(0), vec3(size), local_t)) {
-                    hit.debug.y += 0.05;
+                    //hit.debug.y += 0.05;
 
                     local_o += local_d * (local_t-EPS);
                     vec3 hitPos;
                     vec3 outNormal = vec3(0.0);
                     uint outMat = 0;
                     if(intersectVolume(local_o*10.0, local_d, hitPos, outNormal, outMat, leaf.volumeRID)){
-                        hit.debug.z += 0.05;
+                        hit.debug.z += 0.5;
                         float v_t = dot((mat*vec4(hitPos*0.1, 1.0)).xyz - o, d);
                         if(v_t < hit.t) {
                             hit.t = v_t;
@@ -171,7 +172,6 @@ bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
                         }
                     }
                 }
-
             }else{
                 visit_next[++visit_next_index] = node.second;
                 current_node++;
@@ -215,7 +215,7 @@ float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
                     vec4(leaf.forward, 0),
                     vec4(leaf.position, 1)
                 );
-                vec3 size = vec3(leaf.sizeX, leaf.sizeY, leaf.sizeZ);
+                vec3 size = vec3(100.0);//vec3((leaf.packedSize & 0xFFu), (leaf.packedSize & 0xFF00u) >> 8, (leaf.packedSize & 0xFF0000u) >> 16)*100.0;
             
                 float t;
                 if(RayOBBCast(mat, size, pos, dir, t)){

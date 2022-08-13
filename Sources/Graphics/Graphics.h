@@ -21,7 +21,7 @@ struct GBuffer {
 	GBuffer(uint32 width, uint32 height) {
 		ImageDesc desc = {
 			.extent = {width, height},
-			.usage = ImageUsage::Sampled | ImageUsage::Attachment
+			.usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage
 		};
 
 		desc.format = Format::BGRA8Unorm;

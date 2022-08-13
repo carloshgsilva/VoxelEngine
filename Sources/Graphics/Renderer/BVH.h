@@ -7,9 +7,9 @@
 #include "World/Components.h"
 
 struct BVHLeaf {
-    glm::vec3 right;    float sizeX;
-    glm::vec3 up;       float sizeY;
-    glm::vec3 forward;  float sizeZ;
+    glm::vec3 right;    uint32_t packedSize;
+    glm::vec3 up;       int PADDING;
+    glm::vec3 forward;  int palleteID;
     glm::vec3 position; int volumeRID;
 };
 
@@ -17,7 +17,7 @@ struct BVHNode {
     glm::vec3 min;
     int second = -1; //Points to the second child BVHNode
     glm::vec3 max;
-    int leaf = -1; //If different from -1 this is an leaf and contains the entity id
+    int leaf = -1; //If different from -1 this is an leaf and contains the entity id, -2 means no first child
 };
 
 class BVHBuilder {
@@ -41,7 +41,7 @@ public:
 
     int buildNode(int begin, int end) {
         int nodeIndex = nodes.size();
-
+        
         if (end - begin == 1) { // Leaf
             nodes.push_back(entities[begin]);
         } else {
@@ -56,6 +56,7 @@ public:
             BVHNode& node = nodes.back();
             node.min = min;
             node.max = max;
+            node.leaf = -1;
 
             // Nodes
             int axis = biggestAxis(min, max);
@@ -93,8 +94,8 @@ public:
                 {1,1,1},
             };
 
-            const ImageDesc& desc = GetDesc(v.Vox->GetImage());
-            glm::vec3 size = glm::vec3(desc.extent.width, desc.extent.height, desc.extent.depth) * 0.1f;
+            Extent extent = GetDesc(v.Vox->GetImage()).extent;
+            glm::vec3 size = glm::vec3(extent.width, extent.height, extent.depth) * 0.1f;
             glm::vec3 min = glm::vec3(FLT_MAX);
             glm::vec3 max = glm::vec3(-FLT_MAX);
 
@@ -111,9 +112,8 @@ public:
             l.up = t.WorldMatrix[1];
             l.forward = t.WorldMatrix[2];
             l.position = glm::vec3(t.WorldMatrix[3]) + offset;
-            l.sizeX = size.x;
-            l.sizeY = size.y;
-            l.sizeZ = size.z;
+            l.packedSize = uint32_t(extent.width) | (uint32_t(extent.height) << 10) | (uint32_t(extent.depth) << 20);
+            l.palleteID = v.Pallete->GetPalleteIndex();
             l.volumeRID = GetRID(v.Vox->GetImage());
             leafs.push_back(l);
 
@@ -125,7 +125,6 @@ public:
             entities.push_back(node);
         });
 
-        this->entities.insert(this->entities.begin(), entities.begin(), entities.end());
         buildNode(0, entities.size());
     }
 };

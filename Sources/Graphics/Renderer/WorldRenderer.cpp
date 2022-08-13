@@ -29,6 +29,7 @@
 #include "Graphics/Pipelines/ComposeTAAPipeline.h"
 #include "Graphics/Pipelines/ColorWorldPipeline.h"
 #include "Graphics/Pipelines/RayTracePass.h"
+#include "Graphics/Pipelines/GBufferPass.h"
 
 static inline constexpr bool ENABLE_UPSAMPLING = false;
 
@@ -197,6 +198,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         ComposeTAAPipeline::Get() = ComposeTAAPipeline();
         ColorWorldPipeline::Get() = ColorWorldPipeline();
         RayTracePass::Get() = RayTracePass();
+        GBufferPass::Get() = GBufferPass();
         //Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) {
             vr.VoxSlot = -1;
@@ -243,6 +245,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
         viewData.PalleteColorRID = GetRID(PalleteCache::GetColorTexture());
         viewData.PalleteMaterialRID = GetRID(PalleteCache::GetMaterialTexture());
+        viewData.BlueNoiseRID = GetRID(_BlueNoise->GetImage());
         WriteBuffer(_ViewBuffer, &viewData, sizeof(ViewData));
     }
 
@@ -270,10 +273,14 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
     CmdTimestamp("GBuffer", [&] {
         //G-Buffer
-        gbuffer.Render([&] {
-            GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
-            GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
-        });
+        if(raytraceGBuffer) {
+            GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer);
+        } else {
+            gbuffer.Render([&] {
+                GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
+                GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
+            });
+        }
     });
     
     if(!raytracing) {
@@ -284,7 +291,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
     });
 
-    bool raytracedLights = false;
+    bool raytracedLights = true;
     if(raytracedLights) {
         CmdTimestamp("RayTrace", [&] {
             CmdBarrier(_CurrentLightBuffer, ImageLayout::ShaderRead, ImageLayout::General);

@@ -2,6 +2,10 @@
 
 PUSH(
     int ColorTextureRID;
+    int NormalTextureRID;
+    int MaterialTextureRID;
+    int MotionTextureRID;
+    int DepthTextureRID;
     int _ViewBufferRID;
     int BVHBufferRID;
     int BVHLeafsBufferRID;
@@ -56,16 +60,6 @@ void main() {
 
     vec3 outColor = vec3(1.0);
 
-#if 0 // debug RT
-    TraceHit hit;
-    if(RayTrace(o, d, hit, INF)) {
-    }
-    //outColor = vec3((hit.normal));//hit.debug;
-    outColor = hit.debug;
-    //outColor = vec3(fract(hit.t));
-    //outColor = vec3(fract(length(d*2)));
-#endif
-
 #if 1 // PT
     Sampler samp;
     InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%16);
@@ -73,8 +67,8 @@ void main() {
     vec3 acc = vec3(0.0);
     vec3 throughput = vec3(1.0);
 
-    for(int depth = 0; depth < 2; depth++) {
-        TraceHit hit;
+    TraceHit hit;
+    for(int depth = 0; depth < 1; depth++) {
         if(RayTrace(o, d, hit, INF)) {
             vec3 new_o = o + d*hit.t + hit.normal*EPS;
             vec2 rnd = vec2(SampleNoise(samp), SampleNoise(samp));
@@ -92,10 +86,10 @@ void main() {
     outColor = acc;//vec3(fract(hit.t*0.1));//hit.debug;
 #endif
 
-#if 0 // old RT
-    float t = raycastWorldDistance(o, d, 2024.0);
-    vec3 outColor = vec3(fract(t));
-#endif
-
-    imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(outColor,1));
+    ivec2 dst = ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y);
+    imageStore(Image2DW[ColorTextureRID], dst, vec4(outColor, 1));
+    imageStore(Image2DW[NormalTextureRID], dst, vec4(hit.normal, 1));
+    imageStore(Image2DW[MaterialTextureRID], dst, vec4(0));
+    imageStore(Image2DW[MotionTextureRID], dst, vec4(0));
+    imageStore(Image2DW[DepthTextureRID], dst, vec4(0));
 }

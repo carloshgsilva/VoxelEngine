@@ -79,49 +79,33 @@ void main() {
         //Specular Occlusion
         //Specular
         vec3 wd = normalize((GetInverseViewMatrix()*vec4(R, 0.0)).xyz);
-        vec3 wcp = (GetInverseViewMatrix()*vec4(pos, 1.0)).xyz*10.0;
+        vec3 wcp = (GetInverseViewMatrix()*vec4(pos, 1.0)).xyz;
         vec3 randomVec = cosineSampleHemisphere(getNoise().xy);
         randomVec.z *= sign(getNoise().z-0.5);
         wd = normalize(mix(wd, randomVec, roughness*0.1));
-        // wcp += normal*getNoise().w;
-        // wd *= 1.0+getNoise().w*0.5;
 
-
-        #if 0
-            vec3 hitPos;
-            vec3 hitNormal;
-            if(raycastShadowVolume(wcp+normal, wd, 256.0, hitPos, hitNormal)){
-                
-                vec3 pos = (GetViewMatrix()*vec4((hitPos)*0.1, 1)).xyz;
-                vec2 uv = ViewToUV(pos);
-                ambient += texture(LIGHT_TEXTURE, uv).rgb;
+        TraceHit hit;
+        bool sky = !RayTrace(wcp + normal*EPS, wd, hit, INF);
+        
+        vec3 pos = (GetViewMatrix()*vec4(wcp + wd*hit.t, 1)).xyz;
+        vec4 projPos = GetProjectionMatrix()*vec4(pos, 1);
+        float linearDepth = ((projPos.w-NEAR)/(FAR-NEAR));
+        vec2 uv = ViewToUV(pos);
+        float depth = texture(DEPTH_TEXTURE, uv).r;
+        
+        if(sky){
+            ambient += getSkyColor(wd);
+        }else{
+            if(linearDepth > depth - 0.001){ // If point hits depth
+                if(linearDepth < depth + 0.001){ // If point not visible
+                    ambient += texture(LIGHT_TEXTURE, uv).rgb;
+                }
             }else{
-                ambient += getSkyColor(wd);
-            }
-        #else
-            float t = raycastWorldDistance(wcp*0.1+normal*EPS, wd, 256.0);
-            
-            vec3 pos = (GetViewMatrix()*vec4((wcp + wd*t)*0.1, 1)).xyz;
-            vec4 projPos = GetProjectionMatrix()*vec4(pos, 1);
-            float linearDepth = ((projPos.w-NEAR)/(FAR-NEAR));
-            vec2 uv = ViewToUV(pos);
-            float depth = texture(DEPTH_TEXTURE, uv).r;
-            
-            if(t == 256.0){
-                ambient += getSkyColor(wd);
-            }else{
-                if(linearDepth > depth - 0.001){ // If point hits depth
-                    if(linearDepth < depth + 0.001){ // If point not visible
-                        ambient += texture(LIGHT_TEXTURE, uv).rgb;
-                    }
-                }else{
-                    if(t == 256.0){
-                        ambient += getSkyColor(wd);
-                    }
+                if(hit.t == INF){
+                    ambient += getSkyColor(wd);
                 }
             }
-            
-        #endif
+        }
         
     }
     

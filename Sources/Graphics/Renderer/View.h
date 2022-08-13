@@ -29,4 +29,5 @@ struct ViewData {
 	int DepthTextureRID;
 	int PalleteColorRID;
 	int PalleteMaterialRID;
+	int BlueNoiseRID;
 };

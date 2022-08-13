@@ -51,6 +51,7 @@ class WorldRenderer {
 
 public:
 	bool raytracing = true;
+	bool raytraceGBuffer = false;
 
 	WorldRenderer();
 	~WorldRenderer() {
