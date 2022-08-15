@@ -3,23 +3,29 @@
 #include "Graphics/Graphics.h"
 #include "Util/FileUtil.h"
 
-class RayTracePass {
+class PathTracePass {
     Pipeline pipeline;
 public:
-    RayTracePass() {
+    PathTracePass() {
         pipeline = CreatePipeline({
-            .CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/RayTrace.comp.spv")
+            .CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/PathTrace.comp.spv")
         });
     }
 
-    void Use(Image& dstColor, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer) {
+    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer) {
         struct PushConstant {
             int ColorTextureRID;
+            int NormalTextureRID;
+            int VisibilityTextureRID;
+            int DepthTextureRID;
             int ViewBufferRID;
             int BVHBufferRID;
             int BVHLeafsBufferRID;
         } pc {
             .ColorTextureRID = GetRID(dstColor),
+            .NormalTextureRID = GetRID(gbuffer.normal),
+            .VisibilityTextureRID = GetRID(gbuffer.visibility),
+            .DepthTextureRID = GetRID(gbuffer.depthf),
             .ViewBufferRID = GetRID(viewBuffer),
             .BVHBufferRID = GetRID(bvhBuffer),
             .BVHLeafsBufferRID = GetRID(bvhLeafsBuffer)
@@ -31,8 +37,8 @@ public:
         CmdDispatch((extent.width+7)/8, (extent.height+7)/8, 1);
     }
 
-    static RayTracePass& Get() {
-        static RayTracePass Instance;
+    static PathTracePass& Get() {
+        static PathTracePass Instance;
         return Instance;
     }
 };

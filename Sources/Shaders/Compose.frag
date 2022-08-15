@@ -169,7 +169,7 @@ void main() {
     vec3 light = texelFetch(LIGHT_TEXTURE, ivec2 (uv*res), 0).rgb;
     vec3 reflection = texelFetch(REFLECTION_TEXTURE, ivec2(uv*res), 0).rgb;
     
-    vec3 color = light*albedo.rgb+reflection*albedo.rgb;
+    vec3 color = light+reflection*albedo.rgb;
     
     // Add Bloom
     color += texture(Sampler2D[_Bloom0TextureRID], uv).rgb;

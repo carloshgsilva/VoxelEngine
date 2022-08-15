@@ -1,0 +1,59 @@
+#include "Common.frag"
+
+PUSH(
+    int OutRadianceTextureRID;
+    int InRadianceTextureRID;
+    int NormalTextureRID;
+    int DepthTextureRID;
+    int _ViewBufferRID;
+)
+
+#define IMPORT
+#include "View.frag"
+#include "Denoiser.frag"
+
+COMPUTE(8, 8, 1)
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    vec2 uv = vec2(pixel)*GetiRes();
+    vec3 o = GetCameraPosition();
+    vec3 d = UVToRayDir(uv);
+
+    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    vec3 normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    vec3 pos = o + d * t;
+
+    
+    vec3 acc = vec3(0.0);
+    vec3 variance = vec3(0.0);
+    float total = 0.0;
+    float size = 4;
+    float radius = 0.0;
+    for(float angle = 0; radius < size; angle += GOLDEN_ANGLE) {
+        vec2 offset = vec2(cos(angle), sin(angle))*radius*2.0;
+        ivec2 nPixel = pixel + ivec2(offset);
+        vec2 nUV = vec2(nPixel)*GetiRes();
+        vec3 nDir = UVToRayDir(nUV);
+        float nT = texelFetch(Sampler2D[DepthTextureRID], nPixel, 0).x;
+        vec3 nPos = o + nDir * nT;
+
+        vec3 nNormal = texelFetch(Sampler2D[NormalTextureRID], nPixel, 0).xyz;
+        
+        float w = RadiusWeight(radius, size);
+        w *= IsInsideScreenWeight(uv);
+        w *= NormalWeight(normal, nNormal);
+        w *= PlaneWeight(pos, normal, nPos);
+
+        vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
+        acc += w*radiance;
+        variance = radiance*radiance*w;
+        total += w;
+        
+        radius += 1.0/max(radius, 0.5);
+    }
+    
+    acc /= max(total, EPS);
+    variance /= max(total, EPS);
+
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc,1));
+}

@@ -105,11 +105,30 @@ bool IntersectRayAABB(vec3 o, vec3 d, vec3 aabb_min, vec3 aabb_max, out float ou
 }
 
 vec3 CosineSampleHemisphere(vec2 rand, vec3 direction) {
+    float r = sqrt(rand.x);
+    float theta = 6.2831853 * rand.y;
+    float x = r * cos(theta);
+    float y = r * sin(theta);
+
+	vec3 s = vec3(x, y, sqrt(max(0.0, 1.0 - rand.x)));
+
+	vec3 T = normalize(cross(vec3(1,0,0), direction));
+	if(isnan(dot(T, vec3(1)))) T = normalize(cross(vec3(0,1,0), direction));
+	vec3 B = normalize(cross(T, direction));
+	vec3 N = direction;
+ 
+    return normalize(s.x*T + s.y*B + s.z*N);
+}
+
+/*
+vec3 CosineSampleHemisphere(vec2 rand, vec3 direction) {
 	float theta = 6.2831853 * rand.x;
 	float u = 2.0 * rand.y - 1.0;
 	float r = sqrt(1.0 - u * u);
-	return normalize(direction + vec3(r * cos(theta), r * sin(theta), u));
+
+	return normalize(direction*0.99 + vec3(r * cos(theta), r * sin(theta), u));
 }
+*/
 
 uint xorshift32(inout uint s) {
 	/* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */

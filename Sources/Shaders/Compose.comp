@@ -1,0 +1,64 @@
+#include "Common.frag"
+
+PUSH(
+    int OutColorTextureRID;
+    int InRadianceTextureRID;
+    int VisibilityTextureRID;
+    int DepthTextureRID;
+    int _ViewBufferRID;
+)
+
+#define IMPORT
+#include "View.frag"
+
+
+vec3 aces(vec3 x) {
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+vec3 filmic(vec3 x) {
+  vec3 X = max(vec3(0.0), x - 0.004);
+  vec3 result = (X * (6.2 * X + 0.5)) / (X * (6.2 * X + 1.7) + 0.06);
+  return pow(result, vec3(2.2));
+}
+
+
+COMPUTE(8, 8, 1)
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    vec2 uv = vec2(pixel)*GetiRes();
+    vec3 o = GetCameraPosition();
+    vec3 d = UVToRayDir(uv);
+
+
+    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
+    vec3 pos = o + d * t;
+
+    uint palleteId = 0;
+    uint vox = 0;
+    UnpackVisibility(visibility, palleteId, vox);
+    vec3 albedo = texelFetch(PALLETE_COLOR_TEXTURE, ivec2(vox, palleteId), 0).xyz;
+    vec3 material = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(vox, palleteId), 0).xyz;
+    
+    vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz;
+
+    vec3 outColor = (radiance + material.z*10.0)*albedo;
+
+    float exposure = 1.0;
+    // exposure tone mapping
+    vec3 mapped = vec3(1.0) - exp(-outColor * exposure);
+
+    //mapped = filmic(mapped);
+    mapped = aces(mapped);
+
+    // gamma correction 
+    mapped = pow(mapped, vec3( 1.0 / 2.2));
+
+    imageStore(Image2DW[OutColorTextureRID], pixel, vec4(outColor,1));
+}

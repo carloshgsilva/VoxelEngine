@@ -21,18 +21,28 @@ BINDING_BUFFER_R(ViewBuffer,
     int _PalleteMaterialRID;
 	int BlueNoiseRID;
 )
+#define VIEW ViewBuffer[_ViewBufferRID]
 
-mat4 GetLastViewMatrix(){ return ViewBuffer[_ViewBufferRID].LastViewMatrix; }
-mat4 GetViewMatrix(){ return ViewBuffer[_ViewBufferRID].ViewMatrix; }
-mat4 GetInverseViewMatrix(){ return ViewBuffer[_ViewBufferRID].InverseViewMatrix; }
-mat4 GetProjectionMatrix(){ return ViewBuffer[_ViewBufferRID].ProjectionMatrix; }
-mat4 GetInverseProjectionMatrix(){ return ViewBuffer[_ViewBufferRID].InverseProjectionMatrix; }
-vec2 GetRes(){ return ViewBuffer[_ViewBufferRID].Res; }
-vec2 GetiRes(){ return ViewBuffer[_ViewBufferRID].iRes; }
-vec3 GetCameraPosition(){ return ViewBuffer[_ViewBufferRID].CameraPosition; }
-vec2 GetJitter(){ return ViewBuffer[_ViewBufferRID].Jitter; }
-int GetFrame(){ return ViewBuffer[_ViewBufferRID].Frame; }
+mat4 GetLastViewMatrix(){ return VIEW.LastViewMatrix; }
+mat4 GetViewMatrix(){ return VIEW.ViewMatrix; }
+mat4 GetInverseViewMatrix(){ return VIEW.InverseViewMatrix; }
+mat4 GetProjectionMatrix(){ return VIEW.ProjectionMatrix; }
+mat4 GetInverseProjectionMatrix(){ return VIEW.InverseProjectionMatrix; }
+vec2 GetRes(){ return VIEW.Res; }
+vec2 GetiRes(){ return VIEW.iRes; }
+vec3 GetCameraPosition(){ return VIEW.CameraPosition; }
+vec2 GetJitter(){ return VIEW.Jitter; }
+int GetFrame(){ return VIEW.Frame; }
 
+vec2 WorldToUVLastView(vec3 world) {
+    vec3 view = (VIEW.LastViewMatrix*vec4(world, 1)).xyz;
+    vec4 p = GetProjectionMatrix() * vec4(view, 1.0);
+    return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;
+}
+
+vec3 WorldToView(vec3 p) {
+    return (GetViewMatrix()*vec4(p, 1)).xyz;
+}
 vec2 ViewToUV(vec3 pos) {
     vec4 p = GetProjectionMatrix() * vec4(pos, 1.0);
     return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;

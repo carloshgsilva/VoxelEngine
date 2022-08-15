@@ -105,7 +105,10 @@ vec3 calculateAmbientIrradiance(vec3 pos, vec3 normal) {
     vec3 randomVec = cosineSampleHemisphere(randNoise.xy);
     vec3 dir = tangent*randomVec.x + bitangent*randomVec.y + normal*randomVec.z;
     
-    float d = raycastWorldDistance(pos+normal*EPS, dir,32.0)/32.0;
+    TraceHit hit;
+    RayTrace(pos+normal*EPS, dir, hit, 32.0);
+    float d = hit.t/32.0;
+
     occlusion += 1.0/(d);
     //return vec3((1.0-occlusion*0.3)*AMBIENT_LIGHT_FACTOR);
     //return (d==1)?texture(SKY_BOX_TEXTURE, dir).rgb*0.5:vec3(0.0);
@@ -126,15 +129,6 @@ void main() {
     vec4 matl = texture(MATERIAL_TEXTURE, uv);
     vec3 pos = UVDepthToView(uv, depth); // ViewSpace
     vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
-
-    if(false) {
-        vec3 wpos = (GetInverseViewMatrix() * vec4(0,0,0,1)).xyz;
-        vec3 wdir = (GetInverseViewMatrix()*vec4(normalize(pos), 0.0)).xyz;
-        float v = raycastWorldDistance(wpos, wdir, 128.0);
-
-        out_Color = vec4(v < 128.0, 0.0, 0.0, 1.0);
-        return;
-    }
 
     if(depth < 0.999){
         float shadow = 1.0;

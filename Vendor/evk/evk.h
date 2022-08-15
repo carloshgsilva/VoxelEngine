@@ -41,6 +41,7 @@ namespace evk {
         RGBA16Sfloat,
         RGBA16Unorm,
         RGBA16Snorm,
+        R32Sfloat,
         RG32Sfloat,
         RGB32Sfloat,
         RGBA32Sfloat,

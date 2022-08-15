@@ -9,6 +9,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 #define GOLDEN_RATIO 2.118033988749895
+#define GOLDEN_ANGLE 2.39996322972865332
 #define MATH_PI 3.14159265359
 
 #define INF 100000.0
@@ -16,6 +17,18 @@
 
 const float NEAR = 0.1;
 const float FAR = 4096.0;
+
+float Luminance(vec3 c) {
+    return dot(c, vec3(0.2125, 0.7154, 0.0721));
+}
+
+uint PackVisiblity(uint palleteId, uint voxel) {
+    return (palleteId << 16) | (voxel);
+}
+void UnpackVisibility(uint packed, out uint palleteId, out uint voxel) {
+    palleteId = (packed >> 16) & 0xFFFFu;
+    voxel = (packed >> 0) & 0xFFFFu;
+}
 
 struct PointLight {
     vec3 Position;
@@ -61,8 +74,6 @@ BINDING_BUFFER(VoxCmdsBuffer,        \
     VoxCmd Cmds[4096];            \
 )                                    \
 VoxCmd GetVoxCmd(int index) { return VoxCmdsBuffer[_VoxCmdsBufferRID].Cmds[index]; } \
-
-
 
 //View Textures
 #define LAST_COLOR_TEXTURE Sampler2D[_LastColorTextureRID]

@@ -62,6 +62,9 @@ bool volumeSparseRaycastDistance(vec3 origin, vec3 dir, out vec3 hit, int volume
 
 bool intersectVolume(vec3 origin, vec3 direction, out vec3 hit, out vec3 normal, out uint material, int volumeRID){
     ivec3 u_VolumeDimension = textureSize(USampler3D[volumeRID], 0);
+    if(abs(direction.x) <= 1e-16) direction.x = EPS;
+    if(abs(direction.y) <= 1e-16) direction.y = EPS;
+    if(abs(direction.z) <= 1e-16) direction.z = EPS;
 
     vec3 stepSign = sign(direction);
     vec3 t_delta = 1.0/(direction*stepSign);
@@ -118,8 +121,7 @@ bool intersectVolume(vec3 origin, vec3 direction, out vec3 hit, out vec3 normal,
 
 struct TraceHit {
     float t;
-    int palleteId;
-    uint voxel;
+    uint visibility;
     int objectId;
     vec3 normal;
 
@@ -164,10 +166,12 @@ bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
                     vec3 outNormal = vec3(0.0);
                     uint outMat = 0;
                     if(intersectVolume(local_o*10.0, local_d, hitPos, outNormal, outMat, leaf.volumeRID)){
-                        hit.debug.z += 0.5;
+                        //hit.debug.z += 0.5;
                         float v_t = dot((mat*vec4(hitPos*0.1, 1.0)).xyz - o, d);
                         if(v_t < hit.t) {
+                            hit.debug = fract(vec3(outMat)*vec3(314.412, 642.451, 41251.671));
                             hit.t = v_t;
+                            hit.visibility = PackVisiblity(leaf.palleteID, outMat);
                             hit.normal = (mat*vec4(outNormal, 0)).xyz;
                         }
                     }
@@ -191,80 +195,6 @@ bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
 bool RayTraceShadow(vec3 o, vec3 d, float t) {
     TraceHit hit;
     return RayTrace(o, d, hit, t);
-}
-
-float raycastWorldDistance(vec3 pos, vec3 dir, float max_t){
-    float best_t = max_t;
-    
-    int current_node = 0;
-
-    int visit_next_index = -1;
-    int visit_next[32];
-
-    for(int i=0;i<100;i++){
-        BVHNode node = BVHBuffer[BVHBufferRID].nodes[current_node];
-        float nt =  RayCastAABB(pos, dir, node.min, node.max);
-
-        if(nt < best_t){
-            if(node.leaf != -1){
-                
-                BVHLeaf leaf = BVHLeafsBuffer[BVHLeafsBufferRID].leafs[node.leaf];
-                mat4 mat = mat4(
-                    vec4(leaf.right, 0),
-                    vec4(leaf.up, 0),
-                    vec4(leaf.forward, 0),
-                    vec4(leaf.position, 1)
-                );
-                vec3 size = vec3(100.0);//vec3((leaf.packedSize & 0xFFu), (leaf.packedSize & 0xFF00u) >> 8, (leaf.packedSize & 0xFF0000u) >> 16)*100.0;
-            
-                float t;
-                if(RayOBBCast(mat, size, pos, dir, t)){
-                    if(t < best_t){
-                        //best_t = t;
-
-                        if(t < 0)t = 0;
-
-                        #if 0
-
-                        vec3 pos = pos + dir*(t-0.0001);
-                        vec3 hitPos;
-                        mat4 invMat = inverse(mat);
-                        vec3 rayPos = (invMat*vec4(pos,1)).xyz*10.0;
-                        if(volumeSparseRaycastDistance(rayPos, normalize((invMat*vec4(dir,0)).xyz), hitPos, leaf.volumeRID)){
-                            best_t = min(best_t, t + distance(rayPos, hitPos));
-                        }
-
-                        #else
-
-                        vec3 pos = pos + dir*(t-0.0001);
-                        vec3 hitPos;
-                        mat4 invMat = inverse(mat);
-                        vec3 rayPos = (invMat*vec4(pos,1)).xyz*10.0;
-                        vec3 outNormal = vec3(0.0);
-                        uint outMat = 0;
-                        if(intersectVolume(rayPos, normalize((invMat*vec4(dir,0)).xyz), hitPos, outNormal, outMat, leaf.volumeRID)){
-                            best_t = min(best_t, t + distance(rayPos, hitPos));
-                        }
-
-                        #endif
-                    }
-                }
-
-                //best_t = nt;
-            }else{
-                visit_next[++visit_next_index] = node.second;
-                current_node++;
-                continue;
-            }
-        }
-        
-        if(visit_next_index == -1){
-            break;
-        }else{
-            current_node = visit_next[visit_next_index--];
-        }
-    }
-    return best_t;
 }
 
 #endif

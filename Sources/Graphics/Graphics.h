@@ -12,10 +12,12 @@ using namespace evk;
 
 struct GBuffer {
 	Image color;
+	Image visibility;
 	Image normal;
 	Image material;
 	Image motion;
 	Image depth;
+	Image depthf;
 
 	GBuffer() {}
 	GBuffer(uint32 width, uint32 height) {
@@ -27,6 +29,9 @@ struct GBuffer {
 		desc.format = Format::BGRA8Unorm;
 		color = CreateImage(desc);
 
+		desc.format = Format::R32Uint;
+		visibility = CreateImage(desc);
+
 		desc.format = Format::RGBA8Snorm;
 		normal = CreateImage(desc);
 
@@ -36,8 +41,13 @@ struct GBuffer {
 		desc.format = Format::RG16Sfloat;
 		motion = CreateImage(desc);
 
+		desc.format = Format::R32Sfloat;
+		depthf = CreateImage(desc);
+
 		desc.format = Format::D24UnormS8Uint;
+		desc.usage = ImageUsage::Sampled | ImageUsage::Attachment;
 		depth = CreateImage(desc);
+
 	}
 	
 	inline static std::vector<Format> Attachments() {

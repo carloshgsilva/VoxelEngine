@@ -1,0 +1,90 @@
+#include "Common.frag"
+
+PUSH(
+    int OutRadianceTextureRID;
+    int InRadianceTextureRID;
+    int NormalTextureRID;
+    int DepthTextureRID;
+    int _ViewBufferRID;
+    int Size;
+)
+
+#define IMPORT
+#include "View.frag"
+#include "Denoiser.frag"
+
+float CalculateVariance(ivec2 pixel) {
+    const float KERNEL[2][2] = {
+        {1.0/4.0, 1.0/8.0},
+        {1.0/8.0, 1.0/16.0}
+    };
+
+    vec3 mean = vec3(0);
+    vec3 mean2 = vec3(0);
+    for(int x = -1; x <= 1; x++) {
+        for(int y = -1; y <= 1; y++) {
+            ivec2 nPixel = pixel + ivec2(x, y);
+            vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
+            float k = KERNEL[abs(x)][abs(y)];
+
+            mean += nRadiance * k;
+            mean2 += nRadiance * nRadiance * k;
+        }
+    }
+
+    float meanLum = Luminance(mean);
+    return max(Luminance(mean2) - meanLum * meanLum, 0);
+}
+
+COMPUTE(8, 8, 1)
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    vec2 uv = vec2(pixel)*GetiRes();
+    vec3 o = GetCameraPosition();
+    vec3 d = UVToRayDir(uv);
+
+    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    vec3 normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    vec3 pos = o + d * t;
+
+    vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
+    vec3 radiance = radianceVar.xyz;
+    float lastVariance = radianceVar.w;
+    float luminance = Luminance(radiance);
+    float variance = CalculateVariance(pixel);
+    float phi = max(1e-4, sqrt(variance));
+    
+    vec3 acc = radiance;
+    float total = 1.0;
+    for(int x = -1; x <= 1; x++) {
+        for(int y = -1; y <= 1; y++) {
+            if(x == 0 && y == 0) continue;
+
+            ivec2 offset = ivec2(x, y)*Size;
+            ivec2 nPixel = pixel + offset;
+            vec2 nUV = vec2(nPixel)*GetiRes();
+            vec3 nDir = UVToRayDir(nUV);
+            float nT = texelFetch(Sampler2D[DepthTextureRID], nPixel, 0).x;
+            vec3 nPos = o + nDir * nT;
+            vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
+            float nLuminance = Luminance(nRadiance);
+
+            vec3 nNormal = texelFetch(Sampler2D[NormalTextureRID], nPixel, 0).xyz;
+            
+            const float GAUSSIAN[2] = {0.44198, 0.27901};
+            float w = GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
+            float luminanceWeight = 2.0 * min(abs(luminance - nLuminance) / phi, 1.5);
+            w *= exp(-luminanceWeight);
+            w *= IsInsideScreenWeight(uv);
+            w *= NormalWeight(normal, nNormal);
+            w *= PlaneWeight(pos, normal, nPos);
+            w = clamp(w, 0, 1);
+
+            acc += w*nRadiance;
+            total += w;
+        }
+    }
+
+    acc /= total;
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, 1.0));
+}

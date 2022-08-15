@@ -16,7 +16,7 @@ public:
         struct PushConstant {
             int ColorTextureRID;
             int NormalTextureRID;
-            int MaterialTextureRID;
+            int VisibilityTextureRID;
             int MotionTextureRID;
             int DepthTextureRID;
             int ViewBufferRID;
@@ -25,9 +25,9 @@ public:
         } pc {
             .ColorTextureRID = GetRID(gbuffer.color),
             .NormalTextureRID = GetRID(gbuffer.normal),
-            .MaterialTextureRID = GetRID(gbuffer.material),
+            .VisibilityTextureRID = GetRID(gbuffer.visibility),
             .MotionTextureRID = GetRID(gbuffer.motion),
-            .DepthTextureRID = GetRID(gbuffer.depth),
+            .DepthTextureRID = GetRID(gbuffer.depthf),
             .ViewBufferRID = GetRID(viewBuffer),
             .BVHBufferRID = GetRID(bvhBuffer),
             .BVHLeafsBufferRID = GetRID(bvhLeafsBuffer)
