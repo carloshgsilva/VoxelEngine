@@ -1,5 +1,5 @@
-﻿cmake_minimum_required (VERSION 3.7)
-project ("VoxelEngine")
+﻿cmake_minimum_required(VERSION 3.7)
+project("VoxelEngine")
 
 set(CMAKE_CONFIGURATION_TYPES Debug Release CACHE STRING INTERNAL FORCE)
 

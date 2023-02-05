@@ -8,13 +8,16 @@
 #include <filesystem>
 
 #if defined(_DEBUG) || defined(EVK_DEBUG)
-    #define EVK_ASSERT(cond, message, ...) \
-    if(!(cond)){printf("\033[1;33m" __FUNCTION__ "() \033[1;31m" message "\033[0m", __VA_ARGS__); abort(); }
+#define EVK_ASSERT(cond, message, ...)                                                    \
+    if (!(cond)) {                                                                        \
+        printf("\033[1;33m" __FUNCTION__ "() \033[1;31m" message "\033[0m", __VA_ARGS__); \
+        abort();                                                                          \
+    }
 
-    #define CHECK_VK(cmd) EVK_ASSERT(cmd == VK_SUCCESS, #cmd) // printf("%s\n", #cmd);
+#define CHECK_VK(cmd) EVK_ASSERT(cmd == VK_SUCCESS, #cmd)  // printf("%s\n", #cmd);
 #else
-    #define EVK_ASSERT(cond, message, ...)
-    #define CHECK_VK(cmd) cmd
+#define EVK_ASSERT(cond, message, ...)
+#define CHECK_VK(cmd) cmd
 #endif
 
 namespace evk {
@@ -29,7 +32,7 @@ namespace evk {
         VkSemaphore cmdDoneSemaphore;
         bool doingPresent = false;
         bool insideRenderPass = false;
-        VkFence fence; // for the queue submit
+        VkFence fence;  // for the queue submit
 
         // performance queries
         VkQueryPool queryPool;
@@ -62,27 +65,27 @@ namespace evk {
         VmaAllocator allocator;
         float timestampPeriod;
 
-        //Descriptors
+        // Descriptors
         VkDescriptorPool descriptorPool;
         VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorSet descriptorSet;
-        int descriptorIndexBuffer                  = 0;
-        int descriptorIndexImage                   = 0;
+        int descriptorIndexBuffer = 0;
+        int descriptorIndexImage = 0;
         std::vector<int> freeIndexBuffer;
         std::vector<int> freeIndexImage;
         VkPipelineLayout pipelineLayout;
 
-        //Swapchain
+        // Swapchain
         VkSurfaceKHR surface;
         VkSwapchainKHR swapchain;
-        uint32_t swapchainIndex                    = 0;
-        uint32_t swapchainSemaphoreIndex           = 0;
+        uint32_t swapchainIndex = 0;
+        uint32_t swapchainSemaphoreIndex = 0;
 
-        std::vector<FrameData> frames              = {};
-        uint32_t frame                             = 0;
-        uint32_t frame_total                       = 0;
+        std::vector<FrameData> frames = {};
+        uint32_t frame = 0;
+        uint32_t frame_total = 0;
 
-        //Raytracing
+        // Raytracing
         struct TLAS {
             VkAccelerationStructureKHR accel;
             Buffer buffer;
@@ -97,7 +100,7 @@ namespace evk {
         PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
         PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
 
-        //Pfns
+        // Pfns
         PFN_vkDebugMarkerSetObjectNameEXT vkDebugMarkerSetObjectNameEXT;
     };
     State& GetState();
@@ -112,7 +115,7 @@ namespace evk {
         void* mappedData = {};
         ~Internal_Buffer() {
             vmaDestroyBuffer(GetState().allocator, buffer, allocation);
-            //Free descriptor index
+            // Free descriptor index
             EVK_ASSERT(resourceid != -1, "destroying buffer '%s' with RID = -1", desc.name.c_str());
             GetState().freeIndexBuffer.push_back(resourceid);
         }
@@ -132,14 +135,13 @@ namespace evk {
             if (allocation != nullptr) {
                 vmaFreeMemory(S.allocator, allocation);
                 vkDestroyImage(S.device, image, nullptr);
-                //Free descriptor index
+                // Free descriptor index
                 {
                     EVK_ASSERT(resourceid != -1, "destroying image '%s' with RID = -1", desc.name.c_str());
                     GetState().freeIndexImage.push_back(resourceid);
                     resourceid = -1;
                 }
             }
-
         }
     };
     struct Internal_Pipeline : Resource {
@@ -150,7 +152,6 @@ namespace evk {
             vkDestroyPipeline(GetState().device, pipeline, nullptr);
         }
     };
-
 #if EVK_RT
     struct Internal_BLAS : Resource {
         struct BLASInput {
@@ -164,15 +165,22 @@ namespace evk {
         VkAccelerationStructureBuildSizesInfoKHR sizeInfo = {};
         VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
         Buffer buffer;
-        
+
         ~Internal_BLAS() {
             GetState().vkDestroyAccelerationStructureKHR(GetState().device, accel, nullptr);
         }
     };
-    static inline Internal_BLAS& ToInternal(const rt::BLAS& ref){ return *((Internal_BLAS*)ref.res); }
+    static inline Internal_BLAS& ToInternal(const rt::BLAS& ref) {
+        return *((Internal_BLAS*)ref.res);
+    }
 #endif
 
-    static inline Internal_Image& ToInternal(const Image& ref){ return *((Internal_Image*)ref.res); }
-    static inline Internal_Buffer& ToInternal(const Buffer& ref){ return *((Internal_Buffer*)ref.res); }
-    static inline Internal_Pipeline& ToInternal(const Pipeline& ref){ return *((Internal_Pipeline*)ref.res); }
-}
+#define DEFINE_TO_INTERNAL(libClass)                                     \
+    static inline Internal_##libClass& ToInternal(const libClass& ref) { \
+        return *((Internal_##libClass*)ref.res);                         \
+    }
+
+    DEFINE_TO_INTERNAL(Image)
+    DEFINE_TO_INTERNAL(Buffer)
+    DEFINE_TO_INTERNAL(Pipeline)
+}  // namespace evk

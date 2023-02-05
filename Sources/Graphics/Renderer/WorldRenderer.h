@@ -12,58 +12,57 @@
 
 #include <glm/vec3.hpp>
 
-//Handles all the state required to Render a World
+// Handles all the state required to Render a World
 class WorldRenderer {
+    View lastView = {};
 
-	View lastView = {};
+    AssetRefT<ImageAsset> _BlueNoise;
+    AssetRefT<SkyBoxAsset> _DefaultSkyBox;
+    PerFrame<Buffer> _ViewBuffer;
 
-	AssetRefT<ImageAsset> _BlueNoise;
-	AssetRefT<SkyBoxAsset> _DefaultSkyBox;
-	PerFrame<Buffer> _ViewBuffer;
+    BVHBuilder bvhBuilder = {};
+    Buffer bvhBuffer;
+    Buffer bvhLeafsBuffer;
 
-	BVHBuilder bvhBuilder = {};
-	Buffer bvhBuffer;
-	Buffer bvhLeafsBuffer;
+    int _Frame{0};
 
-	int _Frame{ 0 };
-	
-	//Framebuffers
-	GBuffer gbuffer;
+    // Framebuffers
+    GBuffer gbuffer;
 
-	Image _LastLightBuffer;
-	Image _CurrentLightBuffer;
-	Image _TAALightBuffer;
-	Image _ReflectionBuffer;
+    Image _LastLightBuffer;
+    Image _CurrentLightBuffer;
+    Image _TAALightBuffer;
+    Image _ReflectionBuffer;
 
-	Image _BloomStepBuffer;
-	std::vector<Image> _Bloom1Buffer;
-	std::vector<Image> _Bloom2Buffer;
+    Image _BloomStepBuffer;
+    std::vector<Image> _Bloom1Buffer;
+    std::vector<Image> _Bloom2Buffer;
 
-	Image _OutlineBuffer;
+    Image _OutlineBuffer;
 
-	Image _LastComposeBuffer;
-	Image _CurrentComposeBuffer;
-	Image _TAAComposeBuffer;
+    Image _LastComposeBuffer;
+    Image _CurrentComposeBuffer;
+    Image _TAAComposeBuffer;
 
-	Image _ColorBuffer;
+    Image _ColorBuffer;
 
-	struct RenderCmds* Cmds;
+    struct RenderCmds* Cmds;
 
-public:
-	bool raytracing = true;
-	bool raytraceGBuffer = false;
+   public:
+    bool raytracing = false;
+    bool rasterize = true;
 
-	WorldRenderer();
-	~WorldRenderer() {
-		delete Cmds;
-	}
+    WorldRenderer();
+    ~WorldRenderer() {
+        delete Cmds;
+    }
 
-	void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
-	void CmdVoxel(const glm::mat4& matrix, const glm::mat4& lastMatrix, Image& vox, int palleteIndex, int id = 0);
+    void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
+    void CmdVoxel(const glm::mat4& matrix, const glm::mat4& lastMatrix, Image& vox, int palleteIndex, int id = 0);
 
-	void RecreateFramebuffer(uint32 Width, uint32 Height);
+    void RecreateFramebuffer(uint32 Width, uint32 Height);
 
-	void DrawWorld(float dt, View& view, World& world);
+    void DrawWorld(float dt, View& view, World& world);
 
-	Image& GetCurrentColorImage();
+    Image& GetCurrentColorImage();
 };

@@ -28,7 +28,7 @@ vec4 getNoise(int s) {
 
 vec4 getNoise(){
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
-    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
+    return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),64)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
 }
 
 vec3 cosineSampleHemisphere(vec2 rand) {
@@ -74,7 +74,7 @@ void main() {
        
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness)*5.0+0.0;
      
-    if(depth < 0.999){
+    if(depth < 0.999 && false){
         //TODO: use R to calculate if need reflection
         //Specular Occlusion
         //Specular

@@ -119,9 +119,6 @@ void main() {
 
 
                 throughput *= 1.0*albedo;/*max(dot(d, hit.normal), 0.0)*/;// * ((depth == 0) ? vec3(1.0) : albedo);
-                
-                
-
             } else {
                 acc += vec3(0.05) * throughput;
                 break;
