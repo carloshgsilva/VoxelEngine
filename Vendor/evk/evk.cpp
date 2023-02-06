@@ -1,7 +1,5 @@
 #include "evk_internal.h"
 
-#include <shaderc/shaderc.hpp>
-
 #include <filesystem>
 #include <fstream>
 
@@ -10,16 +8,6 @@
 
 namespace evk {
     static State* GState;
-
-    const uint32_t BINDING_STORAGE = 0;
-    const uint32_t BINDING_SAMPLER = 1;
-    const uint32_t BINDING_IMAGE = 2;
-    const uint32_t BINDING_ACCSTRUCT = 3;
-
-    const uint32_t STORAGE_COUNT = 8096;
-    const uint32_t SAMPLER_COUNT = 8096;
-    const uint32_t IMAGE_COUNT = 8096;
-    const uint32_t ACCSTRUCT_COUNT = 1;
 
     const VmaMemoryUsage MEMORY_TYPE_VMA[] = {
         VmaMemoryUsage::VMA_MEMORY_USAGE_CPU_ONLY,
@@ -33,8 +21,10 @@ namespace evk {
         VkFormat format;
         size_t size;
     };
-#define FMT_C(name, vkFormat, size) \
-    { #name, Format::##name, vkFormat, size }
+#define FMT_C(name, vkFormat, size)           \
+    {                                         \
+#name, Format::##name, vkFormat, size \
+    }
     const FormatConversion FORMAT_VK[] = {
         FMT_C(Undefined, VK_FORMAT_UNDEFINED, 1),
         FMT_C(R8Uint, VK_FORMAT_R8_UINT, 1),
@@ -161,7 +151,10 @@ namespace evk {
         res->mappedData = allocInfo.pMappedData;
 
         if (desc.memoryType == MemoryType::GPU || desc.memoryType == MemoryType::CPU_TO_GPU) {
-            VkBufferDeviceAddressInfo addressInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = res->buffer};
+            VkBufferDeviceAddressInfo addressInfo = {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                .buffer = res->buffer,
+            };
             res->deviceAddress = vkGetBufferDeviceAddress(S.device, &addressInfo);
         }
 
@@ -175,15 +168,7 @@ namespace evk {
 
         // Alloc descriptor index
         {
-            int newRID = -1;
-            if (S.freeIndexBuffer.size() > 0) {
-                newRID = S.freeIndexBuffer.back();
-                S.freeIndexBuffer.pop_back();
-            } else {
-                newRID = S.descriptorIndexBuffer++;
-                EVK_ASSERT(S.descriptorIndexBuffer < STORAGE_COUNT, "Maximum number of Buffers reached!");
-            }
-            res->resourceid = newRID;
+            res->resourceid = S.bufferSlots.alloc();
 
             VkDescriptorBufferInfo info = {};
             info.buffer = res->buffer;
@@ -196,7 +181,7 @@ namespace evk {
             write.pBufferInfo = &info;
             write.dstSet = S.descriptorSet;
             write.dstBinding = BINDING_STORAGE;
-            write.dstArrayElement = newRID;
+            write.dstArrayElement = res->resourceid;
 
             vkUpdateDescriptorSets(S.device, 1, &write, 0, nullptr);
         }
@@ -329,15 +314,7 @@ namespace evk {
 
         // Alloc descriptor index
         {
-            int newRID = -1;
-            if (S.freeIndexImage.size() > 0) {
-                newRID = S.freeIndexImage.back();
-                S.freeIndexImage.pop_back();
-            } else {
-                newRID = S.descriptorIndexImage++;
-                EVK_ASSERT(S.descriptorIndexImage < IMAGE_COUNT, "Maximum number of Image reached!");
-            }
-            res->resourceid = newRID;
+            res->resourceid = S.imageSlots.alloc();
 
             // Bind for Sampler
             if ((int)desc.usage & (int)ImageUsage::Sampled) {
@@ -352,7 +329,7 @@ namespace evk {
                 write.descriptorCount = 1;
                 write.dstSet = S.descriptorSet;
                 write.dstBinding = BINDING_SAMPLER;
-                write.dstArrayElement = newRID;
+                write.dstArrayElement = res->resourceid;
                 vkUpdateDescriptorSets(S.device, 1, &write, 0, nullptr);
             }
 
@@ -369,7 +346,7 @@ namespace evk {
                 write.descriptorCount = 1;
                 write.dstSet = S.descriptorSet;
                 write.dstBinding = BINDING_IMAGE;
-                write.dstArrayElement = newRID;
+                write.dstArrayElement = res->resourceid;
                 vkUpdateDescriptorSets(S.device, 1, &write, 0, nullptr);
             }
         }
@@ -942,6 +919,9 @@ namespace evk {
                 {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, STORAGE_COUNT},
                 {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SAMPLER_COUNT},
                 {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, IMAGE_COUNT},
+#if EVK_RT
+                {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, TLAS_COUNT},
+#endif
             };
             VkDescriptorPoolCreateInfo poolci = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
             poolci.poolSizeCount = (uint32_t)poolSizes.size();
@@ -956,11 +936,11 @@ namespace evk {
                 {BINDING_SAMPLER, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SAMPLER_COUNT, VK_SHADER_STAGE_ALL},
                 {BINDING_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, IMAGE_COUNT, VK_SHADER_STAGE_ALL},
 #if EVK_RT
-                {BINDING_ACCSTRUCT, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, ACCSTRUCT_COUNT, VK_SHADER_STAGE_ALL},
+                {BINDING_TLAS, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, TLAS_COUNT, VK_SHADER_STAGE_ALL},
 #endif
             };
 
-            // Flag each set's bindings as partially bound and update after bind
+            // Flag each binding as partially bound and update after bind
             VkDescriptorSetLayoutBindingFlagsCreateInfo setLayoutBindingsFlags = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
             std::vector<VkDescriptorBindingFlags> bindingFlags = {
                 VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
@@ -1060,8 +1040,6 @@ namespace evk {
             for (auto& f : S.frames) {
                 f.image.release();
             }
-            S.vkDestroyAccelerationStructureKHR(S.device, S.tlas.accel, nullptr);
-            S.tlas.buffer.release();
         }
 
         _EndFrame();
@@ -1621,148 +1599,165 @@ namespace evk {
 #if EVK_RT
     namespace rt {
 
-        BLAS CreateBLAS(const BLASDesc& desc) {
-            auto& S = GetState();
-            Internal_BLAS* res = new Internal_BLAS();
-            // BLAS builder requires raw device addresses.
-            VkBufferDeviceAddressInfo vertexBufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = ToInternal(desc.vertices).buffer};
-            VkDeviceAddress vertexAddress = S.vkGetBufferDeviceAddressKHR(S.device, &vertexBufferInfo);
-
-            VkBufferDeviceAddressInfo indexBufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = ToInternal(desc.indices).buffer};
-            VkDeviceAddress indexAddress = S.vkGetBufferDeviceAddressKHR(S.device, &indexBufferInfo);
-
-            uint32_t maxPrimitiveCount = desc.indexCount / 3;
-
-            // Describe buffer as array of VertexObj.
-            VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
-                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-                .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-                .vertexData = {.deviceAddress = vertexAddress},
-                .vertexStride = desc.stride,
-                .maxVertex = desc.vertexCount,
-                .indexType = VK_INDEX_TYPE_UINT32,
-                .indexData = {.deviceAddress = indexAddress},
-            };
-            // Indicate identity transform by setting transformData to null device pointer.
-
-            // Identify the above data as containing opaque triangles.
-            VkAccelerationStructureGeometryKHR asGeom = {.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR, .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR, .geometry = {.triangles = triangles}, .flags = VK_GEOMETRY_OPAQUE_BIT_KHR};
-
-            // The entire array will be used to build the BLAS.
-            VkAccelerationStructureBuildRangeInfoKHR offset = {.primitiveCount = maxPrimitiveCount, .primitiveOffset = 0, .firstVertex = 0, .transformOffset = 0};
-
-            // Our blas is made from only one geometry, but could be made of many geometries
-            res->blasInput.asGeometry.emplace_back(asGeom);
-            res->blasInput.asBuildOffsetInfo.emplace_back(offset);
-
-            VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-
-            VkDeviceSize asTotalSize = 0;     // Memory size of all allocated BLAS
-            VkDeviceSize maxScratchSize = 0;  // Largest scratch size
-
-            // Preparing the information for the acceleration build commands.
-
-            // Filling partially the VkAccelerationStructureBuildGeometryInfoKHR for querying the build sizes.
-            // Other information will be filled in the createBlas (see #2)
-            res->buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-            res->buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-            res->buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-            res->buildInfo.flags = res->blasInput.flags | flags;
-            res->buildInfo.geometryCount = static_cast<uint32_t>(res->blasInput.asGeometry.size());
-            res->buildInfo.pGeometries = res->blasInput.asGeometry.data();
-
-            // Build range information
-            res->rangeInfo = offset;
-
-            // Finding sizes to create acceleration structures and scratch
-            std::vector<uint32_t> maxPrimCount(res->blasInput.asBuildOffsetInfo.size());
-            for (auto tt = 0; tt < res->blasInput.asBuildOffsetInfo.size(); tt++) {
-                maxPrimCount[tt] = res->blasInput.asBuildOffsetInfo[tt].primitiveCount;  // Number of primitives/triangles
+        struct RaytracingBuilder {
+            RaytracingBuilder() {
             }
-            res->sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-            S.vkGetAccelerationStructureBuildSizesKHR(S.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &res->buildInfo, maxPrimCount.data(), &res->sizeInfo);
 
-            // Extra info
-            asTotalSize += res->sizeInfo.accelerationStructureSize;
-            maxScratchSize = res->sizeInfo.buildScratchSize;
+            void CmdBuildBLAS(const std::vector<BLAS>& blases, bool update) {
+                auto& S = GetState();
+                VkDeviceSize batchSize = {0};
+                VkDeviceSize batchSizeLimit = {256'000'000};
 
-            Buffer scratchBuffer = CreateBuffer({
-                .name = "BLAS Scratch",
-                .size = maxScratchSize,
-                .usage = BufferUsage::Storage,  // TODO: | BufferUsage::DeviceAddress;
-                .memoryType = MemoryType::GPU,
-            });
-
-            VkBufferDeviceAddressInfo bufferInfo = {
-                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = ToInternal(scratchBuffer).buffer,
-            };
-            VkDeviceAddress scratchAddress = S.vkGetBufferDeviceAddressKHR(S.device, &bufferInfo);
-
-            std::vector<uint32_t> indices;  // Indices of the BLAS to create
-            VkDeviceSize batchSize = 0;
-            VkDeviceSize batchLimit = 256'000'000;  // 256 MB
-
-            {
-                // Actual allocation of buffer and acceleration structure.
-                res->buffer = CreateBuffer({
-                    .name = "BLAS Buffer",
-                    .size = res->sizeInfo.accelerationStructureSize,
-                    .usage = BufferUsage::Storage,  // TODO: | BufferUsage::DeviceAddress;
+                VkDeviceSize scratchSize = {0};
+                for (auto& blasRes : blases) {
+                    scratchSize = std::max(scratchSize, ToInternal(blasRes).sizeInfo.buildScratchSize);
+                }
+                Buffer scratchBuffer = CreateBuffer({
+                    .name = "BLAS Build Scratch Buffer",
+                    .size = scratchSize,
+                    .usage = BufferUsage::Storage,
                     .memoryType = MemoryType::GPU,
                 });
 
-                VkAccelerationStructureCreateInfoKHR createInfo = {
-                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-                    .buffer = ToInternal(res->buffer).buffer,
-                    .size = res->sizeInfo.accelerationStructureSize,  // Will be used to allocate memory.
-                    .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-                };
+                std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos = {};
+                std::vector<VkAccelerationStructureBuildRangeInfoKHR*> buildRanges = {};
 
-                S.vkCreateAccelerationStructureKHR(S.device, &createInfo, nullptr, &res->accel);
+                int i = 0;
+                for (auto& blasRes : blases) {
+                    Internal_BLAS& blas = ToInternal(blasRes);
+                    batchSize += blas.sizeInfo.accelerationStructureSize;
 
-                // BuildInfo #2 part
-                res->buildInfo.dstAccelerationStructure = res->accel;       // Setting where the build lands
-                res->buildInfo.scratchData.deviceAddress = scratchAddress;  // All build are using the same scratch buffer
+                    blas.buildInfo.scratchData = {ToInternal(scratchBuffer).deviceAddress};
+
+                    buildInfos.push_back(blas.buildInfo);
+                    buildRanges.push_back(blas.ranges.data());
+
+                    if (batchSize >= batchSizeLimit || i == buildInfos.size() - 1) {
+                        auto ranges = buildRanges.data();
+                        S.vkCmdBuildAccelerationStructuresKHR(GetFrame().cmd, buildInfos.size(), buildInfos.data(), buildRanges.data());
+                        Sync();
+                        buildInfos.clear();
+                        buildRanges.clear();
+                    }
+                    i++;
+                }
             }
+
+            void CmdBuildTLAS(const TLAS& tlas, bool update) {
+                auto& S = GetState();
+                Internal_TLAS& res = ToInternal(tlas);
+                Buffer scratchBuffer = CreateBuffer({
+                    .name = "TLAS Scratch",
+                    .size = res.sizeInfo.buildScratchSize,
+                    .usage = BufferUsage::Storage,
+                    .memoryType = MemoryType::GPU,
+                });
+
+                VkDeviceAddress scratchAddress = ToInternal(scratchBuffer).deviceAddress;
+
+                // Update build information
+                res.buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+                res.buildInfo.srcAccelerationStructure = res.accel;
+                res.buildInfo.dstAccelerationStructure = res.accel;
+                res.buildInfo.scratchData.deviceAddress = scratchAddress;
+
+                // Build Offsets info: n instances
+                VkAccelerationStructureBuildRangeInfoKHR buildOffsetInfo{static_cast<uint32_t>(res.instances.size()), 0, 0, 0};
+                const VkAccelerationStructureBuildRangeInfoKHR* pBuildOffsetInfo = &buildOffsetInfo;
+
+                // Build the TLAS
+                S.vkCmdBuildAccelerationStructuresKHR(GetFrame().cmd, 1, &res.buildInfo, &pBuildOffsetInfo);
+            }
+        };
+
+        BLAS CreateBLAS(const BLASDesc& desc) {
+            auto& S = GetState();
+            Internal_BLAS* res = new Internal_BLAS();
+
+            if (desc.geometry == GeometryType::Triangles) {
+                VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+                    .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+                    .vertexData = {.deviceAddress = ToInternal(desc.vertices).deviceAddress},
+                    .vertexStride = desc.stride,
+                    .maxVertex = desc.vertexCount,
+                    .indexType = VK_INDEX_TYPE_UINT32,
+                    .indexData = {.deviceAddress = ToInternal(desc.indices).deviceAddress},
+                    .transformData = {.hostAddress = nullptr},  // identity transform // TODO: support multiple geometries
+                };
+                res->geometries.push_back(VkAccelerationStructureGeometryKHR{
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                    .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+                    .geometry = {.triangles = triangles},
+                    .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+                });
+                VkAccelerationStructureBuildRangeInfoKHR range = {
+                    .primitiveCount = desc.indexCount / 3,
+                    .primitiveOffset = 0,
+                    .firstVertex = 0,
+                    .transformOffset = 0,
+                };
+                res->ranges.push_back(range);
+                res->primCounts.push_back(range.primitiveCount);
+            } else if (desc.geometry == GeometryType::AABBs) {
+                VkAccelerationStructureGeometryAabbsDataKHR aabbs = {
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,
+                    .data = ToInternal(desc.aabbs).deviceAddress,
+                    .stride = sizeof(VkAabbPositionsKHR),
+                };
+                res->geometries.push_back(VkAccelerationStructureGeometryKHR{
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                    .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+                    .geometry = {.aabbs = aabbs},
+                    .flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+                });
+                VkAccelerationStructureBuildRangeInfoKHR range = {
+                    .primitiveCount = desc.aabbsCount,
+                    .primitiveOffset = 0,
+                    .firstVertex = 0,
+                    .transformOffset = 0,
+                };
+                res->ranges.push_back(range);
+                res->primCounts.push_back(desc.aabbsCount);
+            }
+
+            res->buildInfo = VkAccelerationStructureBuildGeometryInfoKHR{
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+                .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+                .mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+                .geometryCount = static_cast<uint32_t>(res->geometries.size()),
+                .pGeometries = res->geometries.data(),
+            };
+
+            S.vkGetAccelerationStructureBuildSizesKHR(S.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &res->buildInfo, res->primCounts.data(), &res->sizeInfo);
+
+            res->buffer = CreateBuffer({
+                .name = "BLAS Buffer",
+                .size = res->sizeInfo.accelerationStructureSize,
+                .usage = BufferUsage::Storage,
+                .memoryType = MemoryType::GPU,
+            });
+            VkAccelerationStructureCreateInfoKHR createInfo = {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+                .buffer = ToInternal(res->buffer).buffer,
+                .size = res->sizeInfo.accelerationStructureSize,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+            };
+
+            S.vkCreateAccelerationStructureKHR(S.device, &createInfo, nullptr, &res->accel);
 
             return BLAS{res};
         }
 
-        void CmdBuildBLAS(BLAS blas, bool update) {
+        TLAS CreateTLAS(const std::vector<BLASInstance>& blasInstances, bool allowUpdate) {
             auto& S = GetState();
-            Internal_BLAS& res = ToInternal(blas);
-            // Building the bottom-level-acceleration-structure
-            const VkAccelerationStructureBuildRangeInfoKHR* rangeInfos = &res.rangeInfo;
-            S.vkCmdBuildAccelerationStructuresKHR(GetFrame().cmd, 1, &res.buildInfo, (const VkAccelerationStructureBuildRangeInfoKHR* const*)&rangeInfos);
+            Internal_TLAS* res = new Internal_TLAS();
 
-            // Since the scratch buffer is reused across builds, we need a barrier to ensure one build
-            // is finished before starting the next one.
-            VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-            barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-            vkCmdPipelineBarrier(GetFrame().cmd, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
-        }
-
-        void CmdBuildTLAS(std::vector<BLASInstance>& blasInstances, bool update) {
-            auto& S = GetState();
-            // if (ctx.recreateTLAS) {
-            //     update = false;
-            //     if (ctx.TLAS.accel != VK_NULL_HANDLE)
-            //     {
-            //         vkDeviceWaitIdle(device);
-            //         ctx.recreateTLAS = false;
-            //         update = false;
-            //         ctx.vkDestroyAccelerationStructureKHR(device, ctx.TLAS.accel, nullptr);
-            //         ctx.TLAS.accel = VK_NULL_HANDLE;
-            //         BufferManager::Destroy(ctx.TLAS.buffer);
-            //     }
-            // }
-
-            std::vector<VkAccelerationStructureInstanceKHR> instances;
+            std::vector<VkAccelerationStructureInstanceKHR> instances = {};
             instances.reserve(blasInstances.size());
             for (int i = 0; i < blasInstances.size(); i++) {
-                BLASInstance& blasInstance = blasInstances[i];
+                const BLASInstance& blasInstance = blasInstances[i];
                 Internal_BLAS& internalBlas = ToInternal(blasInstance.blas);
 
                 VkAccelerationStructureDeviceAddressInfoKHR addressInfo = {
@@ -1794,88 +1789,81 @@ namespace evk {
                 });
             }
 
-            VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
-            EVK_ASSERT(S.tlas.accel == VK_NULL_HANDLE || update, "TLAS already created!");
+            VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+            if (allowUpdate) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+
             uint32_t countInstance = (uint32_t)instances.size();
 
-            Buffer instancesBuffer =
-                CreateBuffer({.name = "Instances Buffer", .size = sizeof(VkAccelerationStructureInstanceKHR) * instances.size(), .usage = BufferUsage::Storage | BufferUsage::AccelerationStructure, .memoryType = MemoryType::CPU_TO_GPU});
-            WriteBuffer(instancesBuffer, instances.data(), instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-
-            VkBufferDeviceAddressInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = ToInternal(instancesBuffer).buffer};
-            VkDeviceAddress instancesBufferAddr = S.vkGetBufferDeviceAddressKHR(S.device, &bufferInfo);
+            res->instancesBuffer = CreateBuffer({
+                .name = "Instances Buffer",
+                .size = sizeof(VkAccelerationStructureInstanceKHR) * instances.size(),
+                .usage = BufferUsage::Storage | BufferUsage::AccelerationStructure,
+                .memoryType = MemoryType::CPU_TO_GPU,
+            });
+            WriteBuffer(res->instancesBuffer, instances.data(), instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 
             VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
             vkCmdPipelineBarrier(GetFrame().cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
-            Buffer scratchBuffer;
 
-            // command create TLAS
-            bool motion = false;
-
-            // Wraps a device pointer to the above uploaded instances.
-            VkAccelerationStructureGeometryInstancesDataKHR instancesVk{};
-            instancesVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-            instancesVk.data.deviceAddress = instancesBufferAddr;
-
-            // Put the above into a VkAccelerationStructureGeometryKHR. We need to put the instances struct in a union
-            // and label it as instance data.
-            VkAccelerationStructureGeometryKHR topASGeometry{};
-            topASGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-            topASGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-            topASGeometry.geometry.instances = instancesVk;
+            VkAccelerationStructureGeometryInstancesDataKHR instancesVk = {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+                .data = {ToInternal(res->instancesBuffer).deviceAddress},
+            };
+            res->geometry = {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+                .geometry = {.instances = instancesVk},
+            };
 
             // Find sizes
-            VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
-            buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-            buildInfo.flags = flags;
-            buildInfo.geometryCount = 1;
-            buildInfo.pGeometries = &topASGeometry;
-            buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-            buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-            buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
+            res->buildInfo = VkAccelerationStructureBuildGeometryInfoKHR{
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+                .flags = flags,
+                .mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+                .srcAccelerationStructure = VK_NULL_HANDLE,
+                .geometryCount = 1,
+                .pGeometries = &res->geometry,
+            };
 
-            VkAccelerationStructureBuildSizesInfoKHR sizeInfo = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-            S.vkGetAccelerationStructureBuildSizesKHR(S.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &countInstance, &sizeInfo);
+            res->sizeInfo = VkAccelerationStructureBuildSizesInfoKHR{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+            S.vkGetAccelerationStructureBuildSizesKHR(S.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &res->buildInfo, &countInstance, &res->sizeInfo);
 
-            if (!update) {
-                S.tlas.buffer = CreateBuffer({.name = "TLAS Buffer", .size = sizeInfo.accelerationStructureSize, .usage = BufferUsage::Storage | BufferUsage::AccelerationStructure, .memoryType = MemoryType::GPU});
+            res->buffer = CreateBuffer({
+                .name = "TLAS Buffer",
+                .size = res->sizeInfo.accelerationStructureSize,
+                .usage = BufferUsage::Storage | BufferUsage::AccelerationStructure,
+                .memoryType = MemoryType::GPU,
+            });
 
-                VkAccelerationStructureCreateInfoKHR createInfo = {
-                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, .buffer = ToInternal(S.tlas.buffer).buffer, .size = sizeInfo.accelerationStructureSize, .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR};
-                S.vkCreateAccelerationStructureKHR(S.device, &createInfo, nullptr, &S.tlas.accel);
+            VkAccelerationStructureCreateInfoKHR createInfo = {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+                .buffer = ToInternal(res->buffer).buffer,
+                .size = res->sizeInfo.accelerationStructureSize,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+            };
+            S.vkCreateAccelerationStructureKHR(S.device, &createInfo, nullptr, &res->accel);
 
-                VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelerationStructure = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, .accelerationStructureCount = 1, .pAccelerationStructures = &S.tlas.accel};
+            res->resourceid = S.tlasSlots.alloc();
+            VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelerationStructure = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                .accelerationStructureCount = 1,
+                .pAccelerationStructures = &res->accel,
+            };
+            VkWriteDescriptorSet writeDescSet = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = &descriptorAccelerationStructure,
+                .dstSet = S.descriptorSet,
+                .dstBinding = BINDING_TLAS,
+                .dstArrayElement = static_cast<uint32_t>(res->resourceid),
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            };
+            vkUpdateDescriptorSets(S.device, 1, &writeDescSet, 0, nullptr);
 
-                VkWriteDescriptorSet writeDescSet = {
-                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                    .pNext = &descriptorAccelerationStructure,
-                    .dstSet = S.descriptorSet,
-                    .dstBinding = BINDING_ACCSTRUCT,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-                };
-                vkUpdateDescriptorSets(S.device, 1, &writeDescSet, 0, nullptr);
-            }
-
-            scratchBuffer = CreateBuffer({.name = "TLAS Scratch", .size = sizeInfo.buildScratchSize, .usage = BufferUsage::Storage, .memoryType = MemoryType::GPU});
-
-            VkBufferDeviceAddressInfo scratchInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = ToInternal(scratchBuffer).buffer};
-            VkDeviceAddress scratchAddress = S.vkGetBufferDeviceAddressKHR(S.device, &scratchInfo);
-
-            // Update build information
-            buildInfo.srcAccelerationStructure = S.tlas.accel;
-            buildInfo.dstAccelerationStructure = S.tlas.accel;
-            buildInfo.scratchData.deviceAddress = scratchAddress;
-
-            // Build Offsets info: n instances
-            VkAccelerationStructureBuildRangeInfoKHR buildOffsetInfo{countInstance, 0, 0, 0};
-            const VkAccelerationStructureBuildRangeInfoKHR* pBuildOffsetInfo = &buildOffsetInfo;
-
-            // Build the TLAS
-            S.vkCmdBuildAccelerationStructuresKHR(GetFrame().cmd, 1, &buildInfo, &pBuildOffsetInfo);
+            return TLAS{res};
         }
     }  // namespace rt
 #endif

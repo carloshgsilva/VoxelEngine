@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#define EVK_RT 0
+#define EVK_RT 1
 
 namespace evk {
     constexpr int MAX_VERTEX_BINDING_COUNT = 4;
@@ -350,12 +350,24 @@ namespace evk {
 
 #if EVK_RT
     namespace rt {
+        enum class GeometryType {
+            Triangles,
+            AABBs,
+        };
+
         struct BLASDesc {
+            GeometryType geometry;
+            uint32_t stride;  // if no extra data: 6*sizeof(float) for AABBs or 3*sizeof(float) for triangles
+
+            // Triangles
             Buffer vertices;
             uint32_t vertexCount;
             Buffer indices;
             uint32_t indexCount;
-            uint32_t stride;
+
+            // AABBs
+            Buffer aabbs;
+            uint32_t aabbsCount;
         };
         struct BLAS : ResourceRef {
             BLAS(Resource* res = nullptr) : ResourceRef(res) {
@@ -368,6 +380,11 @@ namespace evk {
             uint32_t customId;
             float transform[12];
         };
+        struct TLAS : ResourceRef {
+            TLAS(Resource* res = nullptr) : ResourceRef(res) {
+            }
+        };
+        TLAS CreateTLAS(const BLASDesc& desc);
 
         void Initialize();
         void CmdBuildBLAS(BLAS blas, bool update = false);
