@@ -1,4 +1,4 @@
-#include "Common.frag"
+#include "evk.frag"
 
 const vec3 QUAD[]={
     vec3(-1.0,-1.0,0.0),
@@ -8,20 +8,6 @@ const vec3 QUAD[]={
     vec3(1.0,-1.0,0.0),
     vec3(1.0,1.0,0.0),
 };
-
-PUSH(
-    int _ViewBufferRID;
-    int _ColorTextureRID;
-    int _NormalTextureRID;
-    int _MaterialTextureRID;
-    int _DepthTextureRID;
-    int _BlueNoiseTextureRID;
-    int _ShadowVoxRID;
-    int _SkyBoxTextureRID;
-)
-
-#define IMPORT
-#include "View.frag"
 
 OUT(0) vec2 UV;
 

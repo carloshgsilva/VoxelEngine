@@ -60,6 +60,9 @@ namespace evk {
             return (int)timestampNames.size() - 1;
         }
 
+        Buffer stagingBuffer;
+        uint64_t stagingOffset = 0;
+
         // deferred deletion
         std::vector<Resource*> toDelete;
 

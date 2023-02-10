@@ -4,6 +4,8 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_shader_image_load_formatted  : require
+//#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_ray_query : enable
 
 #extension GL_EXT_debug_printf : enable
 #define printf debugPrintfEXT
@@ -52,5 +54,7 @@ layout(binding = 2) uniform restrict readonly uimage2D UImage2DR[];
 layout(binding = 2) uniform restrict readonly image3D Image3DR[];
 layout(binding = 2) uniform restrict readonly iimage3D IImage3DR[];
 layout(binding = 2) uniform restrict readonly uimage3D UImage3DR[];
+
+layout(binding = 3) uniform accelerationStructureEXT TLAS[];
 
 #endif

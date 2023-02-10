@@ -1,4 +1,4 @@
-#include "Common.frag"
+#include "evk.frag"
 
 #define ENABLE_SHADOWS 1
 #define ENABLE_OCCLUSION 1
@@ -23,6 +23,7 @@ PUSH(
     int BVHBufferRID;
     int BVHLeafsBufferRID;
     int _SkyBoxTextureRID;
+    int TLASRID;
 )
 
 #define IMPORT
@@ -43,6 +44,21 @@ vec4 getNoise(){
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
     return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
 }
+
+
+
+bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
+    float tmin = 0.0;
+    rayQueryEXT rayQuery;
+    rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, tmin, dir, tmax);
+    while(rayQueryProceedEXT(rayQuery)){
+        if(rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCandidateIntersectionAABBEXT) {
+            rayQueryGenerateIntersectionEXT(rayQuery, 1.0);
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
 
 float screenspaceOcclusion(vec3 pos, vec3 dir, float dist){
     vec3 mid = pos+dir*dist;
@@ -129,6 +145,13 @@ void main() {
     vec4 matl = texture(MATERIAL_TEXTURE, uv);
     vec3 pos = UVDepthToView(uv, depth); // ViewSpace
     vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
+
+    vec3 eyePos = ((GetInverseViewMatrix()*vec4(vec3(0.0), 1.0)).xyz);
+    vec3 eyeDir = normalize((GetInverseViewMatrix()*vec4(pos, 0.0)).xyz);
+    if(TraceShadowRay(eyePos, eyeDir, 100000.0)) {
+        out_Color = vec4(1,0,0,1);
+        return;
+    }
 
     if(depth < 0.999){
         float shadow = 1.0;

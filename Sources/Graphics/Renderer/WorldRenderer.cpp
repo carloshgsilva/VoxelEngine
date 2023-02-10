@@ -52,43 +52,88 @@ Image CreateLightImage(uint32 width, uint32 height) {
     return CreateImage({
         .extent = {width, height},
         .format = Format::RGBA16Sfloat,
-        .usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage
+        .usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage,
     });
 }
 
 Image CreateColorImage(uint32 width, uint32 height) {
-        return CreateImage({
+    return CreateImage({
         .extent = {width, height},
         .format = Format::BGRA8Unorm,
-        .usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage
+        .usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage,
+    });
+}
+
+struct Vox {
+    uint8 x, y, z, id;
+};
+rt::BLAS CreateBLASFromVoxels(const std::vector<Vox>& voxels) {
+    std::vector<rt::AABB> aabbs;
+    aabbs.resize(voxels.size());
+    for (int i = 0; i < voxels.size(); i++) {
+        Vox v = voxels[i];
+        aabbs[i] = {
+            float(v.x), float(v.y), float(v.z), float(v.x + 10), float(v.y + 10), float(v.z + 10),
+        };
+    }
+    Buffer aabbsBuffer = CreateBuffer({
+        .name = "Voxels AABBs",
+        .size = sizeof(rt::AABB) * aabbs.size(),
+        .usage = BufferUsage::Storage | BufferUsage::AccelerationStructureInput,
+        .memoryType = MemoryType::GPU,
+    });
+    CmdCopy((void*)aabbs.data(), aabbsBuffer, sizeof(rt::AABB) * aabbs.size());
+    return rt::CreateBLAS({
+        .geometry = rt::GeometryType::AABBs,
+        .aabbs = aabbsBuffer,
+        .aabbsCount = uint32(aabbs.size()),
     });
 }
 
 WorldRenderer::WorldRenderer() {
-    //Create Initial Framebuffers
-    RecreateFramebuffer(320, 240); //Small Initial buffer allocation
+    // Create Initial Framebuffers
+    RecreateFramebuffer(320, 240);  // Small Initial buffer allocation
 
     Cmds = new RenderCmds();
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
     _DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
-    _ViewBuffer.Build([&] (int i) {
-        return CreateBuffer({
-            .size = sizeof(ViewData),
-            .usage = BufferUsage::Storage,
-            .memoryType = MemoryType::CPU_TO_GPU
-        });
-    });
-    
-    bvhBuffer = CreateBuffer({
-        .size = sizeof(BVHNode) * MAX_BVH_COUNT,
-        .usage = BufferUsage::Storage,
-        .memoryType = MemoryType::CPU_TO_GPU
-    });
-    bvhLeafsBuffer = CreateBuffer({
-        .size = sizeof(BVHLeaf) * MAX_BVH_COUNT,
-        .usage = BufferUsage::Storage,
-        .memoryType = MemoryType::CPU_TO_GPU
-    });
+    _ViewBuffer.Build([&](int i) { return CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU}); });
+
+    bvhBuffer = CreateBuffer({.size = sizeof(BVHNode) * MAX_BVH_COUNT, .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU});
+    bvhLeafsBuffer = CreateBuffer({.size = sizeof(BVHLeaf) * MAX_BVH_COUNT, .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU});
+
+    {
+        // world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
+        // voxLookup.push_back(data);
+        //});
+
+        std::vector<Vox> voxels;
+        voxels.push_back({0, 0, 0, 1});
+        voxels.push_back({1, 0, 0, 1});
+        voxels.push_back({1, 1, 0, 1});
+        voxels.push_back({1, 1, 1, 1});
+        voxels.push_back({2, 1, 1, 1});
+        voxels.push_back({3, 1, 1, 1});
+        voxels.push_back({4, 1, 1, 1});
+        voxels.push_back({5, 1, 1, 1});
+
+        VoxRenderData data = {};
+        data.blas = CreateBLASFromVoxels(voxels);
+        voxLookup.push_back(data);
+
+        blasInstances.clear();
+        std::vector<rt::BLAS> blases;
+        for (VoxRenderData& data : voxLookup) {
+            blasInstances.push_back(rt::BLASInstance{
+                .blas = data.blas,
+            });
+            blases.push_back(data.blas);
+        }
+        tlas = rt::CreateTLAS(blasInstances, false);
+
+        rt::CmdBuildBLAS(blases);
+        rt::CmdBuildTLAS(tlas);
+    }
 }
 
 void WorldRenderer::CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color) {
@@ -107,11 +152,9 @@ void WorldRenderer::CmdVoxel(const glm::mat4& matrix, const glm::mat4& lastMatri
     Cmds->voxel.push_back(c);
 }
 
-
 void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
-
-    if (Width <= 1)Width = 1;
-    if (Height <= 1)Height = 1;
+    if (Width <= 1) Width = 1;
+    if (Height <= 1) Height = 1;
 
     if (ENABLE_UPSAMPLING) {
         Width /= 2;
@@ -121,21 +164,21 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     _Bloom1Buffer.clear();
     _Bloom2Buffer.clear();
 
-    //Geometry
+    // Geometry
     gbuffer = GBuffer(Width, Height);
 
-    //Outline
+    // Outline
     _OutlineBuffer = CreateImage({.extent = {Width, Height}, .format = Format::BGRA8Unorm, .usage = ImageUsage::Sampled | ImageUsage::Attachment});
 
-    //Light
+    // Light
     _LastLightBuffer = CreateLightImage(Width, Height);
     _CurrentLightBuffer = CreateLightImage(Width, Height);
     _TAALightBuffer = CreateLightImage(Width, Height);
     _ReflectionBuffer = CreateLightImage(Width, Height);
 
-    _BloomStepBuffer = CreateLightImage(Width >> 1, Height >> 1); // second mip
+    _BloomStepBuffer = CreateLightImage(Width >> 1, Height >> 1);  // second mip
     for (int i = 0; i < BLOOM_MIP_COUNT; i++) {
-        uint32 mip = 2 + i; // third mip
+        uint32 mip = 2 + i;  // third mip
         int w = std::max(Width >> mip, 1u);
         int h = std::max(Height >> mip, 1u);
         _Bloom1Buffer.push_back(CreateLightImage(w, h));
@@ -147,12 +190,12 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
         Height *= 2;
     }
 
-    //Compose
+    // Compose
     _LastComposeBuffer = CreateColorImage(Width, Height);
     _CurrentComposeBuffer = CreateColorImage(Width, Height);
     _TAAComposeBuffer = CreateColorImage(Width, Height);
 
-    //Present
+    // Present
     _ColorBuffer = CreateColorImage(Width, Height);
 
     CmdClear(_ColorBuffer, ClearColor{});
@@ -166,12 +209,23 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     CmdClear(_TAAComposeBuffer, ClearColor{});
 }
 
+void StageData(Buffer dst, void* data, size_t size) {
+    Buffer staging = CreateBuffer({
+        .name = "Staging Buffer",
+        .size = size,
+        .usage = BufferUsage::Storage | BufferUsage::TransferSrc,
+        .memoryType = MemoryType::CPU,
+    });
+    WriteBuffer(staging, data, size);
+    CmdCopy(staging, dst, size);
+}
+
 double lastReloadShaders = 0.0f;
 void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     PROFILE_FUNC();
-    if(view.Width == 0 || view.Height == 0) return;
-    
-    if(view.Width != lastView.Width || view.Height != lastView.Height) {
+    if (view.Width == 0 || view.Height == 0) return;
+
+    if (view.Width != lastView.Width || view.Height != lastView.Height) {
         RecreateFramebuffer(view.Width, view.Height);
     }
 
@@ -182,10 +236,10 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     _LastComposeBuffer.swap(_TAAComposeBuffer);
 
     // Crtl to reload shaders
-    if (Input::IsKeyPressed(Key::LeftControl) && (glfwGetTime()-lastReloadShaders) > 1.0) {
+    if (Input::IsKeyPressed(Key::LeftControl) && (glfwGetTime() - lastReloadShaders) > 1.0) {
         lastReloadShaders = glfwGetTime();
-        
-        //TODO: It is a memory leak
+
+        // TODO: It is a memory leak
         GeometryVoxelPipeline::Get() = GeometryVoxelPipeline();
         GeometrySkyPipeline::Get() = GeometrySkyPipeline();
         OutlineVoxelPipeline::Get() = OutlineVoxelPipeline();
@@ -205,10 +259,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         DenoiserAtrousPass::Get() = DenoiserAtrousPass();
         DenoiserTemporalPass::Get() = DenoiserTemporalPass();
         ComposePass::Get() = ComposePass();
-        //Rest VoxSlot
-        world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) {
-            vr.VoxSlot = -1;
-        });
+        // Rest VoxSlot
+        world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
 
         Log::info("Shaders Reloaded!");
     }
@@ -216,24 +268,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     ////////////
     // Render //
     ////////////
-    glm::vec2 OFFSETS[16] = {
-        glm::vec2(0.5000, 0.3333),
-        glm::vec2(0.2500, 0.6667),
-        glm::vec2(0.7500, 0.1111),
-        glm::vec2(0.1250, 0.4444),
-        glm::vec2(0.6250, 0.7778),
-        glm::vec2(0.3750, 0.2222),
-        glm::vec2(0.8750, 0.5556),
-        glm::vec2(0.0625, 0.8889),
-        glm::vec2(0.5625, 0.0370),
-        glm::vec2(0.3125, 0.3704),
-        glm::vec2(0.8125, 0.7037),
-        glm::vec2(0.1875, 0.1481),
-        glm::vec2(0.6875, 0.4815),
-        glm::vec2(0.4375, 0.8148),
-        glm::vec2(0.9375, 0.2593),
-        glm::vec2(0.0313, 0.5926)
-    };
+    glm::vec2 OFFSETS[16] = {glm::vec2(0.5000, 0.3333), glm::vec2(0.2500, 0.6667), glm::vec2(0.7500, 0.1111), glm::vec2(0.1250, 0.4444), glm::vec2(0.6250, 0.7778), glm::vec2(0.3750, 0.2222), glm::vec2(0.8750, 0.5556), glm::vec2(0.0625, 0.8889),
+                             glm::vec2(0.5625, 0.0370), glm::vec2(0.3125, 0.3704), glm::vec2(0.8125, 0.7037), glm::vec2(0.1875, 0.1481), glm::vec2(0.6875, 0.4815), glm::vec2(0.4375, 0.8148), glm::vec2(0.9375, 0.2593), glm::vec2(0.0313, 0.5926)};
 
     ViewData viewData;
     {
@@ -245,7 +281,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = OFFSETS[_Frame%16];
+        viewData.Jitter = OFFSETS[_Frame % 16];
         viewData.Frame = _Frame;
         viewData.ColorTextureRID = GetRID(gbuffer.color);
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
@@ -256,7 +292,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     }
 
     // Build BVHs
-    if(!world.GetRegistry().empty<Changed>()){
+    if (!world.GetRegistry().empty<Changed>()) {
         bvhBuilder.buildFrom(world.GetRegistry());
         WriteBuffer(bvhBuffer, bvhBuilder.nodes.data(), sizeof(BVHNode) * bvhBuilder.nodes.size());
         WriteBuffer(bvhLeafsBuffer, bvhBuilder.leafs.data(), sizeof(BVHLeaf) * bvhBuilder.leafs.size());
@@ -277,9 +313,9 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
     }
 
-    if(!raytracing) {
+    if (!raytracing) {
         CmdTimestamp("GBuffer", [&] {
-            //G-Buffer
+            // G-Buffer
             gbuffer.Render([&] {
                 GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
                 GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
@@ -287,92 +323,74 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
 
         CmdTimestamp("Outline", [&] {
-            //Outline
-            CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] {
-                OutlineVoxelPipeline::Get().Use(_ViewBuffer, gbuffer, Cmds->outline);
-            });
+            // Outline
+            CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] { OutlineVoxelPipeline::Get().Use(_ViewBuffer, gbuffer, Cmds->outline); });
         });
 
         CmdTimestamp("Lights", [&] {
-            //Lights
+            // Lights
             CmdRender({_CurrentLightBuffer}, {ClearColor{}}, [&] {
-                LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox());
-                LightPointPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
-                    world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
-                        PROFILE_SCOPE("DrawPointLight()");
-                        if (l.LightType == Light::Type::Point) {
-                            P.DrawLight(t.WorldMatrix[3], l.Range, l.Color * l.Intensity, l.Attenuation);
-                        }
-                    });
-                });
-                LightSpotPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightSpotPipeline& P) {
-                    world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
-                        PROFILE_SCOPE("DrawSpotLight()");
-                        if (l.LightType == Light::Type::Spot) {
-                            P.DrawLight(t.WorldMatrix[3], l.Range, l.Color * l.Intensity, l.Attenuation, t.WorldMatrix[2], l.Angle, l.AngleAttenuation);
-                        }
-                    });
-                });
+                LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox(), tlas);
+                // LightPointPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
+                //     world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
+                //         PROFILE_SCOPE("DrawPointLight()");
+                //         if (l.LightType == Light::Type::Point) {
+                //             P.DrawLight(t.WorldMatrix[3], l.Range, l.Color * l.Intensity, l.Attenuation);
+                //         }
+                //     });
+                // });
+                // LightSpotPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightSpotPipeline& P) {
+                //     world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
+                //         PROFILE_SCOPE("DrawSpotLight()");
+                //         if (l.LightType == Light::Type::Spot) {
+                //             P.DrawLight(t.WorldMatrix[3], l.Range, l.Color * l.Intensity, l.Attenuation, t.WorldMatrix[2], l.Angle, l.AngleAttenuation);
+                //         }
+                //     });
+                // });
             });
         });
 
         CmdTimestamp("LightTAA", [&] {
-            //Light TAA
-            CmdRender({_TAALightBuffer}, {ClearColor{}}, [&] {
-                LightTAAPipeline::Get().Use(_ViewBuffer, _BlueNoise->GetImage(), _LastLightBuffer, _CurrentLightBuffer, gbuffer);
-            });
+            // Light TAA
+            CmdRender({_TAALightBuffer}, {ClearColor{}}, [&] { LightTAAPipeline::Get().Use(_ViewBuffer, _BlueNoise->GetImage(), _LastLightBuffer, _CurrentLightBuffer, gbuffer); });
         });
 
         CmdTimestamp("Reflection", [&] {
-            //Reflection
-            CmdRender({_ReflectionBuffer}, {ClearColor{}}, [&] {
-                LightReflectionPipeline::Get().Use(_ViewBuffer, _TAALightBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage());
-            });
+            // Reflection
+            CmdRender({_ReflectionBuffer}, {ClearColor{}}, [&] { LightReflectionPipeline::Get().Use(_ViewBuffer, _TAALightBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage()); });
         });
 
         CmdTimestamp("Bloom", [&] {
-            CmdRender({_BloomStepBuffer}, {ClearColor{}}, [&] {
-                LightBloomStepPipeline::Get().Use(_CurrentLightBuffer);
-            });
+            CmdRender({_BloomStepBuffer}, {ClearColor{}}, [&] { LightBloomStepPipeline::Get().Use(_CurrentLightBuffer); });
             for (int i = 0; i < BLOOM_MIP_COUNT; i++) {
                 CmdRender({_Bloom1Buffer[i]}, {ClearColor{}}, [&] {
-                    LightBlurPipeline::Get().Use((i == 0 ? _BloomStepBuffer : _Bloom2Buffer[i-1]), true); // use the step for the first input
+                    LightBlurPipeline::Get().Use((i == 0 ? _BloomStepBuffer : _Bloom2Buffer[i - 1]), true);  // use the step for the first input
                 });
-                CmdRender({_Bloom2Buffer[i]}, {ClearColor{}}, [&] {
-                    LightBlurPipeline::Get().Use(_Bloom1Buffer[i], false);
-                });
+                CmdRender({_Bloom2Buffer[i]}, {ClearColor{}}, [&] { LightBlurPipeline::Get().Use(_Bloom1Buffer[i], false); });
             }
         });
 
         CmdTimestamp("Compose", [&] {
-            //Compose
-            CmdRender({_CurrentComposeBuffer}, {ClearColor{}}, [&] {
-                ComposePipeline::Get().Use(_ViewBuffer, gbuffer, _TAALightBuffer, _ReflectionBuffer, _Bloom2Buffer);
-            });
+            // Compose
+            CmdRender({_CurrentComposeBuffer}, {ClearColor{}}, [&] { ComposePipeline::Get().Use(_ViewBuffer, gbuffer, _TAALightBuffer, _ReflectionBuffer, _Bloom2Buffer); });
         });
 
         CmdTimestamp("ComposeTAA", [&] {
-            //Compose TAA
-            CmdRender({_TAAComposeBuffer}, {ClearColor{}}, [&] {
-                ComposeTAAPipeline::Get().Use(_ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, gbuffer);
-            });
+            // Compose TAA
+            CmdRender({_TAAComposeBuffer}, {ClearColor{}}, [&] { ComposeTAAPipeline::Get().Use(_ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, gbuffer); });
         });
 
         CmdTimestamp("Color", [&] {
             CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
                 ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
-                //ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
+                // ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
             });
         });
     } else {
-        CmdTimestamp("GBuffer", [&] {
-            GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer);
-        });
-        CmdTimestamp("PathTrace", [&] {
-            PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer);
-        });
+        CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer); });
+        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer); });
         CmdTimestamp("Denoise", [&] {
-            //DenoiserDiscPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer);
+            // DenoiserDiscPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer);
             DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
 
             DenoiserTemporalPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, _LastLightBuffer, gbuffer, _ViewBuffer);
@@ -381,7 +399,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 4);
             DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 8);
             DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 16);
-            
+
             // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 1);
             // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 2);
             // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 4);
@@ -391,9 +409,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 4);
             // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 8);
         });
-        CmdTimestamp("Compose", [&] {
-            ComposePass::Get().Use(_CurrentComposeBuffer, _TAALightBuffer, gbuffer, _ViewBuffer);
-        });
+        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, _TAALightBuffer, gbuffer, _ViewBuffer); });
         // CmdTimestamp("LightTAA", [&] {
         //     //Light TAA
         //     CmdRender({_TAALightBuffer}, {ClearColor{}}, [&] {
@@ -404,17 +420,17 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         CmdTimestamp("Color", [&] {
             CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
                 ColorWorldPipeline::Get().Use(_CurrentComposeBuffer, _OutlineBuffer);
-                //ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
+                // ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
             });
         });
         // CmdTimestamp("Compose", [&] {
 
         // });
     }
-    
+
     lastView = view;
     _Frame++;
-    if (_Frame > 16 * 100)_Frame = 0;
+    if (_Frame > 16 * 100) _Frame = 0;
     Cmds->Clear();
 }
 

@@ -24,6 +24,16 @@ class WorldRenderer {
     Buffer bvhBuffer;
     Buffer bvhLeafsBuffer;
 
+    struct VoxRenderData {
+        uint32_t voxelCount;
+        Buffer bufferAABBs;
+        Buffer bufferVoxels;
+        rt::BLAS blas;
+    };
+    std::vector<rt::BLASInstance> blasInstances;
+    rt::TLAS tlas;
+    std::vector<VoxRenderData> voxLookup;
+
     int _Frame{0};
 
     // Framebuffers

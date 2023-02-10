@@ -1,6 +1,4 @@
-#version 450
-
-#include "lib/Common.frag"
+#include "Common.frag"
 
 layout(push_constant) uniform uPushConstant{
     int _ViewBufferRID;
@@ -14,7 +12,8 @@ layout(push_constant) uniform uPushConstant{
 #define MIP_COUNT 2
 #define TRANSPARENCY 1
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 BINDING_VOX_CMDS_BUFFER()
 
 int _VolumeRID;

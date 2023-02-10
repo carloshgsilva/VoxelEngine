@@ -96,6 +96,32 @@ namespace evk {
     BufferUsage operator|(BufferUsage a, BufferUsage b);
     ImageUsage operator|(ImageUsage a, ImageUsage b);
 
+    template <std::size_t _index, typename T>
+    struct _Constant_Impl {
+        _Constant_Impl(T const& v) {
+            val = v;
+        }
+
+       private:
+        T val;
+    };
+    template <std::size_t Index, typename... Types>
+    struct _Constant_RecurrBase {};
+    template <std::size_t Index, typename T, typename... Types>
+    struct _Constant_RecurrBase<Index, T, Types...> : public _Constant_Impl<Index, typename std::remove_reference_t<T>>, public _Constant_RecurrBase<Index + 1, Types...> {
+        template <typename CL, typename... CArgs>
+        _Constant_RecurrBase(CL&& arg, CArgs&&... args) : _Constant_Impl<Index, typename std::remove_reference_t<T>>(std::forward<CL>(arg)), _Constant_RecurrBase<Index + 1, Types...>(std::forward<CArgs>(args)...) {
+        }
+    };
+    template <typename T, typename... Types>
+    struct Constant : public _Constant_RecurrBase<0, T, Types...> {
+        template <typename... CArgs>
+        Constant(CArgs&&... args) : _Constant_RecurrBase<0, T, Types...>(std::forward<CArgs>(args)...) {
+        }
+    };
+    template <typename... CArgs>
+    Constant(CArgs... args) -> Constant<CArgs...>;
+
     struct Resource {
         RID resourceid = -1;
         uint32_t refCount = 0;
@@ -264,6 +290,12 @@ namespace evk {
     void CmdCopy(Buffer& src, Image& dst, const std::vector<ImageRegion>& regions);
     // Copy regions of a Buffer to Buffer
     void CmdCopy(Buffer& src, Buffer& dst, uint64_t size, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
+
+    // Copies src to staging buffer then copy to Image
+    void CmdCopy(void* src, Image& dst, uint64_t size, uint32_t mip = 0, uint32_t layer = 0);
+    // Copies src to staging buffer then copy to Buffer
+    void CmdCopy(void* src, Buffer& dst, uint64_t size, uint64_t dstOffset = 0);
+
     // Binds a vertex buffer
     void CmdVertex(Buffer& buffer, uint64_t offset = 0);
     // Binds a index buffer
@@ -286,6 +318,10 @@ namespace evk {
     void CmdBeginTimestamp(const char* name);
     void CmdEndTimestamp(const char* name);
 
+    template <typename... Args>
+    void CmdPush(const Constant<Args...>& data) {
+        CmdPush((void*)(&data), sizeof(data), 0);
+    }
     template <typename T>
     void CmdPush(T& data) {
         CmdPush((void*)(&data), sizeof(T), 0);
@@ -355,6 +391,11 @@ namespace evk {
             AABBs,
         };
 
+        struct AABB {
+            float minX, minY, minZ;
+            float maxX, maxY, maxZ;
+        };
+
         struct BLASDesc {
             GeometryType geometry;
             uint32_t stride;  // if no extra data: 6*sizeof(float) for AABBs or 3*sizeof(float) for triangles
@@ -373,22 +414,22 @@ namespace evk {
             BLAS(Resource* res = nullptr) : ResourceRef(res) {
             }
         };
-        BLAS CreateBLAS(const BLASDesc& desc);
 
         struct BLASInstance {
             BLAS blas;
             uint32_t customId;
-            float transform[12];
+            float transform[12] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
         };
         struct TLAS : ResourceRef {
             TLAS(Resource* res = nullptr) : ResourceRef(res) {
             }
         };
-        TLAS CreateTLAS(const BLASDesc& desc);
 
-        void Initialize();
-        void CmdBuildBLAS(BLAS blas, bool update = false);
-        void CmdBuildTLAS(std::vector<BLASInstance>& instances, bool update = false);
+        BLAS CreateBLAS(const BLASDesc& desc);
+        TLAS CreateTLAS(const std::vector<BLASInstance>& blasInstances, bool allowUpdate);
+
+        void CmdBuildBLAS(const std::vector<BLAS>& blases, bool update = false);
+        void CmdBuildTLAS(const TLAS& tlas, bool update = false);
     }  // namespace rt
 #endif
 }  // namespace evk

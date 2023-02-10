@@ -70,7 +70,7 @@ SpotLight GetSpotLight(int index) { return SpotLightsBuffer[_SpotLightsBufferRID
 
 //VoxCmdsBuffer (requires: _VoxCmdsBufferRID)
 #define BINDING_VOX_CMDS_BUFFER() \
-BINDING_BUFFER(VoxCmdsBuffer,        \
+BINDING_BUFFER_R(VoxCmdsBuffer,        \
     VoxCmd Cmds[4096];            \
 )                                    \
 VoxCmd GetVoxCmd(int index) { return VoxCmdsBuffer[_VoxCmdsBufferRID].Cmds[index]; } \
