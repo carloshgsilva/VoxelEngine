@@ -15,6 +15,7 @@
 #include "Editor/Importer/AssetImporter.h"
 
 #include "Graphics/Graphics.h"
+#include "Graphics/BLASManager.h"
 #include "Graphics/Pipelines/GeometrySkyPipeline.h"
 #include "Graphics/Pipelines/GeometryVoxelPipeline.h"
 #include "Graphics/Pipelines/LightAmbientPipeline.h"
@@ -64,32 +65,6 @@ Image CreateColorImage(uint32 width, uint32 height) {
     });
 }
 
-struct Vox {
-    uint8 x, y, z, id;
-};
-rt::BLAS CreateBLASFromVoxels(const std::vector<Vox>& voxels) {
-    std::vector<rt::AABB> aabbs;
-    aabbs.resize(voxels.size());
-    for (int i = 0; i < voxels.size(); i++) {
-        Vox v = voxels[i];
-        aabbs[i] = {
-            float(v.x), float(v.y), float(v.z), float(v.x + 10), float(v.y + 10), float(v.z + 10),
-        };
-    }
-    Buffer aabbsBuffer = CreateBuffer({
-        .name = "Voxels AABBs",
-        .size = sizeof(rt::AABB) * aabbs.size(),
-        .usage = BufferUsage::Storage | BufferUsage::AccelerationStructureInput,
-        .memoryType = MemoryType::GPU,
-    });
-    CmdCopy((void*)aabbs.data(), aabbsBuffer, sizeof(rt::AABB) * aabbs.size());
-    return rt::CreateBLAS({
-        .geometry = rt::GeometryType::AABBs,
-        .aabbs = aabbsBuffer,
-        .aabbsCount = uint32(aabbs.size()),
-    });
-}
-
 WorldRenderer::WorldRenderer() {
     // Create Initial Framebuffers
     RecreateFramebuffer(320, 240);  // Small Initial buffer allocation
@@ -101,39 +76,6 @@ WorldRenderer::WorldRenderer() {
 
     bvhBuffer = CreateBuffer({.size = sizeof(BVHNode) * MAX_BVH_COUNT, .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU});
     bvhLeafsBuffer = CreateBuffer({.size = sizeof(BVHLeaf) * MAX_BVH_COUNT, .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU});
-
-    {
-        // world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
-        // voxLookup.push_back(data);
-        //});
-
-        std::vector<Vox> voxels;
-        voxels.push_back({0, 0, 0, 1});
-        voxels.push_back({1, 0, 0, 1});
-        voxels.push_back({1, 1, 0, 1});
-        voxels.push_back({1, 1, 1, 1});
-        voxels.push_back({2, 1, 1, 1});
-        voxels.push_back({3, 1, 1, 1});
-        voxels.push_back({4, 1, 1, 1});
-        voxels.push_back({5, 1, 1, 1});
-
-        VoxRenderData data = {};
-        data.blas = CreateBLASFromVoxels(voxels);
-        voxLookup.push_back(data);
-
-        blasInstances.clear();
-        std::vector<rt::BLAS> blases;
-        for (VoxRenderData& data : voxLookup) {
-            blasInstances.push_back(rt::BLASInstance{
-                .blas = data.blas,
-            });
-            blases.push_back(data.blas);
-        }
-        tlas = rt::CreateTLAS(blasInstances, false);
-
-        rt::CmdBuildBLAS(blases);
-        rt::CmdBuildTLAS(tlas);
-    }
 }
 
 void WorldRenderer::CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color) {
@@ -264,6 +206,29 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
         Log::info("Shaders Reloaded!");
     }
+    if (Input::IsKeyPressed(Key::P) && (glfwGetTime() - lastReloadShaders) > 1.0) {
+        lastReloadShaders = glfwGetTime();
+        blasInstances.clear();
+        world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
+            if (v.Vox.IsValid()) {
+                glm::mat4 ttr = t.WorldMatrix;
+                ttr = glm::translate(ttr, -v.Pivot);
+                ttr = glm::scale(ttr, glm::vec3(0.1f));
+                float* tr = (float*)(&ttr);
+                rt::BLASInstance inst = {
+                    .blas = BLASManager::Get().GetBLAS(v.Vox),
+                    .transform = {tr[0], tr[4], tr[8], tr[12], tr[1], tr[5], tr[9], tr[13], tr[2], tr[6], tr[10], tr[14]},
+                };
+                blasInstances.push_back(inst);
+            }
+        });
+
+        tlas = rt::CreateTLAS(blasInstances, false);
+
+        BLASManager::Get().EnsureAllBLASAreBuilt();
+        rt::CmdBuildTLAS(tlas);
+        Log::info("Acceleration Structure Reloaded!");
+    }
 
     ////////////
     // Render //
@@ -275,13 +240,13 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     {
         viewData.LastViewMatrix = lastView.ViewMatrix;
         viewData.ViewMatrix = view.ViewMatrix;
-        viewData.InverseViewMatrix = glm::inverse(view.ViewMatrix);
+        viewData.InverseViewMatrix = view.CameraMatrix;  // glm::inverse(view.ViewMatrix);
         viewData.ProjectionMatrix = view.ProjectionMatrix;
         viewData.InverseProjectionMatrix = glm::inverse(view.ProjectionMatrix);
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = OFFSETS[_Frame % 16];
+        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] - 0.5f : glm::vec2(0.0f);
         viewData.Frame = _Frame;
         viewData.ColorTextureRID = GetRID(gbuffer.color);
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
@@ -316,10 +281,14 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     if (!raytracing) {
         CmdTimestamp("GBuffer", [&] {
             // G-Buffer
-            gbuffer.Render([&] {
-                GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
-                GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
-            });
+            if (rasterize) {
+                gbuffer.Render([&] {
+                    GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
+                    GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
+                });
+            } else {
+                // TODO:
+            }
         });
 
         CmdTimestamp("Outline", [&] {
@@ -330,7 +299,9 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         CmdTimestamp("Lights", [&] {
             // Lights
             CmdRender({_CurrentLightBuffer}, {ClearColor{}}, [&] {
-                LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox(), tlas);
+                if (tlas) {
+                    LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox(), tlas);
+                }
                 // LightPointPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
                 //     world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
                 //         PROFILE_SCOPE("DrawPointLight()");
@@ -388,7 +359,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
     } else {
         CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer); });
-        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer); });
+        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas); });
         CmdTimestamp("Denoise", [&] {
             // DenoiserDiscPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer);
             DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);

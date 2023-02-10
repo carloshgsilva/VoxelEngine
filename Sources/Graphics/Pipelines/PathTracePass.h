@@ -5,36 +5,26 @@
 
 class PathTracePass {
     Pipeline pipeline;
-public:
+
+   public:
     PathTracePass() {
-        pipeline = CreatePipeline({
-            .CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/PathTrace.comp.spv")
-        });
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/PathTrace.comp.spv")});
     }
 
-    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer) {
-        struct PushConstant {
-            int ColorTextureRID;
-            int NormalTextureRID;
-            int VisibilityTextureRID;
-            int DepthTextureRID;
-            int ViewBufferRID;
-            int BVHBufferRID;
-            int BVHLeafsBufferRID;
-        } pc {
-            .ColorTextureRID = GetRID(dstColor),
-            .NormalTextureRID = GetRID(gbuffer.normal),
-            .VisibilityTextureRID = GetRID(gbuffer.visibility),
-            .DepthTextureRID = GetRID(gbuffer.depthf),
-            .ViewBufferRID = GetRID(viewBuffer),
-            .BVHBufferRID = GetRID(bvhBuffer),
-            .BVHLeafsBufferRID = GetRID(bvhLeafsBuffer)
-        };
-
+    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, rt::TLAS& tlas) {
         Extent extent = GetDesc(dstColor).extent;
         CmdBind(pipeline);
-        CmdPush(pc);
-        CmdDispatch((extent.width+7)/8, (extent.height+7)/8, 1);
+        CmdPush(Constant{
+            GetRID(dstColor),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.depthf),
+            GetRID(viewBuffer),
+            GetRID(bvhBuffer),
+            GetRID(bvhLeafsBuffer),
+            GetRID(tlas),
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }
 
     static PathTracePass& Get() {

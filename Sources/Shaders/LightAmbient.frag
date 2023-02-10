@@ -11,7 +11,7 @@ const float OCCLUSION_SIZE_BY_DISTANCE = 0.0;
 const int SAMPLES = 4;
 const vec3 SUN_DIR = normalize(vec3(0.3,0.4,0.5));
 const vec3 SUN_COLOR = vec3(0.9,0.9,0.8)*0.5;
-const float AMBIENT_LIGHT_FACTOR = 0.2;
+const float AMBIENT_LIGHT_FACTOR = 0.1;
 
 PUSH(
     int _ViewBufferRID;
@@ -44,21 +44,6 @@ vec4 getNoise(){
     vec2 res = textureSize(DEPTH_TEXTURE, 0);
     return texelFetch(BLUE_NOISE_TEXTURE, ivec2((UV+vec2(GOLDEN_RATIO*(mod(GetFrame(),16)), GOLDEN_RATIO*(mod(GetFrame()+1,16))))*res)%512, 0);
 }
-
-
-
-bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
-    float tmin = 0.0;
-    rayQueryEXT rayQuery;
-    rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, tmin, dir, tmax);
-    while(rayQueryProceedEXT(rayQuery)){
-        if(rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCandidateIntersectionAABBEXT) {
-            rayQueryGenerateIntersectionEXT(rayQuery, 1.0);
-        }
-    }
-    return rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
-}
-
 
 float screenspaceOcclusion(vec3 pos, vec3 dir, float dist){
     vec3 mid = pos+dir*dist;
@@ -115,19 +100,16 @@ vec3 calculateAmbientIrradiance(vec3 pos, vec3 normal) {
     vec3 tangent = abs(normal.z) > 0.5 ? vec3(0.0, -normal.z, normal.y) : vec3(-normal.y, normal.x, 0.0);
     vec3 bitangent = cross(normal, tangent);
 
-    //float occlusion = 0.0;
-    
     vec4 randNoise = getNoise();
     vec3 randomVec = cosineSampleHemisphere(randNoise.xy);
     vec3 dir = tangent*randomVec.x + bitangent*randomVec.y + normal*randomVec.z;
     
-    TraceHit hit;
-    RayTrace(pos+normal*EPS, dir, hit, 32.0);
-    float d = hit.t/32.0;
+    float d = 1.0;
+    float dist = max(randNoise.z*16.0, 1.0);
+    if(TraceShadowRay(pos, dir, dist)){
+        d = 1.0/pow(dist, 8.0);
+    }
 
-    //occlusion += 1.0/(d);
-    //return vec3((1.0-occlusion*0.3)*AMBIENT_LIGHT_FACTOR);
-    //return (d==1)?texture(SKY_BOX_TEXTURE, dir).rgb*0.5:vec3(0.0);
     return vec3(d)*AMBIENT_LIGHT_FACTOR;
 }
 
@@ -145,14 +127,7 @@ void main() {
     vec4 matl = texture(MATERIAL_TEXTURE, uv);
     vec3 pos = UVDepthToView(uv, depth); // ViewSpace
     vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
-
-    vec3 eyePos = ((GetInverseViewMatrix()*vec4(vec3(0.0), 1.0)).xyz);
-    vec3 eyeDir = normalize((GetInverseViewMatrix()*vec4(pos, 0.0)).xyz);
-    if(TraceShadowRay(eyePos, eyeDir, 100000.0)) {
-        out_Color = vec4(1,0,0,1);
-        return;
-    }
-
+    
     if(depth < 0.999){
         float shadow = 1.0;
         vec3 ambientIrradiance = vec3(0.0);
@@ -166,12 +141,13 @@ void main() {
             wd = normalize(mix(wd, randomVec, 0.5));
 
             #if ENABLE_SHADOWS
-                if(RayTraceShadow(wcp + normal*EPS, wd, INF)) {
+                //if(RayTraceShadow(wcp + normal*EPS, wd, INF)) {
+                if(TraceShadowRay(wcp + normal*EPS*100.0, wd, INF)){
                     shadow = 0.0;
                 }
             #endif
             #if ENABLE_OCCLUSION
-                ambientIrradiance = calculateAmbientIrradiance(wcp+normal*EPS, normal);
+                ambientIrradiance = calculateAmbientIrradiance(wcp + normal * EPS*100.0, normal);
             #endif
         }
 

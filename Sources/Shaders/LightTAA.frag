@@ -1,6 +1,4 @@
-#version 450
-
-#include "lib/Common.frag"
+#include "Common.frag"
 
 layout(push_constant) uniform uPushConstant{
     int _ViewBufferRID;
@@ -14,7 +12,8 @@ layout(push_constant) uniform uPushConstant{
     int _LastLightTextureRID;
 };
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 
 layout(location=0) in struct {
     vec2 UV;

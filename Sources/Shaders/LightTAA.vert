@@ -1,5 +1,3 @@
-#version 450
-
 const vec3 QUAD[]={
     vec3(-1.0,-1.0,0.0),
     vec3(1.0,-1.0,0.0),

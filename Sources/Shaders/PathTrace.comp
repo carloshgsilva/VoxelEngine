@@ -8,6 +8,7 @@ PUSH(
     int _ViewBufferRID;
     int BVHBufferRID;
     int BVHLeafsBufferRID;
+    int TLASRID;
 )
 
 #define IMPORT
@@ -105,7 +106,8 @@ void main() {
             o = o + d*hit.t + hit.normal*EPS;
             d = CosineSampleHemisphere(SampleNoise(samp).xy, hit.normal);
 
-            if(!RayTraceShadow(o, normalize(d+vec3(0.3,0.4,0.5)*10.0), INF)) {
+            //if(!RayTraceShadow(o, normalize(d+vec3(0.3,0.4,0.5)*10.0), INF)) {
+            if(!TraceShadowRay(o+hit.normal*0.01, normalize(d+vec3(0.3,0.4,0.5)*10.0), INF)) {
                 acc += throughput * vec3(0.5) * max(dot(normalize(d+vec3(0.3,0.4,0.5)*10.0), hit.normal), 0);
             }
 

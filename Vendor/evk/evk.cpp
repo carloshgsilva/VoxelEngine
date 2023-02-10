@@ -119,6 +119,8 @@ namespace evk {
         auto& S = GetState();
         Internal_Buffer* res = new Internal_Buffer();
 
+        EVK_ASSERT(desc.size != 0, "Buffer size must not be zero");
+
         // Immutable state
         res->desc = desc;
 
@@ -1432,6 +1434,8 @@ namespace evk {
         auto& F = GetFrame();
         auto& extent = GetDesc(dst).extent;
 
+        EVK_ASSERT(F.stagingOffset + size < 64'000'000, "Staging buffer out of memory");
+
         uint64_t staging = uint64_t(F.stagingBuffer.GetPtr()) + F.stagingOffset;
         std::memcpy((void*)staging, src, size);
 
@@ -1447,25 +1451,42 @@ namespace evk {
         copy.imageExtent = {extent.width >> mip, extent.height >> mip, extent.depth >> mip};
 
         F.stagingOffset += size;
-        EVK_ASSERT(F.stagingOffset < 64'000'000, "Staging buffer out of memory");
 
         vkCmdCopyBufferToImage(GetFrame().cmd, ToInternal(F.stagingBuffer).buffer, ToInternal(dst).image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
     }
     void CmdCopy(void* src, Buffer& dst, uint64_t size, uint64_t dstOffset) {
         auto& F = GetFrame();
 
-        uint64_t staging = uint64_t(F.stagingBuffer.GetPtr()) + F.stagingOffset;
-        std::memcpy((void*)staging, src, size);
+        // EVK_ASSERT(F.stagingOffset + size < 64'000'000, "Staging buffer out of memory");
+        if (F.stagingOffset + size >= 64'000'000) {
+            printf("[evk] [warn] Creating extra staging buffer of size %llu!!! FIXME\n", size);
+            Buffer tempStaging = CreateBuffer({
+                .size = size,
+                .usage = BufferUsage::TransferSrc,
+                .memoryType = MemoryType::CPU,
+            });
+            uint64_t staging = uint64_t(tempStaging.GetPtr());
+            std::memcpy((void*)staging, src, size);
 
-        VkBufferCopy copy{};
-        copy.srcOffset = F.stagingOffset;
-        copy.dstOffset = dstOffset;
-        copy.size = size;
+            VkBufferCopy copy{};
+            copy.srcOffset = 0;
+            copy.dstOffset = dstOffset;
+            copy.size = size;
 
-        F.stagingOffset += size;
-        EVK_ASSERT(F.stagingOffset < 64'000'000, "Staging buffer out of memory");
+            vkCmdCopyBuffer(GetFrame().cmd, ToInternal(tempStaging).buffer, ToInternal(dst).buffer, 1, &copy);
+        } else {
+            uint64_t staging = uint64_t(F.stagingBuffer.GetPtr()) + F.stagingOffset;
+            std::memcpy((void*)staging, src, size);
 
-        vkCmdCopyBuffer(GetFrame().cmd, ToInternal(F.stagingBuffer).buffer, ToInternal(dst).buffer, 1, &copy);
+            VkBufferCopy copy{};
+            copy.srcOffset = F.stagingOffset;
+            copy.dstOffset = dstOffset;
+            copy.size = size;
+
+            F.stagingOffset += size;
+
+            vkCmdCopyBuffer(GetFrame().cmd, ToInternal(F.stagingBuffer).buffer, ToInternal(dst).buffer, 1, &copy);
+        }
     }
 
     void CmdVertex(Buffer& buffer, uint64_t offset) {
@@ -1878,13 +1899,22 @@ namespace evk {
                 buildInfos.push_back(blas.buildInfo);
                 buildRanges.push_back(blas.ranges.data());
 
-                if (batchSize >= batchSizeLimit || i == buildInfos.size() - 1) {
-                    auto ranges = buildRanges.data();
-                    S.vkCmdBuildAccelerationStructuresKHR(GetFrame().cmd, uint32_t(buildInfos.size()), buildInfos.data(), buildRanges.data());
-                    Sync();  // TODO: replace with SubmitSync()
-                    buildInfos.clear();
-                    buildRanges.clear();
-                }
+                auto range = blas.ranges.data();
+                S.vkCmdBuildAccelerationStructuresKHR(GetFrame().cmd, 1, &blas.buildInfo, &range);
+                VkMemoryBarrier barrier{
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                    .srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+                    .dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+                };
+                vkCmdPipelineBarrier(GetFrame().cmd, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+                // TODO: Compactation
+                // if (batchSize >= batchSizeLimit || i == blases.size() - 1) {
+                //    Sync();  // TODO: replace with SubmitSync()
+                //    buildInfos.clear();
+                //    buildRanges.clear();
+                //    batchSize = 0;
+                //}
                 i++;
             }
         }

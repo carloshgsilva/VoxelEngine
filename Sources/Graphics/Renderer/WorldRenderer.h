@@ -59,6 +59,7 @@ class WorldRenderer {
     struct RenderCmds* Cmds;
 
    public:
+    bool enableJitter = true;
     bool raytracing = false;
     bool rasterize = true;
 

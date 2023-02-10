@@ -121,6 +121,7 @@ void EditorLayer::OnGui() {
         ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
         ImGui::Text("benchmark: %f", totalTime / count);
 
+        ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
         ImGui::Checkbox("RayTrace", &Viewports[0]->GetWorldRenderer()->raytracing);
         ImGui::Checkbox("Rasterize", &Viewports[0]->GetWorldRenderer()->rasterize);
 

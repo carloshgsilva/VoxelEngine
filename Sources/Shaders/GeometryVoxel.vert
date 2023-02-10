@@ -1,6 +1,4 @@
-#version 450
-
-#include "lib/Common.frag"
+#include "Common.frag"
 
 const vec3 CUBE[]={
     vec3(0.0,1.0,1.0),
@@ -48,7 +46,8 @@ layout(push_constant) uniform uPushConstant{
     int VoxCmdIndex;
 };
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 BINDING_VOX_CMDS_BUFFER()
 
 

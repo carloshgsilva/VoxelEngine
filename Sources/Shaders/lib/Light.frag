@@ -12,6 +12,7 @@
 #ifndef IMPORT
 const int BVHBufferRID = 0;
 const int BVHLeafsBufferRID = 0;
+const int TLASRID = 0;
 #endif
 
 struct BVHLeaf {
@@ -196,5 +197,18 @@ bool RayTraceShadow(vec3 o, vec3 d, float t) {
     TraceHit hit;
     return RayTrace(o, d, hit, t);
 }
+
+bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
+    float tmin = 0.0;
+    rayQueryEXT rayQuery;
+    rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, tmin, dir, tmax);
+    while(rayQueryProceedEXT(rayQuery)){
+        if(rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCandidateIntersectionAABBEXT) {
+            rayQueryGenerateIntersectionEXT(rayQuery, 0.0);
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
 
 #endif
