@@ -24,6 +24,7 @@ PUSH(
     int BVHLeafsBufferRID;
     int _SkyBoxTextureRID;
     int TLASRID;
+    int VoxInstancesRID;//TODO: remove this
 )
 
 #define IMPORT
@@ -128,6 +129,24 @@ void main() {
     vec3 pos = UVDepthToView(uv, depth); // ViewSpace
     vec3 normal = texture(NORMAL_TEXTURE, uv).xyz; // WorldSpace
     
+    /*
+    vec3 eyePos = ((GetInverseViewMatrix()*vec4(vec3(0.0), 1.0)).xyz);
+    vec3 eyeDir = normalize((GetInverseViewMatrix()*vec4(pos, 0.0)).xyz);
+    float t = 0;
+    uint visibility = 0;
+    if(TraceRay(eyePos, eyeDir, INF, t, visibility)) {
+        vec3 albedo = vec3(1,0,1);
+        vec3 material = vec3(1,0,1);
+        GetMaterial(visibility, material);
+        //out_Color = vec4(RandomColor(visibility)*0.1,1);
+        out_Color = vec4(albedo, 1);
+        return;
+    } else {
+        out_Color = vec4(0,0,0,1);
+    }
+    return;
+    */
+
     if(depth < 0.999){
         float shadow = 1.0;
         vec3 ambientIrradiance = vec3(0.0);

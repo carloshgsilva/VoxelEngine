@@ -5,38 +5,28 @@
 
 class GBufferPass {
     Pipeline pipeline;
-public:
+
+   public:
     GBufferPass() {
-        pipeline = CreatePipeline({
-            .CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/GBuffer.comp.spv")
-        });
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/GBuffer.comp.spv")});
     }
 
-    void Use(GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer) {
-        struct PushConstant {
-            int ColorTextureRID;
-            int NormalTextureRID;
-            int VisibilityTextureRID;
-            int MotionTextureRID;
-            int DepthTextureRID;
-            int ViewBufferRID;
-            int BVHBufferRID;
-            int BVHLeafsBufferRID;
-        } pc {
-            .ColorTextureRID = GetRID(gbuffer.color),
-            .NormalTextureRID = GetRID(gbuffer.normal),
-            .VisibilityTextureRID = GetRID(gbuffer.visibility),
-            .MotionTextureRID = GetRID(gbuffer.motion),
-            .DepthTextureRID = GetRID(gbuffer.depthf),
-            .ViewBufferRID = GetRID(viewBuffer),
-            .BVHBufferRID = GetRID(bvhBuffer),
-            .BVHLeafsBufferRID = GetRID(bvhLeafsBuffer)
-        };
-
+    void Use(GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
         Extent extent = GetDesc(gbuffer.color).extent;
         CmdBind(pipeline);
-        CmdPush(pc);
-        CmdDispatch((extent.width+7)/8, (extent.height+7)/8, 1);
+        CmdPush(Constant{
+            GetRID(gbuffer.color),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.motion),
+            GetRID(gbuffer.depthf),
+            GetRID(viewBuffer),
+            GetRID(bvhBuffer),
+            GetRID(bvhLeafsBuffer),
+            GetRID(tlas),
+            GetRID(voxInstancesBuffer),
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }
 
     static GBufferPass& Get() {

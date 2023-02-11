@@ -1,5 +1,8 @@
 #include "Common.frag"
 
+#ifndef VIEW_H
+#define VIEW_H
+
 #ifndef IMPORT
 const int _ViewBufferRID = 0;
 #endif
@@ -59,3 +62,5 @@ vec3 UVToRayDir(vec2 uv) {
     vec3 viewSpace = (GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2, -2), 1, 1)).xyz;
     return (GetInverseViewMatrix() * vec4(normalize(viewSpace), 0)).xyz;
 }
+
+#endif

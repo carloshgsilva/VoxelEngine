@@ -21,18 +21,10 @@ class LightAmbientPipeline {
         });
     }
 
-    void Use(Buffer& viewBuffer, GBuffer& gbuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, Image& blueNoise, Image& skyBox, rt::TLAS& tlas) {
+    void Use(Buffer& viewBuffer, GBuffer& gbuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, Image& blueNoise, Image& skyBox, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
         CmdPush(Constant{
-            GetRID(viewBuffer),
-            GetRID(gbuffer.color),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.material),
-            GetRID(gbuffer.depth),
-            GetRID(blueNoise),
-            GetRID(bvhBuffer),
-            GetRID(bvhLeafsBuffer),
-            GetRID(skyBox),
-            GetRID(tlas),
+            GetRID(viewBuffer), GetRID(gbuffer.color), GetRID(gbuffer.normal), GetRID(gbuffer.material), GetRID(gbuffer.depth), GetRID(blueNoise), GetRID(bvhBuffer), GetRID(bvhLeafsBuffer), GetRID(skyBox), GetRID(tlas),
+            GetRID(voxInstancesBuffer),  // TODO: remove this
         });
         CmdBind(pipeline);
         CmdDraw(6, 1, 0, 0);

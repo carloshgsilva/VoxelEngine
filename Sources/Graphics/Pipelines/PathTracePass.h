@@ -11,7 +11,7 @@ class PathTracePass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/PathTrace.comp.spv")});
     }
 
-    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, rt::TLAS& tlas) {
+    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& bvhBuffer, Buffer& bvhLeafsBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
         Extent extent = GetDesc(dstColor).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
@@ -23,6 +23,7 @@ class PathTracePass {
             GetRID(bvhBuffer),
             GetRID(bvhLeafsBuffer),
             GetRID(tlas),
+            GetRID(voxInstancesBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }

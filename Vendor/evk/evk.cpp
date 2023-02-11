@@ -1349,14 +1349,14 @@ namespace evk {
         VkImageBlit blit = {};
         blit.srcOffsets[0] = {srcRegion.x, srcRegion.y, srcRegion.z};
         blit.srcOffsets[1] = {srcRegion.x + srcRegion.width, srcRegion.y + srcRegion.height, srcRegion.z + srcRegion.depth};
-        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.aspectMask = DoesFormatHaveDepth(GetDesc(src).format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
         blit.srcSubresource.mipLevel = srcRegion.mip;
         blit.srcSubresource.baseArrayLayer = srcRegion.layer;
         blit.srcSubresource.layerCount = 1;
 
         blit.dstOffsets[0] = {dstRegion.x, dstRegion.y, dstRegion.z};
         blit.dstOffsets[1] = {dstRegion.x + dstRegion.width, dstRegion.y + dstRegion.height, dstRegion.z + dstRegion.depth};
-        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.aspectMask = DoesFormatHaveDepth(GetDesc(dst).format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
         blit.dstSubresource.mipLevel = dstRegion.mip;
         blit.dstSubresource.baseArrayLayer = dstRegion.layer;
         blit.dstSubresource.layerCount = 1;

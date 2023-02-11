@@ -9,6 +9,7 @@ PUSH(
     int BVHBufferRID;
     int BVHLeafsBufferRID;
     int TLASRID;
+    int VoxInstancesRID;
 )
 
 #define IMPORT
@@ -70,7 +71,9 @@ void main() {
     //outColor = vec3(fract(vec3(palleteId)*vec3(314.412, 642.451, 411.671)));
     //outColor = vec3(fract(vec3(vox)*vec3(14.412, 42.451, 51.671)));
     //outColor = texelFetch(PALLETE_COLOR_TEXTURE, pixel, 0).xyz;
-    outColor = albedo;
+    //outColor = RandomColor(visibility);//texelFetch(PALLETE_COLOR_TEXTURE, pixel, 0).xyz;
+    //outColor = albedo;
+    outColor = normal;
 #endif
 
 #if 0 // debug RT
@@ -95,39 +98,33 @@ void main() {
         hit.t = t;
         hit.normal = normal;
         hit.visibility = visibility;
-        for(int depth = 0; depth < 2; depth++) {
+        for(int depth = 0; depth < 4; depth++) {
             
-            uint palleteId = 0;
-            uint vox = 0;
-            UnpackVisibility(visibility, palleteId, vox);
-            vec3 albedo = texelFetch(PALLETE_COLOR_TEXTURE, ivec2(vox, palleteId), 0).xyz;
-            vec3 material = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(vox, palleteId), 0).xyz;
+            vec3 albedo;
+            vec3 material;
+            GetMaterial(visibility, albedo, material);
 
             o = o + d*hit.t + hit.normal*EPS;
             d = CosineSampleHemisphere(SampleNoise(samp).xy, hit.normal);
 
-            //if(!RayTraceShadow(o, normalize(d+vec3(0.3,0.4,0.5)*10.0), INF)) {
             if(!TraceShadowRay(o+hit.normal*0.01, normalize(d+vec3(0.3,0.4,0.5)*10.0), INF)) {
-                acc += throughput * vec3(0.5) * max(dot(normalize(d+vec3(0.3,0.4,0.5)*10.0), hit.normal), 0);
+                acc += throughput * vec3(2.5) * max(dot(normalize(d+vec3(0.3,0.4,0.5)*10.0), hit.normal), 0);
             }
 
-            if(RayTrace(o, d, hit, INF)){
-                uint palleteId = 0;
-                uint vox = 0;
-                UnpackVisibility(hit.visibility, palleteId, vox);
-                vec3 albedo = texelFetch(PALLETE_COLOR_TEXTURE, ivec2(vox, palleteId), 0).xyz;
-                vec3 material = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(vox, palleteId), 0).xyz;
-                acc += albedo * throughput * material.z * 10.0;
+            if(TraceRay(o, d, INF, hit)){
+               vec3 albedo;
+               vec3 material;
+               GetMaterial(hit.visibility, albedo, material);
+               acc += albedo * throughput * material.z * 10.0;
 
-
-                throughput *= 1.0*albedo;/*max(dot(d, hit.normal), 0.0)*/;// * ((depth == 0) ? vec3(1.0) : albedo);
+               throughput *= 1.0*albedo;/*max(dot(d, hit.normal), 0.0)*/;// * ((depth == 0) ? vec3(1.0) : albedo);
             } else {
-                acc += vec3(0.05) * throughput;
-                break;
+               acc += vec3(0.05) * throughput;
+               break;
             }
         }
         
-        outColor = acc;
+        outColor = vec3(acc);
     }
 #endif
 

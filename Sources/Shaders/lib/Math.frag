@@ -71,24 +71,6 @@ bool RayOBBCast(
 	}
 }
 
-float RayCastAABB(vec3 pos, vec3 dir, vec3 aabb_min, vec3 aabb_max){
-	vec3 delta_min = aabb_min - pos;
-	vec3 delta_max = aabb_max - pos;
-
-	vec3 t_min = delta_min/dir;
-	vec3 t_max = delta_max/dir;
-
-    vec3 smallest = min(t_min, t_max);
-    vec3 biggest = max(t_min, t_max);
-
-	smallest = max(smallest, vec3(0));
-
-	float great_min = max(smallest.x, max(smallest.y, smallest.z));
-	float small_max = min(biggest.x, min(biggest.y, biggest.z));
-
-	return mix(9999999, great_min, step(0, small_max-great_min));
-}
-
 bool IntersectRayAABB(vec3 o, vec3 d, vec3 aabb_min, vec3 aabb_max, out float out_t) {
 	vec3 t_a = (aabb_min - o)/d;
 	vec3 t_b = (aabb_max - o)/d;
@@ -100,6 +82,24 @@ bool IntersectRayAABB(vec3 o, vec3 d, vec3 aabb_min, vec3 aabb_max, out float ou
 	float far = min(t_max.x, min(t_max.y, t_max.z));
 
 	out_t = near;
+
+	return near < far;
+}
+
+bool IntersectRayAABBNormal(vec3 o, vec3 d, vec3 aabb_min, vec3 aabb_max, out float out_t, out vec3 normal) {
+	vec3 t_a = (aabb_min - o)/d;
+	vec3 t_b = (aabb_max - o)/d;
+
+	vec3 t_min = min(t_a, t_b);
+	vec3 t_max = max(t_a, t_b);
+
+	float near = max(max(t_min.x, max(t_min.y, t_min.z)), 0.0);
+	float far = min(t_max.x, min(t_max.y, t_max.z));
+
+	out_t = near;
+
+    vec3 select = step(t_min.zxy, t_min.xyz) * step(t_min.yzx, t_min.xyz);
+    normal = -select * sign(d);
 
 	return near < far;
 }

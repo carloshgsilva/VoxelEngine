@@ -5,32 +5,24 @@
 
 class ComposePass {
     Pipeline pipeline;
-public:
+
+   public:
     ComposePass() {
-        pipeline = CreatePipeline({
-            .CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.comp.spv")
-        });
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.comp.spv")});
     }
 
-    void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer) {
-        struct PushConstant {
-            int OutRadianceTextureRID;
-            int InRadianceTextureRID;
-            int VisibilityTextureRID;
-            int DepthTextureRID;
-            int ViewBufferRID;
-        } pc {
-            .OutRadianceTextureRID = GetRID(outRadiance),
-            .InRadianceTextureRID = GetRID(inRadiance),
-            .VisibilityTextureRID = GetRID(gbuffer.visibility),
-            .DepthTextureRID = GetRID(gbuffer.depthf),
-            .ViewBufferRID = GetRID(viewBuffer),
-        };
-
+    void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& voxInstancesBuffer) {
         Extent extent = GetDesc(outRadiance).extent;
         CmdBind(pipeline);
-        CmdPush(pc);
-        CmdDispatch((extent.width+7)/8, (extent.height+7)/8, 1);
+        CmdPush(Constant{
+            GetRID(outRadiance),
+            GetRID(inRadiance),
+            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.depthf),
+            GetRID(viewBuffer),
+            GetRID(voxInstancesBuffer),
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }
 
     static ComposePass& Get() {

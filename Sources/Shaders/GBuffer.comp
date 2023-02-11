@@ -9,6 +9,8 @@ PUSH(
     int _ViewBufferRID;
     int BVHBufferRID;
     int BVHLeafsBufferRID;
+    int TLASRID;
+    int VoxInstancesRID;
 )
 
 #define IMPORT
@@ -17,28 +19,32 @@ PUSH(
 
 COMPUTE(8, 8, 1)
 void main() {
-    vec2 uv = vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)*GetiRes();
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y);
+    vec2 uv = vec2(pixel+GetJitter())*GetiRes();
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    vec3 outColor = vec3(1.0);
-    vec3 outNormal = vec3(0);
-    uint outVisibility = 0u;
-    vec2 outMotion = vec2(0);
-    float outT = INF;
+    vec3 albedo = vec3(1.0);
+    vec3 material = vec3(1.0);
+    vec2 motion = vec2(0);
 
     TraceHit hit;
+#if 0
     if(RayTrace(o, d, hit, INF)) {
-        outNormal = hit.normal;
-        outVisibility = hit.visibility;
-        outMotion = uv - WorldToUVLastView(o + d * hit.t);
-        outT = hit.t;
+        normal = hit.normal;
+        visibility = hit.visibility;
+        motion = uv - WorldToUVLastView(o + d * hit.t);
+        t = hit.t;
     }
+#else
+    if(TraceRay(o, d, INF, hit)) {
+        GetMaterial(hit.visibility, albedo, material);
+    }
+#endif
 
-    ivec2 dst = ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y);
-    imageStore(Image2DW[ColorTextureRID], dst, vec4(outColor, 1));
-    imageStore(Image2DW[NormalTextureRID], dst, vec4(outNormal, 1));
-    imageStore(UImage2DW[VisibilityTextureRID], dst, uvec4(outVisibility));
-    imageStore(Image2DW[MotionTextureRID], dst, vec4(outMotion, 0, 0));
-    imageStore(Image2DW[DepthTextureRID], dst, vec4(outT));
+    imageStore(Image2DW[ColorTextureRID], pixel, vec4(albedo, 1));
+    imageStore(Image2DW[NormalTextureRID], pixel, vec4(hit.normal, 1));
+    imageStore(UImage2DW[VisibilityTextureRID], pixel, uvec4(hit.visibility));
+    imageStore(Image2DW[MotionTextureRID], pixel, vec4(motion, 0, 0));
+    imageStore(Image2DW[DepthTextureRID], pixel, vec4(hit.t));
 }

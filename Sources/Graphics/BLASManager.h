@@ -10,7 +10,12 @@ class BLASManager : public ModuleDef<BLASManager> {
     std::vector<rt::BLAS> toBuildBLAS;
 
    public:
-    rt::BLAS GetBLAS(AssetRefT<VoxAsset>& asset);
+    struct VoxBLAS {
+        rt::BLAS blas;
+        Buffer geometry;
+    };
+
+    VoxBLAS GetBLAS(AssetRefT<VoxAsset>& asset);
 
     inline void EnsureAllBLASAreBuilt() {
         rt::CmdBuildBLAS(toBuildBLAS);

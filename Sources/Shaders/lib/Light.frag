@@ -8,11 +8,13 @@
 
 #include "Common.frag"
 #include "Math.frag"
+#include "View.frag"
 
 #ifndef IMPORT
 const int BVHBufferRID = 0;
 const int BVHLeafsBufferRID = 0;
 const int TLASRID = 0;
+const int VoxInstancesRID = 0;
 #endif
 
 struct BVHLeaf {
@@ -121,14 +123,11 @@ bool intersectVolume(vec3 origin, vec3 direction, out vec3 hit, out vec3 normal,
 }
 
 struct TraceHit {
+    vec3 normal;
     float t;
     uint visibility;
-    int objectId;
-    vec3 normal;
-
-    vec3 debug;
 };
-
+/*
 bool RayTrace(vec3 o, vec3 d, inout TraceHit hit, float t) {
     hit.debug = vec3(0);
     hit.t = t;
@@ -197,7 +196,7 @@ bool RayTraceShadow(vec3 o, vec3 d, float t) {
     TraceHit hit;
     return RayTrace(o, d, hit, t);
 }
-
+*/
 bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
     float tmin = 0.0;
     rayQueryEXT rayQuery;
@@ -210,5 +209,72 @@ bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
     return rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
 }
 
+BINDING_BUFFER_R(VoxGeometry, 
+    uint at[];
+)
+
+void UnpackVox(uint packedVox, out vec3 aabbMin, out uint matId) {
+    uint x = (packedVox >> 0) & 0xFFu;
+    uint y = (packedVox >> 8) & 0xFFu;
+    uint z = (packedVox >> 16) & 0xFFu;
+    matId = (packedVox >> 24) & 0xFFu;
+    aabbMin = vec3(x, y, z);
+}
+
+uint PackVisiblity(uint instanceId, uint matId) {
+    return (instanceId) | (matId << 24);
+}
+void UnpackVisibility(uint packed, out uint instanceId, out uint matId) {
+    instanceId = packed & 0xFFFFFFu;
+    matId = packed >> 24;
+}
+
+bool TraceRay(vec3 origin, vec3 dir, float tmax, inout TraceHit hit) {
+    hit.t = tmax;
+    hit.visibility = 0u;
+    hit.normal = vec3(0,1,0);
+
+    rayQueryEXT rayQuery;
+    rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], 0, 0xFF, origin, 0.001, dir, tmax);
+    while(rayQueryProceedEXT(rayQuery)){
+        if(rayQueryGetIntersectionTypeEXT(rayQuery, false) == gl_RayQueryCandidateIntersectionAABBEXT) {
+            int instanceId = rayQueryGetIntersectionInstanceIdEXT (rayQuery, false);
+            int geometryRID = rayQueryGetIntersectionInstanceCustomIndexEXT(rayQuery, false);
+            int primitiveId = rayQueryGetIntersectionPrimitiveIndexEXT (rayQuery, false);
+            vec3 origin = rayQueryGetIntersectionObjectRayOriginEXT(rayQuery, false);
+            vec3 dir = rayQueryGetIntersectionObjectRayDirectionEXT (rayQuery, false);
+
+            uint packedVox = VoxGeometry[geometryRID].at[primitiveId];
+            vec3 aabbMin;
+            uint matId;
+            UnpackVox(packedVox, aabbMin, matId);
+
+            float t;
+            vec3 normal;
+            if(IntersectRayAABBNormal(origin, dir, aabbMin, aabbMin + 1.0, t, normal) && t < hit.t) {
+                rayQueryGenerateIntersectionEXT(rayQuery, t);
+                hit.t = min(hit.t, t);
+                hit.visibility = PackVisiblity(instanceId, matId);
+                hit.normal = normal;
+            }
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
+#include "Shared.inl"
+
+BINDING_BUFFER_R(VoxInstances,
+    VoxInstance at[];
+)
+
+void GetMaterial(uint visibility, out vec3 outAlbedo, out vec3 outMaterial) {
+    uint instanceId;
+    uint matId;
+    UnpackVisibility(visibility, instanceId, matId);
+    int palleteId = VoxInstances[VoxInstancesRID].at[instanceId].palleteIndex;
+    outAlbedo = texelFetch(PALLETE_COLOR_TEXTURE, ivec2(matId, palleteId), 0).xyz;
+    outMaterial = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(matId, palleteId), 0).xyz;
+}
 
 #endif

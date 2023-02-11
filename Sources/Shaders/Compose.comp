@@ -6,10 +6,13 @@ PUSH(
     int VisibilityTextureRID;
     int DepthTextureRID;
     int _ViewBufferRID;
+    int VoxInstancesRID;
 )
 
+const int TLASRID = 0;
 #define IMPORT
 #include "View.frag"
+#include "Light.frag"
 
 
 vec3 aces(vec3 x) {
@@ -40,15 +43,13 @@ void main() {
     uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
     vec3 pos = o + d * t;
 
-    uint palleteId = 0;
-    uint vox = 0;
-    UnpackVisibility(visibility, palleteId, vox);
-    vec3 albedo = texelFetch(PALLETE_COLOR_TEXTURE, ivec2(vox, palleteId), 0).xyz;
-    vec3 material = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(vox, palleteId), 0).xyz;
+    vec3 albedo;
+    vec3 material;
+    GetMaterial(visibility, albedo, material);
     
     vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz;
 
-    vec3 outColor = (radiance + material.z*10.0)*albedo;
+    vec3 outColor = (radiance/* + material.z*10.0*/)*albedo;
 
     float exposure = 1.0;
     // exposure tone mapping

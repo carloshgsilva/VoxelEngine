@@ -206,22 +206,41 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
         Log::info("Shaders Reloaded!");
     }
-    if (Input::IsKeyPressed(Key::P) && (glfwGetTime() - lastReloadShaders) > 1.0) {
+    static bool once = true;
+    if (Input::IsKeyPressed(Key::P) && (glfwGetTime() - lastReloadShaders) > 1.0 || once) {
+        once = false;
         lastReloadShaders = glfwGetTime();
         blasInstances.clear();
+        voxInstances.clear();
         world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
-            if (v.Vox.IsValid()) {
+            if (v.Vox.IsValid() && v.Pallete.IsValid()) {
                 glm::mat4 ttr = t.WorldMatrix;
                 ttr = glm::translate(ttr, -v.Pivot);
                 ttr = glm::scale(ttr, glm::vec3(0.1f));
                 float* tr = (float*)(&ttr);
+                BLASManager::VoxBLAS rtData = BLASManager::Get().GetBLAS(v.Vox);
                 rt::BLASInstance inst = {
-                    .blas = BLASManager::Get().GetBLAS(v.Vox),
+                    .blas = rtData.blas,
+                    .customId = uint32_t(GetRID(rtData.geometry)),
                     .transform = {tr[0], tr[4], tr[8], tr[12], tr[1], tr[5], tr[9], tr[13], tr[2], tr[6], tr[10], tr[14]},
                 };
                 blasInstances.push_back(inst);
+                VoxInstance voxInstance = {
+                    .palleteIndex = v.Pallete->GetPalleteIndex(),
+                    .geometryBufferRID = GetRID(rtData.geometry),
+                };
+                voxInstances.push_back(voxInstance);
             }
         });
+
+        // TODO: create voxInstancesBuffer only once
+        voxInstancesBuffer = CreateBuffer({
+            .name = "Vox Instances",
+            .size = voxInstances.size() * sizeof(VoxInstance),
+            .usage = BufferUsage::Storage,
+            .memoryType = MemoryType::GPU,
+        });
+        CmdCopy(voxInstances.data(), voxInstancesBuffer, sizeof(VoxInstance) * voxInstances.size());
 
         tlas = rt::CreateTLAS(blasInstances, false);
 
@@ -287,7 +306,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
                 });
             } else {
-                // TODO:
+                // TraceGBufferPass::Get().Use(gbuffer, _ViewBuffer, tlas, voxInstancesBuffer);
             }
         });
 
@@ -300,7 +319,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             // Lights
             CmdRender({_CurrentLightBuffer}, {ClearColor{}}, [&] {
                 if (tlas) {
-                    LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox(), tlas);
+                    LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox(), tlas, voxInstancesBuffer);
                 }
                 // LightPointPipeline::Get().Use(_ViewBuffer, gbuffer, world.ShadowVox->GetVolumeImage(), _BlueNoise->GetImage(), _Frame, [&](LightPointPipeline& P) {
                 //     world.GetRegistry().view<const Transform, const Light>().each([&](const entt::entity e, const Transform& t, const Light& l) {
@@ -358,18 +377,20 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             });
         });
     } else {
-        CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer); });
-        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas); });
+        CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
+        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
         CmdTimestamp("Denoise", [&] {
             // DenoiserDiscPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer);
-            DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
+            {
+                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
 
-            DenoiserTemporalPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, _LastLightBuffer, gbuffer, _ViewBuffer);
-            DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
-            DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 2);
-            DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 4);
-            DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 8);
-            DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 16);
+                DenoiserTemporalPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, _LastLightBuffer, gbuffer, _ViewBuffer);
+                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
+                DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 2);
+                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 4);
+                DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 8);
+                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 16);
+            }
 
             // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 1);
             // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 2);
@@ -380,17 +401,16 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 4);
             // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 8);
         });
-        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, _TAALightBuffer, gbuffer, _ViewBuffer); });
-        // CmdTimestamp("LightTAA", [&] {
-        //     //Light TAA
-        //     CmdRender({_TAALightBuffer}, {ClearColor{}}, [&] {
-        //         LightTAAPipeline::Get().Use(_ViewBuffer, _BlueNoise->GetImage(), _LastLightBuffer, _CurrentLightBuffer, gbuffer);
-        //     });
-        // });
+        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, voxInstancesBuffer); });
+        CmdTimestamp("ComposeTAA", [&] {
+            // Compose TAA
+            CmdRender({_TAAComposeBuffer}, {ClearColor{}}, [&] { ComposeTAAPipeline::Get().Use(_ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, gbuffer); });
+        });
 
         CmdTimestamp("Color", [&] {
             CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
-                ColorWorldPipeline::Get().Use(_CurrentComposeBuffer, _OutlineBuffer);
+                // ColorWorldPipeline::Get().Use(_TAALightBuffer, _OutlineBuffer);
+                ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
                 // ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
             });
         });

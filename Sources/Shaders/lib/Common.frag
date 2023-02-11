@@ -22,12 +22,8 @@ float Luminance(vec3 c) {
     return dot(c, vec3(0.2125, 0.7154, 0.0721));
 }
 
-uint PackVisiblity(uint palleteId, uint voxel) {
-    return (palleteId << 16) | (voxel);
-}
-void UnpackVisibility(uint packed, out uint palleteId, out uint voxel) {
-    palleteId = (packed >> 16) & 0xFFFFu;
-    voxel = (packed >> 0) & 0xFFFFu;
+vec3 RandomColor(uint s) {
+    return fract(vec3(0.3, 0.4, 0.5)*s*0.001);
 }
 
 struct PointLight {

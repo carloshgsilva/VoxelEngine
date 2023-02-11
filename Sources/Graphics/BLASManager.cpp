@@ -27,8 +27,7 @@ rt::BLAS CreateBLASFromVoxels(const std::vector<Vox>& voxels) {
     });
 }
 
-rt::BLAS CreateBLASFromVoxAsset(AssetRefT<VoxAsset>& asset) {
-    std::vector<Vox> voxels;
+void CreateVoxelsForAsset(AssetRefT<VoxAsset>& asset, std::vector<Vox>& voxels) {
     Extent extent = GetDesc(asset->GetImage()).extent;
     std::vector<uint8>& volume = asset->GetData();
 
@@ -47,16 +46,33 @@ rt::BLAS CreateBLASFromVoxAsset(AssetRefT<VoxAsset>& asset) {
             }
         }
     }
+}
+
+BLASManager::VoxBLAS CreateBLASFromVoxAsset(AssetRefT<VoxAsset>& asset) {
+    std::vector<Vox> voxels;
+    CreateVoxelsForAsset(asset, voxels);
     if (voxels.empty()) {
         voxels.push_back({0, 0, 0, 1});
         Log::warn("Empty Voxel found, putting a voxel in there TODO: FIXME");
     }
 
-    return CreateBLASFromVoxels(voxels);
+    Buffer geometry = CreateBuffer({
+        .size = sizeof(Vox) * voxels.size(),
+        .usage = BufferUsage::Storage,
+        .memoryType = MemoryType::GPU,
+    });
+    CmdCopy(voxels.data(), geometry, sizeof(Vox) * voxels.size());
+
+    return BLASManager::VoxBLAS{
+        .blas = CreateBLASFromVoxels(voxels),
+        .geometry = geometry,
+    };
 }
 
-rt::BLAS BLASManager::GetBLAS(AssetRefT<VoxAsset>& asset) {
-    rt::BLAS blas = CreateBLASFromVoxAsset(asset);
-    toBuildBLAS.push_back(blas);
-    return blas;
+BLASManager::VoxBLAS BLASManager::GetBLAS(AssetRefT<VoxAsset>& asset) {
+    std::vector<Vox> voxels;
+
+    VoxBLAS voxBlas = CreateBLASFromVoxAsset(asset);
+    toBuildBLAS.push_back(voxBlas.blas);
+    return voxBlas;
 }
