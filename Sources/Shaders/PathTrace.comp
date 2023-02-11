@@ -56,7 +56,7 @@ vec4 SampleNoise(inout Sampler samp) {
 COMPUTE(8, 8, 1)
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec2 uv = vec2(pixel)*GetiRes();
+    vec2 uv = vec2(pixel+GetJitter())*GetiRes();
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
@@ -80,14 +80,16 @@ void main() {
     hit.normal = normal;
     hit.visibility = visibility;
     for(int depth = 0; depth < 4; depth++) {
-        o = o + d*hit.t + hit.normal*EPS;
+        o = o + d*hit.t + hit.normal*EPS*max(t, 10.0);
         d = CosineSampleHemisphere(SampleNoise(samp).xy, hit.normal);
 
+        // Sun Light
         vec3 skyDir = normalize(d+vec3(0.3,0.4,0.5)*10.0);
-        if(!TraceShadowRay(o+hit.normal*0.001*t, skyDir, INF)) {
-           acc += throughput * vec3(0.9,0.9,0.8)*0.3;//GetSkyColor(vec3(1,0,0))*0.2;
+        if(!TraceShadowRay(o, skyDir, INF)) {
+           acc += throughput * vec3(0.9,0.9,0.8);//GetSkyColor(vec3(1,0,0))*0.2;
         }
 
+        // Continue Bounces
         if(TraceRay(o, d, INF, hit)){
             vec3 albedo;
             vec3 material;
@@ -96,7 +98,7 @@ void main() {
 
             throughput *= albedo;
         } else {
-            acc += GetSkyColor(d) * throughput * 5.0;
+            acc += GetSkyColor(d) * throughput * 2.0;
             break;
         }
     }

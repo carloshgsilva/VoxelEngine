@@ -37,12 +37,6 @@ vec3 GetCameraPosition(){ return VIEW.CameraPosition; }
 vec2 GetJitter(){ return VIEW.Jitter; }
 int GetFrame(){ return VIEW.Frame; }
 
-vec2 WorldToUVLastView(vec3 world) {
-    vec3 view = (VIEW.LastViewMatrix*vec4(world, 1)).xyz;
-    vec4 p = GetProjectionMatrix() * vec4(view, 1.0);
-    return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;
-}
-
 vec3 WorldToView(vec3 p) {
     return (GetViewMatrix()*vec4(p, 1)).xyz;
 }
@@ -50,17 +44,34 @@ vec2 ViewToUV(vec3 pos) {
     vec4 p = GetProjectionMatrix() * vec4(pos, 1.0);
     return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;
 }
+vec3 ViewToWorld(vec3 p) {
+    return (GetInverseViewMatrix()*vec4(p, 1)).xyz;
+}
+
+vec2 WorldToUVLastView(vec3 world) {
+    vec3 view = (VIEW.LastViewMatrix*vec4(world, 1)).xyz;
+    vec4 p = GetProjectionMatrix() * vec4(view, 1.0);
+    return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;
+}
+vec3 UVToWorldPreviousView(vec2 uv, float depth) {
+    vec4 v = GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2,-2), 1, 1);
+    vec3 farVec = v.xyz / v.w;
+    vec3 view = farVec*(depth*(1.0+1.0/FAR)+NEAR/FAR);
+    return ViewToWorld(view);
+}
+
 vec3 UVDepthToView(vec2 uv, float depth) {
     vec4 v = GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2,-2), 1, 1);
     vec3 farVec = v.xyz / v.w;
     return farVec*(depth*(1.0+1.0/FAR)+NEAR/FAR);
 }
-vec3 ViewToWorld(vec3 p) {
-    return (GetInverseViewMatrix()*vec4(p, 1)).xyz;
-}
 vec3 UVToRayDir(vec2 uv) {
     vec3 viewSpace = (GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2, -2), 1, 1)).xyz;
-    return (GetInverseViewMatrix() * vec4(normalize(viewSpace), 0)).xyz;
+    return (GetInverseViewMatrix() * vec4(viewSpace, 0)).xyz;
+}
+vec3 PrevousView_UVDepthToPos(vec2 uv, float depth) {
+    vec3 viewSpace = (GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2, -2), 1, 1)).xyz*depth;
+    return (inverse(VIEW.LastViewMatrix) * vec4(viewSpace, 1)).xyz;
 }
 
 #endif

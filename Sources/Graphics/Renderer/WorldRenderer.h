@@ -35,9 +35,9 @@ class WorldRenderer {
     // Framebuffers
     GBuffer gbuffer;
 
-    Image _LastLightBuffer;
-    Image _CurrentLightBuffer;
-    Image _TAALightBuffer;
+    Image previousLightBuffer;
+    Image lightBufferA;
+    Image lightBufferB;
     Image _ReflectionBuffer;
 
     Image _BloomStepBuffer;
@@ -55,9 +55,17 @@ class WorldRenderer {
     struct RenderCmds* Cmds;
 
    public:
+    enum class OutputImage : uint {
+        Composed,
+        Diffuse,
+        Normal,
+    };
+
+    OutputImage outputImage = OutputImage::Composed;
     bool enableJitter = true;
+    bool enablePermutation = true;
     bool raytracing = true;
-    bool rasterize = true;
+    bool enableDenoiser = true;
 
     WorldRenderer();
     ~WorldRenderer() {

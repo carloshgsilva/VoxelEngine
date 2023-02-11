@@ -45,6 +45,9 @@ void main() {
 
     float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     vec3 normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    if(dot(normal, vec3(1)) == 0) {
+        return;
+    }
     vec3 pos = o + d * t;
 
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
@@ -73,7 +76,7 @@ void main() {
             
             const float GAUSSIAN[2] = {0.44198, 0.27901};
             float w = GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
-            float luminanceWeight = 2.0 * min(abs(luminance - nLuminance) / phi, 1.5);
+            float luminanceWeight = 2.0 * min(abs(luminance - nLuminance) / phi, 0.5);
             w *= exp(-luminanceWeight);
             w *= IsInsideScreenWeight(uv);
             w *= NormalWeight(normal, nNormal);

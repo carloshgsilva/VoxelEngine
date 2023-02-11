@@ -198,7 +198,7 @@ bool RayTraceShadow(vec3 o, vec3 d, float t) {
 }
 */
 bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
-    float tmin = 0.0;
+    float tmin = 0.001;
     rayQueryEXT rayQuery;
     rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, tmin, dir, tmax);
     while(rayQueryProceedEXT(rayQuery)){
@@ -232,7 +232,7 @@ void UnpackVisibility(uint packed, out uint instanceId, out uint matId) {
 bool TraceRay(vec3 origin, vec3 dir, float tmax, inout TraceHit hit) {
     hit.t = tmax;
     hit.visibility = 0u;
-    hit.normal = vec3(0,1,0);
+    hit.normal = vec3(0);
 
     rayQueryEXT rayQuery;
     rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], 0, 0xFF, origin, 0.001, dir, tmax);
@@ -255,7 +255,8 @@ bool TraceRay(vec3 origin, vec3 dir, float tmax, inout TraceHit hit) {
                 rayQueryGenerateIntersectionEXT(rayQuery, t);
                 hit.t = min(hit.t, t);
                 hit.visibility = PackVisiblity(instanceId, matId);
-                hit.normal = normal;
+                mat4x3 objectToWorld = rayQueryGetIntersectionObjectToWorldEXT(rayQuery, false); // TODO: transform to world normal with visibility buffer
+                hit.normal = normalize(vec3(objectToWorld*vec4(normal, 0.0)));
             }
         }
     }

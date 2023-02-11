@@ -1,6 +1,4 @@
-#version 450
-
-#include "lib/Common.frag"
+#include "Common.frag"
 
 vec2 OFFSETS[4] = vec2[4](
     vec2(-1,0), vec2(1, 0), 
@@ -13,7 +11,8 @@ layout(push_constant) uniform uPushConstant{
     int _ColorTextureRID;
 };
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 
 layout(location=0) in struct {
     vec2 UV;
@@ -76,5 +75,5 @@ void main() {
     //Variable color clamping
     lastColor = mix(lastColor, clamp(lastColor, nmin, nmax), t);
     
-    out_Color = vec4(mix(currentColor, lastColor, 0.9), t*0.7);
+    out_Color = vec4(mix(currentColor, lastColor, 0.95), t*0.7);
 }

@@ -113,9 +113,9 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     _OutlineBuffer = CreateImage({.extent = {Width, Height}, .format = Format::BGRA8Unorm, .usage = ImageUsage::Sampled | ImageUsage::Attachment});
 
     // Light
-    _LastLightBuffer = CreateLightImage(Width, Height);
-    _CurrentLightBuffer = CreateLightImage(Width, Height);
-    _TAALightBuffer = CreateLightImage(Width, Height);
+    previousLightBuffer = CreateLightImage(Width, Height);
+    lightBufferA = CreateLightImage(Width, Height);
+    lightBufferB = CreateLightImage(Width, Height);
     _ReflectionBuffer = CreateLightImage(Width, Height);
 
     _BloomStepBuffer = CreateLightImage(Width >> 1, Height >> 1);  // second mip
@@ -141,25 +141,14 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     _ColorBuffer = CreateColorImage(Width, Height);
 
     CmdClear(_ColorBuffer, ClearColor{});
-    CmdClear(_LastLightBuffer, ClearColor{});
-    CmdClear(_CurrentLightBuffer, ClearColor{});
-    CmdClear(_TAALightBuffer, ClearColor{});
+    CmdClear(previousLightBuffer, ClearColor{});
+    CmdClear(lightBufferA, ClearColor{});
+    CmdClear(lightBufferB, ClearColor{});
     CmdClear(_ReflectionBuffer, ClearColor{});
 
     CmdClear(_LastComposeBuffer, ClearColor{});
     CmdClear(_CurrentComposeBuffer, ClearColor{});
     CmdClear(_TAAComposeBuffer, ClearColor{});
-}
-
-void StageData(Buffer dst, void* data, size_t size) {
-    Buffer staging = CreateBuffer({
-        .name = "Staging Buffer",
-        .size = size,
-        .usage = BufferUsage::Storage | BufferUsage::TransferSrc,
-        .memoryType = MemoryType::CPU,
-    });
-    WriteBuffer(staging, data, size);
-    CmdCopy(staging, dst, size);
 }
 
 double lastReloadShaders = 0.0f;
@@ -174,14 +163,13 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     //////////////////
     // Swap Buffers //
     //////////////////
-    _LastLightBuffer.swap(_TAALightBuffer);
+    gbuffer.previousDepthf.swap(gbuffer.depthf);
     _LastComposeBuffer.swap(_TAAComposeBuffer);
 
     // Crtl to reload shaders
     if (Input::IsKeyPressed(Key::LeftControl) && (glfwGetTime() - lastReloadShaders) > 1.0) {
         lastReloadShaders = glfwGetTime();
 
-        // TODO: It is a memory leak
         GeometryVoxelPipeline::Get() = GeometryVoxelPipeline();
         GeometrySkyPipeline::Get() = GeometrySkyPipeline();
         OutlineVoxelPipeline::Get() = OutlineVoxelPipeline();
@@ -201,6 +189,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         DenoiserAtrousPass::Get() = DenoiserAtrousPass();
         DenoiserTemporalPass::Get() = DenoiserTemporalPass();
         ComposePass::Get() = ComposePass();
+        TAAPass::Get() = TAAPass();
         // Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
 
@@ -265,8 +254,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] * 2.0f - 1.0f : glm::vec2(0.0f);
-        viewData.Frame = _Frame;
+        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] - 0.5f : glm::vec2(0.0f);
+        viewData.Frame = enablePermutation ? _Frame : 0;
         viewData.ColorTextureRID = GetRID(gbuffer.color);
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
         viewData.PalleteColorRID = GetRID(PalleteCache::GetColorTexture());
@@ -297,27 +286,23 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
     }
 
+    CmdTimestamp("Outline", [&] {
+        // Outline
+        CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] { OutlineVoxelPipeline::Get().Use(_ViewBuffer, gbuffer, Cmds->outline); });
+    });
+
     if (!raytracing) {
         CmdTimestamp("GBuffer", [&] {
             // G-Buffer
-            if (rasterize) {
-                gbuffer.Render([&] {
-                    GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
-                    GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
-                });
-            } else {
-                // TraceGBufferPass::Get().Use(gbuffer, _ViewBuffer, tlas, voxInstancesBuffer);
-            }
-        });
-
-        CmdTimestamp("Outline", [&] {
-            // Outline
-            CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] { OutlineVoxelPipeline::Get().Use(_ViewBuffer, gbuffer, Cmds->outline); });
+            gbuffer.Render([&] {
+                GeometrySkyPipeline::Get().Use(_ViewBuffer, viewData.Res);
+                GeometryVoxelPipeline::Get().Use(_ViewBuffer, viewData.Res, _BlueNoise->GetImage(), Cmds->voxel);
+            });
         });
 
         CmdTimestamp("Lights", [&] {
             // Lights
-            CmdRender({_CurrentLightBuffer}, {ClearColor{}}, [&] {
+            CmdRender({lightBufferA}, {ClearColor{}}, [&] {
                 if (tlas) {
                     LightAmbientPipeline::Get().Use(_ViewBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _BlueNoise->GetImage(), _DefaultSkyBox->GetSkyBox(), tlas, voxInstancesBuffer);
                 }
@@ -342,16 +327,16 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
         CmdTimestamp("LightTAA", [&] {
             // Light TAA
-            CmdRender({_TAALightBuffer}, {ClearColor{}}, [&] { LightTAAPipeline::Get().Use(_ViewBuffer, _BlueNoise->GetImage(), _LastLightBuffer, _CurrentLightBuffer, gbuffer); });
+            CmdRender({lightBufferB}, {ClearColor{}}, [&] { LightTAAPipeline::Get().Use(_ViewBuffer, _BlueNoise->GetImage(), previousLightBuffer, lightBufferA, gbuffer); });
         });
 
         CmdTimestamp("Reflection", [&] {
             // Reflection
-            CmdRender({_ReflectionBuffer}, {ClearColor{}}, [&] { LightReflectionPipeline::Get().Use(_ViewBuffer, _TAALightBuffer, gbuffer, bvhBuffer, bvhLeafsBuffer, _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage()); });
+            CmdRender({_ReflectionBuffer}, {ClearColor{}}, [&] { LightReflectionPipeline::Get().Use(_ViewBuffer, lightBufferB, gbuffer, bvhBuffer, bvhLeafsBuffer, _DefaultSkyBox->GetSkyBox(), _BlueNoise->GetImage()); });
         });
 
         CmdTimestamp("Bloom", [&] {
-            CmdRender({_BloomStepBuffer}, {ClearColor{}}, [&] { LightBloomStepPipeline::Get().Use(_CurrentLightBuffer); });
+            CmdRender({_BloomStepBuffer}, {ClearColor{}}, [&] { LightBloomStepPipeline::Get().Use(lightBufferA); });
             for (int i = 0; i < BLOOM_MIP_COUNT; i++) {
                 CmdRender({_Bloom1Buffer[i]}, {ClearColor{}}, [&] {
                     LightBlurPipeline::Get().Use((i == 0 ? _BloomStepBuffer : _Bloom2Buffer[i - 1]), true);  // use the step for the first input
@@ -362,7 +347,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
         CmdTimestamp("Compose", [&] {
             // Compose
-            CmdRender({_CurrentComposeBuffer}, {ClearColor{}}, [&] { ComposePipeline::Get().Use(_ViewBuffer, gbuffer, _TAALightBuffer, _ReflectionBuffer, _Bloom2Buffer); });
+            CmdRender({_CurrentComposeBuffer}, {ClearColor{}}, [&] { ComposePipeline::Get().Use(_ViewBuffer, gbuffer, lightBufferB, _ReflectionBuffer, _Bloom2Buffer); });
         });
 
         CmdTimestamp("ComposeTAA", [&] {
@@ -378,39 +363,52 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
     } else if (tlas) {
         CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
-        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
+        CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
         CmdTimestamp("Denoise", [&] {
-            // DenoiserDiscPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer);
-            {
-                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
-
-                DenoiserTemporalPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, _LastLightBuffer, gbuffer, _ViewBuffer);
-                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 1);
-                DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 2);
-                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 4);
-                DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 8);
-                DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 16);
+            // DenoiserDiscPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer);
+            if (enableDenoiser) {
+                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 1);
+                DenoiserTemporalPass::Get().Use(lightBufferA, lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer);
+                previousLightBuffer.swap(lightBufferA);
+                DenoiserAtrousPass::Get().Use(lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
+                DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 2);
+                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);
+                DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 8);
+                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 16);
+            } else {
+                CmdBarrier(lightBufferA, ImageLayout::ShaderRead, ImageLayout::TransferSrc);
+                CmdBarrier(lightBufferB, ImageLayout::ShaderRead, ImageLayout::TransferDst);
+                CmdBlit(lightBufferA, lightBufferB, {}, {});
+                CmdBarrier(lightBufferA, ImageLayout::TransferSrc, ImageLayout::ShaderRead);
+                CmdBarrier(lightBufferB, ImageLayout::TransferDst, ImageLayout::ShaderRead);
             }
 
-            // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 1);
-            // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 2);
-            // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 4);
-            // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 8);
-            // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 1);
-            // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 2);
-            // DenoiserAtrousPass::Get().Use(_CurrentLightBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, 4);
-            // DenoiserAtrousPass::Get().Use(_TAALightBuffer, _CurrentLightBuffer, gbuffer, _ViewBuffer, 8);
+            // DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 1);
+            // DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 2);
+            // DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 4);
+            // DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 8);
+            // DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 1);
+            // DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 2);
+            // DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 4);
+            // DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 8);
         });
-        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, _TAALightBuffer, gbuffer, _ViewBuffer, voxInstancesBuffer); });
-        CmdTimestamp("ComposeTAA", [&] {
-            // Compose TAA
-            CmdRender({_TAAComposeBuffer}, {ClearColor{}}, [&] { ComposeTAAPipeline::Get().Use(_ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, gbuffer); });
-        });
+        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferB, gbuffer, _ViewBuffer, voxInstancesBuffer); });
+        CmdTimestamp("TAA", [&] { TAAPass::Get().Use(_TAAComposeBuffer, _CurrentComposeBuffer, _LastComposeBuffer, gbuffer, _ViewBuffer); });
+        // CmdTimestamp("ComposeTAA", [&] {
+        //     // Compose TAA
+        //     CmdRender({_TAAComposeBuffer}, {ClearColor{}}, [&] { ComposeTAAPipeline::Get().Use(_ViewBuffer, _LastComposeBuffer, _CurrentComposeBuffer, gbuffer); });
+        // });
 
         CmdTimestamp("Color", [&] {
             CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
-                // ColorWorldPipeline::Get().Use(_TAALightBuffer, _OutlineBuffer);
-                ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
+                // ColorWorldPipeline::Get().Use(lightBufferB, _OutlineBuffer);
+                if (outputImage == OutputImage::Composed) {
+                    ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
+                } else if (outputImage == OutputImage::Diffuse) {
+                    ColorWorldPipeline::Get().Use(lightBufferB, _OutlineBuffer);
+                } else if (outputImage == OutputImage::Normal) {
+                    ColorWorldPipeline::Get().Use(gbuffer.normal, _OutlineBuffer);
+                }
                 // ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
             });
         });

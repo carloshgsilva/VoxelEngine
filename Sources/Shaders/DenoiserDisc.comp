@@ -21,6 +21,9 @@ void main() {
 
     float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     vec3 normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    if(dot(normal, vec3(1)) == 0) {
+        return;
+    }
     vec3 pos = o + d * t;
 
     

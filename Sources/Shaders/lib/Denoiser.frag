@@ -5,7 +5,7 @@ float RadiusWeight(float radius, float size) {
     return (size - radius)/size;
 }
 float NormalWeight(vec3 normal, vec3 nNormal) {
-    return max(dot(normal, nNormal), 0.0);
+    return 1.0-clamp(exp(-dot(normal, nNormal)*50.0), 0, 1);
 }
 float PlaneWeight(vec3 planePos, vec3 planeNormal, vec3 point) {
     return 1.0-clamp(abs(dot(point - planePos, planeNormal))*30.0, 0.0, 1.0);

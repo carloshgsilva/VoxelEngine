@@ -119,11 +119,13 @@ void EditorLayer::OnGui() {
         ImGui::Begin("Performance");
         ImGui::Text("ms: %f", ImGui::GetIO().DeltaTime * 1000.0f);
         ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
-        ImGui::Text("benchmark: %f", totalTime / count);
+        ImGui::Text("benchmark: %fms (%.1ffps)", totalTime / count, count / totalTime);
 
+        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0", 3);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
+        ImGui::Checkbox("Samples Permutation", &Viewports[0]->GetWorldRenderer()->enablePermutation);
         ImGui::Checkbox("RayTrace", &Viewports[0]->GetWorldRenderer()->raytracing);
-        ImGui::Checkbox("Rasterize", &Viewports[0]->GetWorldRenderer()->rasterize);
+        ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);
 
         if (GetTimestamps().size() > 0) {
             float scale = 0.0001f;

@@ -18,6 +18,7 @@ struct GBuffer {
     Image motion;
     Image depth;
     Image depthf;
+    Image previousDepthf;
 
     GBuffer() {
     }
@@ -41,6 +42,7 @@ struct GBuffer {
 
         desc.format = Format::R32Sfloat;
         depthf = CreateImage(desc);
+        previousDepthf = CreateImage(desc);
 
         desc.format = Format::D24UnormS8Uint;
         desc.usage = ImageUsage::Sampled | ImageUsage::Attachment;
