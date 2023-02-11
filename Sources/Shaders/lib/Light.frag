@@ -273,7 +273,7 @@ void GetMaterial(uint visibility, out vec3 outAlbedo, out vec3 outMaterial) {
     uint matId;
     UnpackVisibility(visibility, instanceId, matId);
     int palleteId = VoxInstances[VoxInstancesRID].at[instanceId].palleteIndex;
-    outAlbedo = texelFetch(PALLETE_COLOR_TEXTURE, ivec2(matId, palleteId), 0).xyz;
+    outAlbedo = pow(texelFetch(PALLETE_COLOR_TEXTURE, ivec2(matId, palleteId), 0).xyz, vec3(2.2));
     outMaterial = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(matId, palleteId), 0).xyz;
 }
 

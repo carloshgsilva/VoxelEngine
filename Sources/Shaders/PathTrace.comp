@@ -60,73 +60,45 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    vec3 outColor = vec3(0.0);
+    vec3 acc = vec3(0);
+
+    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
+    if(visibility == 0u) {
+        return;
+    }
 
     float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     vec3 normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
     vec3 pos = o + d * t;
 
-#if 0
-    //outColor = vec3(fract(vec3(palleteId)*vec3(314.412, 642.451, 411.671)));
-    //outColor = vec3(fract(vec3(vox)*vec3(14.412, 42.451, 51.671)));
-    //outColor = texelFetch(PALLETE_COLOR_TEXTURE, pixel, 0).xyz;
-    //outColor = RandomColor(visibility);//texelFetch(PALLETE_COLOR_TEXTURE, pixel, 0).xyz;
-    //outColor = albedo;
-    outColor = normal;
-#endif
+    Sampler samp;
+    InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%32);
+    vec3 throughput = vec3(1.0);
 
-#if 0 // debug RT
     TraceHit hit;
-    if(RayTrace(o, d, hit, INF)) {
-    }
-    //outColor = vec3((hit.normal));//hit.debug;
-    outColor = hit.debug;
-    //outColor = vec3(fract(hit.t));
-    //outColor = vec3(fract(length(d*2)));
-#endif
+    hit.t = t;
+    hit.normal = normal;
+    hit.visibility = visibility;
+    for(int depth = 0; depth < 4; depth++) {
+        o = o + d*hit.t + hit.normal*EPS;
+        d = CosineSampleHemisphere(SampleNoise(samp).xy, hit.normal);
 
-#if 1 // PT
+        vec3 skyDir = normalize(d+vec3(0.3,0.4,0.5)*10.0);
+        if(!TraceShadowRay(o+hit.normal*0.001*t, skyDir, INF)) {
+           acc += throughput * vec3(0.9,0.9,0.8)*0.3;//GetSkyColor(vec3(1,0,0))*0.2;
+        }
 
-    if(t < INF) {
-        Sampler samp;
-        InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%32);
-        vec3 acc = vec3(0.0);
-        vec3 throughput = vec3(1.0);
-
-        TraceHit hit;
-        hit.t = t;
-        hit.normal = normal;
-        hit.visibility = visibility;
-        for(int depth = 0; depth < 4; depth++) {
-            
+        if(TraceRay(o, d, INF, hit)){
             vec3 albedo;
             vec3 material;
-            GetMaterial(visibility, albedo, material);
+            GetMaterial(hit.visibility, albedo, material);
+            acc += albedo * throughput * material.z * 10.0;
 
-            o = o + d*hit.t + hit.normal*EPS;
-            d = CosineSampleHemisphere(SampleNoise(samp).xy, hit.normal);
-
-            if(!TraceShadowRay(o+hit.normal*0.01, normalize(d+vec3(0.3,0.4,0.5)*10.0), INF)) {
-                acc += throughput * vec3(2.5) * max(dot(normalize(d+vec3(0.3,0.4,0.5)*10.0), hit.normal), 0);
-            }
-
-            if(TraceRay(o, d, INF, hit)){
-               vec3 albedo;
-               vec3 material;
-               GetMaterial(hit.visibility, albedo, material);
-               acc += albedo * throughput * material.z * 10.0;
-
-               throughput *= 1.0*albedo;/*max(dot(d, hit.normal), 0.0)*/;// * ((depth == 0) ? vec3(1.0) : albedo);
-            } else {
-               acc += vec3(0.05) * throughput;
-               break;
-            }
+            throughput *= albedo;
+        } else {
+            acc += GetSkyColor(d) * throughput * 5.0;
+            break;
         }
-        
-        outColor = vec3(acc);
     }
-#endif
-
-    imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(outColor,1));
+    imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(acc,1));
 }

@@ -56,7 +56,7 @@ class WorldRenderer {
 
    public:
     bool enableJitter = true;
-    bool raytracing = false;
+    bool raytracing = true;
     bool rasterize = true;
 
     WorldRenderer();

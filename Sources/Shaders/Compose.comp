@@ -38,28 +38,26 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-
     float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
     vec3 pos = o + d * t;
 
-    vec3 albedo;
-    vec3 material;
-    GetMaterial(visibility, albedo, material);
-    
-    vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz;
-
-    vec3 outColor = (radiance/* + material.z*10.0*/)*albedo;
+    vec3 radiance = vec3(0);
+    if(visibility != 0u) {
+        vec3 albedo;
+        vec3 material;
+        GetMaterial(visibility, albedo, material);
+        radiance = albedo*(texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz + material.z*10.0);
+    } else {
+        radiance = GetSkyColor(d);
+    }
 
     float exposure = 1.0;
     // exposure tone mapping
-    vec3 mapped = vec3(1.0) - exp(-outColor * exposure);
-
-    //mapped = filmic(mapped);
+    vec3 mapped = vec3(1.0) - exp(-radiance * exposure);
     mapped = aces(mapped);
-
     // gamma correction 
-    mapped = pow(mapped, vec3( 1.0 / 2.2));
+    mapped = pow(mapped, vec3(1.0 / 2.2));
 
-    imageStore(Image2DW[OutColorTextureRID], pixel, vec4(outColor,1));
+    imageStore(Image2DW[OutColorTextureRID], pixel, vec4(mapped,1));
 }

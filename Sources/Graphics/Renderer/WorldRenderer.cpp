@@ -265,7 +265,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] - 0.5f : glm::vec2(0.0f);
+        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] * 2.0f - 1.0f : glm::vec2(0.0f);
         viewData.Frame = _Frame;
         viewData.ColorTextureRID = GetRID(gbuffer.color);
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
@@ -376,7 +376,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 // ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
             });
         });
-    } else {
+    } else if (tlas) {
         CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
         CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(_CurrentLightBuffer, gbuffer, _ViewBuffer, bvhBuffer, bvhLeafsBuffer, tlas, voxInstancesBuffer); });
         CmdTimestamp("Denoise", [&] {

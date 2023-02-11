@@ -209,6 +209,8 @@ namespace evk {
         std::memcpy(dst, (void*)((size_t)res->mappedData + offset), size);
     }
     RID GetRID(const ResourceRef& ref) {
+        EVK_ASSERT(ref.res != nullptr, "Trying to get resource id of invalid resource");
+
         EVK_ASSERT(!dynamic_cast<Internal_Image*>(ref.res) || ((uint32_t) dynamic_cast<Internal_Image*>(ref.res)->desc.usage & (uint32_t)ImageUsage::Sampled || (uint32_t) dynamic_cast<Internal_Image*>(ref.res)->desc.usage & (uint32_t)ImageUsage::Storage),
                    "Image '%s' must have ImageUsage::Sampled or ImageUsage::Storage", dynamic_cast<Internal_Image*>(ref.res)->desc.name.c_str());
 

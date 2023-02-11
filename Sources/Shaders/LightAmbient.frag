@@ -97,6 +97,10 @@ float calculateOcclusion(vec3 pos, vec3 normal){
     return clamp(1.0-occlusion, 0.0, 1.0);
 }
 
+vec3 getSkyColor(vec3 e) {
+    e.y = (max(e.y,0.0)*0.8+0.2)*0.8;
+    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * 1.1;
+}
 vec3 calculateAmbientIrradiance(vec3 pos, vec3 normal) {
     vec3 tangent = abs(normal.z) > 0.5 ? vec3(0.0, -normal.z, normal.y) : vec3(-normal.y, normal.x, 0.0);
     vec3 bitangent = cross(normal, tangent);
@@ -111,13 +115,9 @@ vec3 calculateAmbientIrradiance(vec3 pos, vec3 normal) {
         d = 1.0/pow(dist, 8.0);
     }
 
-    return vec3(d)*AMBIENT_LIGHT_FACTOR;
+    return vec3(d)*getSkyColor(dir)*AMBIENT_LIGHT_FACTOR;
 }
 
-vec3 getSkyColor(vec3 e) {
-    e.y = (max(e.y,0.0)*0.8+0.2)*0.8;
-    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * 1.1;
-}
 
 //Everything is calculated in ViewSpace to avoid float precision issues
 void main() {
@@ -199,10 +199,8 @@ void main() {
             vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
             vec3 kS = F;
             vec3 kD = vec3(1.0) - kS;
-            vec3 irradiance = getSkyColor(vec3(1,0,0));
-            vec3 diffuse = irradiance*albedo;
             
-            ambient += diffuse * (emit*10.0 + kD * ambientIrradiance * calculateOcclusion(pos, N));
+            ambient += 0.0*albedo * (emit*10.0 + kD * ambientIrradiance * calculateOcclusion(pos, N));
         }
         
         out_Color = vec4(ambient + Lo, 0.0);
