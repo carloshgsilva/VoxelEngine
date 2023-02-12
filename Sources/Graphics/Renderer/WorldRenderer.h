@@ -21,10 +21,7 @@ class WorldRenderer {
     AssetRefT<SkyBoxAsset> _DefaultSkyBox;
     PerFrame<Buffer> _ViewBuffer;
 
-    BVHBuilder bvhBuilder = {};
-    Buffer bvhBuffer;
-    Buffer bvhLeafsBuffer;
-
+    std::vector<Buffer> holdVox;
     Buffer voxInstancesBuffer;
     std::vector<VoxInstance> voxInstances;
     std::vector<rt::BLASInstance> blasInstances;
@@ -64,7 +61,6 @@ class WorldRenderer {
     OutputImage outputImage = OutputImage::Composed;
     bool enableJitter = true;
     bool enablePermutation = true;
-    bool raytracing = true;
     bool enableDenoiser = true;
 
     WorldRenderer();
@@ -73,7 +69,6 @@ class WorldRenderer {
     }
 
     void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
-    void CmdVoxel(const glm::mat4& matrix, const glm::mat4& lastMatrix, Image& vox, int palleteIndex, int id = 0);
 
     void RecreateFramebuffer(uint32 Width, uint32 Height);
 

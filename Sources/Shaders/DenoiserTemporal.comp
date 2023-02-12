@@ -24,36 +24,22 @@ void main() {
     float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     vec3 pos = o + d * t;
 
-    vec2 previousUV = WorldToUVLastView(pos);// - GetPreviousJitter()*GetiRes();
+    vec2 previousUV = WorldToUVLastView(pos);
     float previousDepth = texture(Sampler2D[PreviousDepthTextureRID], previousUV).x;
-    vec3 previousRadiance = texture(Sampler2D[InLastRadianceTextureRID], previousUV).xyz;
+    vec4 previousRadianceVariance = texture(Sampler2D[InLastRadianceTextureRID], previousUV);
+    vec3 previousRadiance = previousRadianceVariance.xyz;
+    float previousVariance = previousRadianceVariance.w;
     vec3 previousPos = PrevousView_UVDepthToPos(previousUV, previousDepth);
 
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
     vec3 radiance = radianceVar.xyz;
-    float variance = radianceVar.w;
+    float variance = previousVariance-0.01;
 
     if(clamp(previousUV, 0.0, 1.0) != previousUV || distance(previousPos, pos) > 0.5) {
         previousRadiance = radiance;
+        variance = 1.0;
     }
 
-    // vec3 minRadiance = vec3(INF);
-    // vec3 maxRadiance = vec3(0);
-    // for(int x = -1; x <= 1; x++) {
-    //     for(int y = -1; y <= 1; y++) {
-    //         if(x == 0 && y == 0) continue;
-
-    //         ivec2 nPixel = pixel + ivec2(x, y);
-    //         vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
-
-    //         minRadiance = min(minRadiance, nRadiance);
-    //         maxRadiance = max(maxRadiance, nRadiance);
-    //     }
-    // }
-
-    // vec3 lastLuminance = (lastRadiance);
-    // vec3 newLuminance = (clamp(lastRadiance, minRadiance, maxRadiance));
-
-    vec3 temp = mix(radiance, previousRadiance, 0.95);
-    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(temp, 1));
+    vec3 temp = mix(radiance, previousRadiance, 0.9);
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(temp, clamp(variance, 0, 1)));
 }

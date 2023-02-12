@@ -52,6 +52,8 @@ void main() {
         radiance = GetSkyColor(d);
     }
 
+    //radiance = vec3(texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).w); // debug disocclusion
+
     float exposure = 1.0;
     // exposure tone mapping
     vec3 mapped = vec3(1.0) - exp(-radiance * exposure);

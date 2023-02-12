@@ -17,13 +17,12 @@ struct GBuffer {
     Image material;
     Image motion;
     Image depth;
-    Image depthf;
-    Image previousDepthf;
+    Image previousDepth;
 
     GBuffer() {
     }
     GBuffer(uint32 width, uint32 height) {
-        ImageDesc desc = {.extent = {width, height}, .usage = ImageUsage::Sampled | ImageUsage::Attachment | ImageUsage::Storage};
+        ImageDesc desc = {.extent = {width, height}, .usage = ImageUsage::Sampled | ImageUsage::Storage};
 
         desc.format = Format::BGRA8Unorm;
         color = CreateImage(desc);
@@ -41,21 +40,8 @@ struct GBuffer {
         motion = CreateImage(desc);
 
         desc.format = Format::R32Sfloat;
-        depthf = CreateImage(desc);
-        previousDepthf = CreateImage(desc);
-
-        desc.format = Format::D24UnormS8Uint;
-        desc.usage = ImageUsage::Sampled | ImageUsage::Attachment;
         depth = CreateImage(desc);
-    }
-
-    inline static std::vector<Format> Attachments() {
-        return std::vector<Format>{Format::BGRA8Unorm, Format::RGBA8Snorm, Format::BGRA8Unorm, Format::RG16Sfloat, Format::D24UnormS8Uint};
-    }
-
-    template <typename T>
-    void Render(T callback) {
-        CmdRender({color, normal, material, motion, depth}, {ClearColor{}, ClearColor{}, ClearColor{}, ClearColor{}, ClearDepthStencil{}}, callback);
+        previousDepth = CreateImage(desc);
     }
 };
 

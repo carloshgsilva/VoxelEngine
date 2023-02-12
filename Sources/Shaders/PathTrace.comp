@@ -6,8 +6,6 @@ PUSH(
     int VisibilityTextureRID;
     int DepthTextureRID;
     int _ViewBufferRID;
-    int BVHBufferRID;
-    int BVHLeafsBufferRID;
     int TLASRID;
     int VoxInstancesRID;
 )

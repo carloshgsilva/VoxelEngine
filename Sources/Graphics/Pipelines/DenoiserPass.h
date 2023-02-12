@@ -18,7 +18,7 @@ class DenoiserDiscPass {
             GetRID(outRadiance),
             GetRID(inRadiance),
             GetRID(gbuffer.normal),
-            GetRID(gbuffer.depthf),
+            GetRID(gbuffer.depth),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
@@ -45,8 +45,9 @@ class DenoiserAtrousPass {
             GetRID(outRadiance),
             GetRID(inRadiance),
             GetRID(gbuffer.normal),
-            GetRID(gbuffer.depthf),
+            GetRID(gbuffer.depth),
             GetRID(viewBuffer),
+            size,
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }
@@ -73,8 +74,8 @@ class DenoiserTemporalPass {
             GetRID(inRadiance),
             GetRID(inLastRadiance),
             GetRID(gbuffer.motion),
-            GetRID(gbuffer.depthf),
-            GetRID(gbuffer.previousDepthf),
+            GetRID(gbuffer.depth),
+            GetRID(gbuffer.previousDepth),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
@@ -102,8 +103,8 @@ class TAAPass {
             GetRID(inRadiance),
             GetRID(inLastRadiance),
             GetRID(gbuffer.motion),
-            GetRID(gbuffer.depthf),
-            GetRID(gbuffer.previousDepthf),
+            GetRID(gbuffer.depth),
+            GetRID(gbuffer.previousDepth),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);

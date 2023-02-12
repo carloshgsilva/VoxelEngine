@@ -31,51 +31,6 @@ vec3 GetSkyColor(vec3 e) {
     return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * 0.5;
 }
 
-struct PointLight {
-    vec3 Position;
-    float Range;
-    vec3 Color;
-    float Attenuation;
-};
-
-struct SpotLight {
-    vec3 Position;
-    float Range;
-    vec3 Color;
-    float Attenuation;
-    vec3 Direction;
-    float Angle;
-    float AngleAttenuation;
-};
-
-struct VoxCmd {
-    mat4 WorldMatrix;
-    mat4 LastWorldMatrix;
-    int VolumeRID;
-    int PalleteIndex;
-};
-
-//PointLights (requires: _PointLightsBufferRID)
-#define BINDING_POINT_LIGHTS_BUFFER() \
-BINDING_BUFFER(PointLightsBuffer,     \
-    PointLight Lights[64];            \
-)                                     \
-PointLight GetPointLight(int index) { return PointLightsBuffer[_PointLightsBufferRID].Lights[index]; } \
-
-//SpotLights (requires: _SpotLightsBufferRID)
-#define BINDING_SPOT_LIGHTS_BUFFER() \
-BINDING_BUFFER(SpotLightsBuffer,     \
-    SpotLight Lights[64];            \
-)                                     \
-SpotLight GetSpotLight(int index) { return SpotLightsBuffer[_SpotLightsBufferRID].Lights[index]; } \
-
-//VoxCmdsBuffer (requires: _VoxCmdsBufferRID)
-#define BINDING_VOX_CMDS_BUFFER() \
-BINDING_BUFFER_R(VoxCmdsBuffer,        \
-    VoxCmd Cmds[4096];            \
-)                                    \
-VoxCmd GetVoxCmd(int index) { return VoxCmdsBuffer[_VoxCmdsBufferRID].Cmds[index]; } \
-
 //View Textures
 #define LAST_COLOR_TEXTURE Sampler2D[_LastColorTextureRID]
 #define COLOR_TEXTURE Sampler2D[_ColorTextureRID]

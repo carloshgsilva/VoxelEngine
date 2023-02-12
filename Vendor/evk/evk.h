@@ -275,7 +275,7 @@ namespace evk {
     void CmdDispatch(uint32_t countX, uint32_t countY, uint32_t countZ);
     // Transition a image to a layout with dependecy stages
     void CmdBarrier(Image& image, ImageLayout oldLayout, ImageLayout newLayout, uint32_t mip = 0, uint32_t mipCount = 1, uint32_t layer = 0, uint32_t layerCount = 1);
-    void CmdBarrier(Buffer& buffer);
+    void CmdBarrier();
     // Fills buffer with value
     void CmdFill(Buffer dst, uint32_t data, uint64_t size, uint64_t offset = 0);
     // Updates buffer with small amout of data

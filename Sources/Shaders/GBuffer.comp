@@ -7,8 +7,6 @@ PUSH(
     int MotionTextureRID;
     int DepthTextureRID;
     int _ViewBufferRID;
-    int BVHBufferRID;
-    int BVHLeafsBufferRID;
     int TLASRID;
     int VoxInstancesRID;
 )

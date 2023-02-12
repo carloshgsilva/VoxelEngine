@@ -820,25 +820,58 @@ namespace evk {
                 .runtimeDescriptorArray = true,
             };
 
-            VkPhysicalDeviceDynamicRenderingFeatures feature_dynamicRendering = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES, .pNext = &feature_indexing, .dynamicRendering = true};
+            VkPhysicalDeviceDynamicRenderingFeatures feature_dynamicRendering = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
+                .pNext = &feature_indexing,
+                .dynamicRendering = true,
+            };
 
-            VkPhysicalDeviceBufferDeviceAddressFeatures feature_bufferDeviceAddress = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES, .pNext = &feature_dynamicRendering, .bufferDeviceAddress = true};
+            VkPhysicalDeviceBufferDeviceAddressFeatures feature_bufferDeviceAddress = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+                .pNext = &feature_dynamicRendering,
+                .bufferDeviceAddress = true,
+            };
 
+            VkPhysicalDeviceSynchronization2Features feature_sync2 = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+                .pNext = &feature_bufferDeviceAddress,
+                .synchronization2 = true,
+            };
 #if EVK_RT
 
-            VkPhysicalDevice8BitStorageFeatures feature_8bitStorage = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES, .pNext = &feature_bufferDeviceAddress, .storageBuffer8BitAccess = true, .uniformAndStorageBuffer8BitAccess = true};
+            VkPhysicalDevice8BitStorageFeatures feature_8bitStorage = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
+                .pNext = &feature_sync2,
+                .storageBuffer8BitAccess = true,
+                .uniformAndStorageBuffer8BitAccess = true,
+            };
 
-            VkPhysicalDevice16BitStorageFeatures feature_16bitStorage = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES, .pNext = &feature_8bitStorage, .storageBuffer16BitAccess = true, .uniformAndStorageBuffer16BitAccess = true};
+            VkPhysicalDevice16BitStorageFeatures feature_16bitStorage = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
+                .pNext = &feature_8bitStorage,
+                .storageBuffer16BitAccess = true,
+                .uniformAndStorageBuffer16BitAccess = true,
+            };
 
-            VkPhysicalDeviceRayTracingPipelineFeaturesKHR feature_rayTracingPipeline = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, .pNext = &feature_16bitStorage, .rayTracingPipeline = VK_TRUE};
+            VkPhysicalDeviceRayTracingPipelineFeaturesKHR feature_rayTracingPipeline = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+                .pNext = &feature_16bitStorage,
+                .rayTracingPipeline = VK_TRUE,
+            };
 
-            VkPhysicalDeviceAccelerationStructureFeaturesKHR feature_accelerationStructure = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-                                                                                              .pNext = &feature_rayTracingPipeline,
-                                                                                              .accelerationStructure = VK_TRUE,
-                                                                                              .accelerationStructureCaptureReplay = VK_TRUE,
-                                                                                              .descriptorBindingAccelerationStructureUpdateAfterBind = VK_TRUE};
+            VkPhysicalDeviceAccelerationStructureFeaturesKHR feature_accelerationStructure = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+                .pNext = &feature_rayTracingPipeline,
+                .accelerationStructure = VK_TRUE,
+                .accelerationStructureCaptureReplay = VK_TRUE,
+                .descriptorBindingAccelerationStructureUpdateAfterBind = VK_TRUE,
+            };
 
-            VkPhysicalDeviceRayQueryFeaturesKHR feature_rayQuery = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, .pNext = &feature_accelerationStructure, .rayQuery = VK_TRUE};
+            VkPhysicalDeviceRayQueryFeaturesKHR feature_rayQuery = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+                .pNext = &feature_accelerationStructure,
+                .rayQuery = VK_TRUE,
+            };
 #endif
 
             // Create device and get queue
@@ -1316,19 +1349,21 @@ namespace evk {
         }
         vkCmdPipelineBarrier(GetFrame().cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
-    void CmdBarrier(Buffer& buffer) {
-        EVK_ASSERT(false, "CmdBarrier for buffer Not implemented!");
-        // TODO: handle accessMask and stages
-        VkBufferMemoryBarrier bufferBarrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-        bufferBarrier.buffer = ToInternal(buffer).buffer;
-        bufferBarrier.offset = 0;
-        bufferBarrier.size = GetDesc(buffer).size;
-        bufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        bufferBarrier.srcQueueFamilyIndex = GetState().queueFamily;
-        bufferBarrier.dstQueueFamilyIndex = GetState().queueFamily;
-
-        vkCmdPipelineBarrier(GetFrame().cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+    void CmdBarrier() {
+        VkMemoryBarrier2 barrier = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+        };
+        VkDependencyInfo dependency = {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &barrier,
+        };
+        vkCmdPipelineBarrier2(GetFrame().cmd, &dependency);
+        // vkCmdPipelineBarrier(GetFrame().cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
     }
     void CmdFill(Buffer dst, uint32_t data, uint64_t size, uint64_t offset) {
         EVK_ASSERT(size % 4 == 0, "Trying to fill buffer '%s', but size is %lld which is not a multiple of 4", GetDesc(dst).name.c_str(), size);
@@ -1486,6 +1521,7 @@ namespace evk {
             copy.size = size;
 
             F.stagingOffset += size;
+            printf("[evk] F.stagingOffset = %llu\n", F.stagingOffset);
 
             vkCmdCopyBuffer(GetFrame().cmd, ToInternal(F.stagingBuffer).buffer, ToInternal(dst).buffer, 1, &copy);
         }

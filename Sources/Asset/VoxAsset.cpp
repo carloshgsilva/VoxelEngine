@@ -49,13 +49,6 @@ void VoxAsset::Upload() {
 
         WriteBuffer(buffer, data, bufferSize);
 
-        // CommandBuffer cmd = CreateCommandBuffer({});
-        // cmd.Barrier(_Image, ImageLayout::Undefined, ImageLayout::TransferDst, mip);
-        // cmd.Copy(buffer, _Image, mip);
-        // cmd.Barrier(_Image, ImageLayout::TransferDst, ImageLayout::ShaderRead, mip);
-        // cmd.Submit();
-        // cmd.Wait();
-
         CmdBarrier(_Image, ImageLayout::Undefined, ImageLayout::TransferDst, mip);
         CmdCopy(buffer, _Image, mip);
         CmdBarrier(_Image, ImageLayout::TransferDst, ImageLayout::ShaderRead, mip);
