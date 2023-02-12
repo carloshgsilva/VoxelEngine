@@ -78,13 +78,13 @@ void main() {
     hit.normal = normal;
     hit.visibility = visibility;
     for(int depth = 0; depth < 4; depth++) {
-        o = o + d*hit.t + hit.normal*EPS*max(t, 10.0);
+        o = o + d*hit.t + hit.normal*EPS*max(t, 0.1);
         d = CosineSampleHemisphere(SampleNoise(samp).xy, hit.normal);
 
         // Sun Light
         vec3 skyDir = normalize(d+vec3(0.3,0.4,0.5)*10.0);
         if(!TraceShadowRay(o, skyDir, INF)) {
-           acc += throughput * vec3(0.9,0.9,0.8);//GetSkyColor(vec3(1,0,0))*0.2;
+           acc += throughput * vec3(0.9,0.9,0.8);
         }
 
         // Continue Bounces

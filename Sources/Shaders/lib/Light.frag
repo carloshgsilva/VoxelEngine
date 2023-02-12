@@ -16,7 +16,7 @@ const int VoxInstancesRID = 0;
 #endif
 
 bool TraceShadowRay(vec3 origin, vec3 dir, float tmax) {
-    float tmin = 0.005;
+    float tmin = 0.001;
     rayQueryEXT rayQuery;
     rayQueryInitializeEXT(rayQuery, TLAS[TLASRID], gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, tmin, dir, tmax);
     while(rayQueryProceedEXT(rayQuery)){

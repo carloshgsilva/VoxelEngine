@@ -1051,7 +1051,7 @@ namespace evk {
                     .name = "Staging buffer",
                     .size = 64'000'000,
                     .usage = BufferUsage::TransferSrc,
-                    .memoryType = MemoryType::CPU,
+                    .memoryType = MemoryType::CPU_TO_GPU,
                 });
             }
         }
@@ -1521,7 +1521,6 @@ namespace evk {
             copy.size = size;
 
             F.stagingOffset += size;
-            printf("[evk] F.stagingOffset = %llu\n", F.stagingOffset);
 
             vkCmdCopyBuffer(GetFrame().cmd, ToInternal(F.stagingBuffer).buffer, ToInternal(dst).buffer, 1, &copy);
         }

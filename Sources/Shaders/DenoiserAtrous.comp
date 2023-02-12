@@ -21,8 +21,9 @@ float CalculateVariance(ivec2 pixel) {
 
     vec3 mean = vec3(0);
     vec3 mean2 = vec3(0);
-    for(int x = -1; x <= 1; x++) {
-        for(int y = -1; y <= 1; y++) {
+    const int KernelSize = 2;
+    for(int x = -KernelSize; x <= KernelSize; x++) {
+        for(int y = -KernelSize; y <= KernelSize; y++) {
             ivec2 nPixel = pixel + ivec2(x, y);
             vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
             float k = KERNEL[abs(x)][abs(y)];
@@ -33,7 +34,7 @@ float CalculateVariance(ivec2 pixel) {
     }
 
     float meanLum = Luminance(mean);
-    return max(Luminance(mean2) - meanLum * meanLum, 0);
+    return max(Luminance(mean2) - meanLum * meanLum, 0) / ((KernelSize*2+1)*(KernelSize*2+1));
 }
 
 COMPUTE(8, 8, 1)
@@ -53,13 +54,15 @@ void main() {
 
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
     vec3 radiance = radianceVar.xyz;
-    float lastVariance = radianceVar.w;
     float luminance = Luminance(radiance);
-    float variance = CalculateVariance(pixel);
+    float variance = max(radianceVar.w, 0.3);//max(radianceVar.w, 0.003);//max(CalculateVariance(pixel), radianceVar.w);
     float phi = max(1e-4, sqrt(variance));
     
-    vec3 acc = radiance;
-    float total = 1.0;
+    float w0 = max(exp(-variance*luminance*10.0), 0.01);
+    vec3 acc = radiance*w0;
+    float mean1 = Luminance(acc);
+    float mean2 = Luminance(acc)*Luminance(acc);
+    float total = w0;
     for(int x = -1; x <= 1; x++) {
         for(int y = -1; y <= 1; y++) {
             if(x == 0 && y == 0) continue;
@@ -77,18 +80,24 @@ void main() {
             
             const float GAUSSIAN[2] = {0.44198, 0.27901};
             float w = GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
-            float luminanceWeight = 2.0 * min(abs(luminance - nLuminance) / phi, 0.1);
+            float luminanceWeight = variance*pow(Size, 1.0)*min(abs(luminance - nLuminance) / phi, abs(luminance - nLuminance)/max(luminance, 0.001));
             w *= exp(-luminanceWeight);
             w *= IsInsideScreenWeight(uv);
             w *= NormalWeight(normal, nNormal);
             w *= PlaneWeight(pos, normal, nPos);
-            w = clamp(w, 0, 1);
 
             acc += w*nRadiance;
+            mean1 += w*nLuminance;
+            mean2 += w*nLuminance*nLuminance;
             total += w;
         }
     }
 
+    //float meanLum = length(acc);
+    float newVariance = max(mean2 - mean1*mean1, 0.0); 
+    newVariance /= total;
+    newVariance = mix(newVariance, radianceVar.w, 0.9);
+
     acc /= total;
-    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, radianceVar.w));
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, newVariance));
 }

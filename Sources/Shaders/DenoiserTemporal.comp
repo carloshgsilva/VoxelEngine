@@ -33,13 +33,13 @@ void main() {
 
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
     vec3 radiance = radianceVar.xyz;
-    float variance = previousVariance-0.01;
+    float variance = max(previousVariance - 0.05 , 0);
 
     if(clamp(previousUV, 0.0, 1.0) != previousUV || distance(previousPos, pos) > 0.5) {
         previousRadiance = radiance;
         variance = 1.0;
     }
-
-    vec3 temp = mix(radiance, previousRadiance, 0.9);
-    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(temp, clamp(variance, 0, 1)));
+    
+    radiance = mix(radiance, previousRadiance, 0.9);
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(radiance, variance));
 }
