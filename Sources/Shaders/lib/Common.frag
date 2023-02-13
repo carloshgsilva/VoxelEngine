@@ -28,7 +28,7 @@ vec3 RandomColor(uint s) {
 
 vec3 GetSkyColor(vec3 e) {
     e.y = (max(e.y,0.0)*0.8+0.2)*0.8;
-    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * 0.5;
+    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * 1.0;
 }
 
 //View Textures

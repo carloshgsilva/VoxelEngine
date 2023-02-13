@@ -33,11 +33,10 @@ void main() {
     vec3 radiance = radianceVar.xyz;
     float variance = radianceVar.w;
 
-    if(clamp(previousUV, 0.0, 1.0) != previousUV /*|| t > 10000 || distance(previousPos, pos) > 0.1*/) {
+    if(clamp(previousUV, 0.0, 1.0) != previousUV) {
         previousRadiance = radiance;
     }
 
-    
     //Neighbour clip
     vec3 ref0 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(1, 1) , 0).xyz;
     vec3 ref1 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(1, 1) , 0).xyz;
@@ -54,8 +53,6 @@ void main() {
     previousRadiance = clamp(previousRadiance, nmin, nmax);
 
     vec2 motion = previousUV - uv;
-
-    float w = clamp(1.0 - length(motion)*1.0, 0, 1);
 
     vec3 temp = mix(radiance, previousRadiance, 0.95);
     imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(temp, 1));

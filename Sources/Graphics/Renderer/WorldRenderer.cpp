@@ -273,11 +273,11 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 1);
                 DenoiserTemporalPass::Get().Use(lightBufferA, lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer);
                 previousLightBuffer.swap(lightBufferA);
-                DenoiserAtrousPass::Get().Use(lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
-                DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 2);
-                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);
-                DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 8);
-                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 16);
+                DenoiserAtrousPass::Get().Use(lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 2);
+                DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 4);
+                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 8);
+                DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 16);
+                DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 32);
             }
         });
         CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, enableDenoiser ? lightBufferB : lightBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });

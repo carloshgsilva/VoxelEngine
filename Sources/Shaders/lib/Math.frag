@@ -1,6 +1,8 @@
 #ifndef MATH_H
 #define MATH_H
 
+#define M_PI 3.1415926535
+
 bool RayDoublePlaneCast(
 	vec3 planePos,
 	vec3 planeNormal,

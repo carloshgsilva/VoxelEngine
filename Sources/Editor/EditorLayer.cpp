@@ -119,7 +119,9 @@ void EditorLayer::OnGui() {
         ImGui::Begin("Performance");
         ImGui::Text("ms: %f", ImGui::GetIO().DeltaTime * 1000.0f);
         ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
-        ImGui::Text("benchmark: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
+        if (count > 0) {
+            ImGui::Text("benchmark: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
+        }
 
         ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0", 3);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);

@@ -55,10 +55,10 @@ void main() {
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
     vec3 radiance = radianceVar.xyz;
     float luminance = Luminance(radiance);
-    float variance = max(radianceVar.w, 0.3);//max(radianceVar.w, 0.003);//max(CalculateVariance(pixel), radianceVar.w);
+    float variance = max(radianceVar.w, 0.3);
     float phi = max(1e-4, sqrt(variance));
     
-    float w0 = max(exp(-variance*luminance*10.0), 0.01);
+    float w0 = max(exp(-pow(variance/luminance, 2.0)*500.0), 0.1); // the more variance less we need the center pixel to contribute
     vec3 acc = radiance*w0;
     float mean1 = Luminance(acc);
     float mean2 = Luminance(acc)*Luminance(acc);
@@ -80,7 +80,7 @@ void main() {
             
             const float GAUSSIAN[2] = {0.44198, 0.27901};
             float w = GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
-            float luminanceWeight = variance*pow(Size, 1.0)*min(abs(luminance - nLuminance) / phi, abs(luminance - nLuminance)/max(luminance, 0.001));
+            float luminanceWeight = variance*pow(Size, 2.0)*min(abs(luminance - nLuminance) / phi, abs(luminance - nLuminance)/max(luminance, 0.001));
             w *= exp(-luminanceWeight);
             w *= IsInsideScreenWeight(uv);
             w *= NormalWeight(normal, nNormal);
@@ -96,7 +96,7 @@ void main() {
     //float meanLum = length(acc);
     float newVariance = max(mean2 - mean1*mean1, 0.0); 
     newVariance /= total;
-    newVariance = mix(newVariance, radianceVar.w, 0.9);
+    //newVariance = mix(newVariance, radianceVar.w, 0.9);
 
     acc /= total;
     imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, newVariance));
