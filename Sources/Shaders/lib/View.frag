@@ -3,6 +3,8 @@
 #ifndef VIEW_H
 #define VIEW_H
 
+#include "Math.frag"
+
 #ifndef IMPORT
 const int _ViewBufferRID = 0;
 #endif
@@ -23,8 +25,23 @@ BINDING_BUFFER_R(ViewBuffer,
     int _PalleteColorRID;
     int _PalleteMaterialRID;
 	int BlueNoiseRID;
+    float Time;
 )
 #define VIEW ViewBuffer[_ViewBufferRID]
+
+vec3 GetSkyColor(vec3 e) {
+    float f = max(sin(M_PI*VIEW.Time/24.0), 0.03);
+    e.y = (max(e.y,0.0)*0.8+0.2)*0.8;
+    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * f;
+}
+vec3 GetSunDir() {
+    float t = VIEW.Time*M_PI/12.0;
+    return normalize(vec3(0.9, -cos(t), sin(t)));
+}
+vec3 GetSunColor() {
+    float f = sin(M_PI*VIEW.Time/24.0);
+    return vec3(0.9,0.9,0.8)*1.0;
+}
 
 mat4 GetLastViewMatrix(){ return VIEW.LastViewMatrix; }
 mat4 GetViewMatrix(){ return VIEW.ViewMatrix; }
@@ -72,6 +89,11 @@ vec3 UVToRayDir(vec2 uv) {
 vec3 PrevousView_UVDepthToPos(vec2 uv, float depth) {
     vec3 viewSpace = (GetInverseProjectionMatrix() * vec4((uv-0.5)*vec2(2, -2), 1, 1)).xyz*depth;
     return (inverse(VIEW.LastViewMatrix) * vec4(viewSpace, 1)).xyz;
+}
+
+
+vec3 UVDepthToWorld(vec2 uv, float depth) {
+    return GetCameraPosition() + UVToRayDir(uv)*depth;
 }
 
 #endif

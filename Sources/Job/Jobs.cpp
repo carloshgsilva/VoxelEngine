@@ -1,19 +1,17 @@
 #include "Jobs.h"
 
-
 Jobs::Context Jobs::MainThreadContext = {};
 
 bool Jobs::_TryToGetJob(Job& j) {
     Jobs& J = Jobs::Get();
 
     std::unique_lock lock(J._JobsMutex);
-     
+
     if (J._Jobs.size() > 0) {
         j = J._Jobs.front();
         J._Jobs.pop();
         return true;
-    }
-    else {
+    } else {
         return false;
     }
 }
@@ -24,8 +22,7 @@ bool Jobs::_Work() {
         j._Callback();
         j._Context->ActiveJobs.fetch_sub(1);
         return true;
-    }
-    else {
+    } else {
         return false;
     }
 }
@@ -55,18 +52,18 @@ Jobs::Jobs() {
         DWORD affinity_result = SetThreadAffinityMask(h, affinityMask);
         assert(affinity_result > 0);
 
-        BOOL priority_result = SetThreadPriority(h, THREAD_PRIORITY_HIGHEST);
-        assert(priority_result > 0);
+        // BOOL priority_result = SetThreadPriority(h, THREAD_PRIORITY_HIGHEST);
+        // assert(priority_result > 0);
 
-        //HRESULT hr = SetThreadDescription(h, fmt::format("Job Worker {}", i).c_str());
-        //assert(SUCCEEDED(hr));
+        // HRESULT hr = SetThreadDescription(h, fmt::format("Job Worker {}", i).c_str());
+        // assert(SUCCEEDED(hr));
 #endif
 
         t.detach();
     }
 }
 
-void Jobs::Run(std::function<void()> JobCallback, Context& JobContext){
+void Jobs::Run(std::function<void()> JobCallback, Context& JobContext) {
     Jobs& J = Jobs::Get();
 
     Job j;
@@ -83,7 +80,6 @@ void Jobs::Run(std::function<void()> JobCallback, Context& JobContext){
 }
 
 void Jobs::ParallelFor(uint32 Count, std::function<void(int Index, int Group)> JobCallback, Context& JobContext) {
-
     uint32 threadCount = GetThreadCount();
     uint32 jobSize = Count / threadCount;
 
@@ -97,18 +93,21 @@ void Jobs::ParallelFor(uint32 Count, std::function<void(int Index, int Group)> J
             end = Count;
         }
 
-        Run([=]() {
-            for (int i = start; i < end; i++) {
-                JobCallback(i, t);
-            }
-        }, JobContext);
+        Run(
+            [=]() {
+                for (int i = start; i < end; i++) {
+                    JobCallback(i, t);
+                }
+            },
+            JobContext);
 
-        if(end == Count)
-            break;
+        if (end == Count) break;
     }
 }
 
 void Jobs::Complete(Context& JobContext) {
     Get()._ThreadWakeCondition.notify_all();
-    while (JobContext.ActiveJobs.load() > 0) { _Work(); }
+    while (JobContext.ActiveJobs.load() > 0) {
+        _Work();
+    }
 }

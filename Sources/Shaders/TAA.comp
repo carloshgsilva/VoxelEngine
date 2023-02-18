@@ -29,9 +29,7 @@ void main() {
     vec3 previousRadiance = texture(Sampler2D[InLastRadianceTextureRID], previousUV).xyz;
     vec3 previousPos = PrevousView_UVDepthToPos(previousUV, previousDepth);
 
-    vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
-    vec3 radiance = radianceVar.xyz;
-    float variance = radianceVar.w;
+    vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz;
 
     if(clamp(previousUV, 0.0, 1.0) != previousUV) {
         previousRadiance = radiance;

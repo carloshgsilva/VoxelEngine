@@ -1,16 +1,7 @@
-#include "Common.frag"
+#ifndef PROBE_H
+#define PROBE_H
 
-PUSH(
-    int ColorTextureRID;
-    int NormalTextureRID;
-    int VisibilityTextureRID;
-    int DepthTextureRID;
-    int _ViewBufferRID;
-    int TLASRID;
-    int VoxInstancesRID;
-)
 
-#define IMPORT
 #include "View.frag"
 #include "Light.frag"
 #include "BRDF.frag"
@@ -96,63 +87,54 @@ void InitSampler(inout Sampler samp, ivec2 pixel, int frame) {
 vec4 SampleNoise(inout Sampler samp) {
     vec2 res = textureSize(BLUE_NOISE, 0);
     samp.depth++;
-    //return texelFetch(BLUE_NOISE, ivec2((vec2(samp.pixel)+vec2(GOLDEN_RATIO*(mod(samp.frame+samp.depth*5,64)), GOLDEN_RATIO*(mod(samp.frame+samp.depth*7+1,64))))*res)%512, 0).r;
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
-
-COMPUTE(8, 8, 1)
-void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec2 uv = vec2(pixel+GetJitter())*GetiRes();
-    vec3 o = GetCameraPosition();
-    vec3 d = UVToRayDir(uv);
-
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    if(visibility == 0u) {
-        return;
-    }
-
-    Sampler samp;
-    InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%32);
-    
+vec3 TraceScene(vec3 o, vec3 d, inout Sampler samp) {
     vec3 acc = vec3(0);
-    vec3 throughput = vec3(1.0);
-
-    TraceHit hit;
-    hit.t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    hit.normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
-    hit.visibility = visibility;
+    vec3 throughput = vec3(1);
     for(int depth = 0; depth < 4; depth++) {
-        Material mat;
-        vec3 albedo;
-        vec3 material;
-        GetMaterial(hit.visibility, albedo, material);
-        mat.albedo = albedo;
-        mat.roughness = pow(material.x, 2.2);
-        mat.metallic = material.y;
-        
-        //acc += albedo * throughput * material.z * 10.0;
 
-        
-        BRDFSample smp;
-        if(SampleBRDF(smp, mat, d, hit.normal, SampleNoise(samp))) {
-            o = o + d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
-            d = smp.wi;
 
+        TraceHit hit;
+        if(TraceRay(o, d, INF, hit)){
+            Material mat;
+            vec3 albedo;
+            vec3 material;
+            GetMaterial(hit.visibility, albedo, material);
+            mat.albedo = albedo;
+            mat.roughness = pow(material.x, 2.2);
+            mat.metallic = material.y;
+            
             // Sun Light
-            vec3 skyDir = normalize(d+GetSunDir()*10.0);
-            if(!TraceShadowRay(o, skyDir, INF)) {
-                acc += throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
-            }
+            //vec3 skyDir = normalize(d+GetSunDir()*10.0);
+            //if(!TraceShadowRay(o, skyDir, INF)) {
+            //    acc += throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0) * max(dot(GetSunDir(), -d)*10.0, 0);
+            //}
 
-            if(depth!=0)throughput *= pow(smp.brdf, vec3(1/2.2));
-            // Continue Bounces
-            if(TraceRay(o, d, INF, hit) == false){
-                acc += GetSkyColor(d) * throughput;
-                break;
+            acc += albedo * throughput * material.z * 10.0;
+
+            BRDFSample smp;
+            if(SampleBRDF(smp, mat, d, hit.normal, SampleNoise(samp))) {
+                o = o + d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
+                d = smp.wi;
+                throughput *= smp.brdf;
             }
+        } else {
+            acc += GetSkyColor(d) * throughput * 0.1;
+            break;
         }
-
     }
-    imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(acc,1));
+    return acc;
 }
+
+vec2 GetProbeJitter(ivec2 probe) {
+    return texelFetch(BLUE_NOISE, (probe/8+ivec2(OFFSETS[GetFrame()%64]*512.0))%512, 0).xy;
+}
+
+float PlaneWeight(vec3 pos, vec3 normal, vec3 p) {
+    float d = dot(p-pos, normal);
+    return exp(-max(0, d-0.001)*100.0);
+}
+
+
+#endif

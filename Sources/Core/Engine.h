@@ -8,55 +8,70 @@
 #include <iostream>
 
 class Engine {
-	//std::vector<Ref<Layer>> layers
+    // std::vector<Ref<Layer>> layers
 
-	//TODO: Events
-	//Ref<EventDispatcher> eventDispatcher
+    // TODO: Events
+    // Ref<EventDispatcher> eventDispatcher
 
-	//TODO: Does The AssetManager need to be on the engine class? Nop it will be an EngineSystem
+    // TODO: Does The AssetManager need to be on the engine class? Nop it will be an EngineSystem
 
-	CallbackQueue<void> _PostInitialize_Callbacks;
-	CallbackQueue<Event&> _OnEvent_Callbacks;
-	CallbackQueue<void> _OnBeforeUpdate_Callbacks;
-	LayerStack _layerStack;
-	float _lastTime;
+    CallbackQueue<void> _PostInitialize_Callbacks;
+    CallbackQueue<Event&> _OnEvent_Callbacks;
+    CallbackQueue<void> _OnBeforeUpdate_Callbacks;
+    LayerStack _layerStack;
+    float dt = 0.0f;
+    float previousTime = 0.0f;
 
-	void StartEngine();
-	void Update();
+    void StartEngine();
+    void Update();
 
-public:
+   public:
+    int sleepMS = 0;
 
-	void DispatchEvent(Event& E) {
-		_OnEvent_Callbacks.ExecuteAll(E);
-		if (E.Is<ViewportChangeEvent>()) {
-			Update();
-		}
-		for (auto& L : _layerStack) {
-			L->OnEvent(E);
-		}
-	}
+    void DispatchEvent(Event& E) {
+        _OnEvent_Callbacks.ExecuteAll(E);
+        if (E.Is<ViewportChangeEvent>()) {
+            Update();
+        }
+        for (auto& L : _layerStack) {
+            L->OnEvent(E);
+        }
+    }
 
-	static Engine& Get() {
-		static Engine engine;
-		return engine;
-	}
+    static Engine& Get() {
+        static Engine engine;
+        return engine;
+    }
 
-	static void Create();
+    static void Create();
 
-	static void PushLayer(Ref<Layer> layer) { Get()._layerStack.PushLayer(layer); }
-	static void PopLayer(){}
-	static void PushOverlay(){}
-	static void PopOverlay(){}
+    static void PushLayer(Ref<Layer> layer) {
+        Get()._layerStack.PushLayer(layer);
+    }
+    static void PopLayer() {
+    }
+    static void PushOverlay() {
+    }
+    static void PopOverlay() {
+    }
 
-	static void Run();
+    static void Run();
 
-	static void OnBeforeUpdate(std::function<void()> _Func) { Get()._OnBeforeUpdate_Callbacks.AddCallback(_Func); }
+    static void OnBeforeUpdate(std::function<void()> _Func) {
+        Get()._OnBeforeUpdate_Callbacks.AddCallback(_Func);
+    }
 
-	//Used by EngineSystems to Add An Callback that is called after all Systems have been initialized
-	static void Bind_PostInitialize(std::function<void()> _Func) { Get()._PostInitialize_Callbacks.AddCallback(_Func); }
-	//Used by EngineSystems to Handle Events
-	static void Bind_OnEvent(std::function<void(Event&)> _Func) { Get()._OnEvent_Callbacks.AddCallback(_Func); }
+    // Used by EngineSystems to Add An Callback that is called after all Systems have been initialized
+    static void Bind_PostInitialize(std::function<void()> _Func) {
+        Get()._PostInitialize_Callbacks.AddCallback(_Func);
+    }
+    // Used by EngineSystems to Handle Events
+    static void Bind_OnEvent(std::function<void(Event&)> _Func) {
+        Get()._OnEvent_Callbacks.AddCallback(_Func);
+    }
 
-	
-	static double GetTime();
+    static double GetTime();
+    inline static float GetDt() {
+        return Get().dt;
+    }
 };

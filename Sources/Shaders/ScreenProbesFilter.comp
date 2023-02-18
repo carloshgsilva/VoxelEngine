@@ -1,0 +1,58 @@
+#include "Common.frag"
+
+PUSH(
+    int OutIrradianceTextureRID;
+    int InProbesTextureRID;
+    int NormalTextureRID;
+    int VisibilityTextureRID;
+    int DepthTextureRID;
+    int _ViewBufferRID;
+    int TLASRID;
+    int VoxInstancesRID;
+)
+
+#define IMPORT
+#include "Probe.frag"
+
+#define ENABLED 1
+
+COMPUTE(8, 8, 1)
+void main() {
+    ivec2 cPixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 cProbePixel = (cPixel/8)*8 + ivec2(GetJitter()*8);
+    vec3 o = GetCameraPosition();
+
+    
+#if ENABLED
+    float cDepth = texelFetch(Sampler2D[DepthTextureRID], cProbePixel, 0).x;
+    vec3 cPos = o + UVToRayDir(vec2(cProbePixel)*GetiRes())*cDepth;
+    vec3 cNormal = texelFetch(Sampler2D[NormalTextureRID], cProbePixel, 0).xyz;
+    vec3 radiance = texelFetch(Sampler2D[InProbesTextureRID], cPixel, 0).xyz;
+    float total = 1.0;
+    for(int y = -1; y <= 1; y++) {
+       for(int x = -1; x <= 1; x++) {
+           if(x == 0 && y == 0)
+               continue;
+        
+           ivec2 nPixel = cPixel + ivec2(x, y)*8;
+           ivec2 nProbePixel = cProbePixel + ivec2(x, y)*8;
+           float nDepth = texelFetch(Sampler2D[DepthTextureRID], nProbePixel, 0).x;
+           vec3 nPos = o + UVToRayDir(vec2(nProbePixel)*GetiRes())*nDepth;
+           vec3 nNormal = texelFetch(Sampler2D[NormalTextureRID], nProbePixel, 0).xyz;
+
+           vec3 samp = texelFetch(Sampler2D[InProbesTextureRID], nPixel, 0).xyz;
+           float W[2] = {1.0, 0.5};
+           float w = (clamp(nProbePixel, ivec2(0), ivec2(1.0/GetiRes())) == nProbePixel) ? 1.0 : 0.0;
+           w *= W[abs(x)]*W[abs(y)];
+           w *= PlaneWeight(cPos, cNormal, nPos);
+           radiance += samp*w;
+           total += w;
+       }
+    }
+    radiance /= total;
+#else
+    vec3 radiance = texelFetch(Sampler2D[InProbesTextureRID], cPixel, 0).xyz;
+#endif
+
+    imageStore(Image2DW[OutIrradianceTextureRID], cPixel, vec4(radiance, 1));
+}

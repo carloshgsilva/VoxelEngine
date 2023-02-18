@@ -106,14 +106,14 @@ bool SampleBRDFSpecular(inout BRDFSample smp, out vec3 F, vec3 V, vec3 N, vec3 a
     
     return smp.pdf > 0.0;
 }
-vec3 CosineSampleHemisphere(vec3 direction, vec2 rand) {
+vec3 SampleCosineHemisphere(vec3 direction, vec2 rand) {
 	float theta = 6.2831853 * rand.x;
 	float u = 2.0 * rand.y - 1.0;
 	float r = sqrt(1.0 - u * u);
 	return normalize(direction + vec3(r * cos(theta), r * sin(theta), u));
 }
 bool SampleBRDFDiffuse(inout BRDFSample smp, vec3 V, vec3 N, vec3 albedo, float metallic, vec2 rnd) {
-    vec3 dir = CosineSampleHemisphere(N, rnd);
+    vec3 dir = SampleCosineHemisphere(N, rnd);
 
     smp.brdf = vec3(albedo);
     smp.pdf = 1.0;

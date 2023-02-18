@@ -56,12 +56,16 @@ class WorldRenderer {
         Composed,
         Diffuse,
         Normal,
+        ScreenProbes,
     };
 
+    float timeOfDay = 9.0f;
+    bool timeFlow = false;
     OutputImage outputImage = OutputImage::Composed;
     bool enableJitter = true;
     bool enablePermutation = true;
     bool enableDenoiser = true;
+    bool enableProbes = false;
 
     WorldRenderer();
     ~WorldRenderer() {

@@ -1169,7 +1169,7 @@ namespace evk {
         VkSwapchainCreateInfoKHR swapchainci = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
         swapchainci.oldSwapchain = oldSwapchain;
         swapchainci.surface = surface;
-        swapchainci.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+        swapchainci.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;  // VK_PRESENT_MODE_MAILBOX_KHR = v-sync off
         swapchainci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         swapchainci.clipped = false;
 

@@ -108,7 +108,7 @@ void EditorLayer::OnGui() {
     // Simple frame time benchmark
     {
         if (Input::IsKeyPressed(Key::B)) {
-            totalTime += ImGui::GetIO().DeltaTime * 1000.0f;
+            totalTime += Engine::GetDt() * 1000.0f;
             count++;
         }
         if (Input::IsKeyPressed(Key::N)) {
@@ -117,13 +117,16 @@ void EditorLayer::OnGui() {
         }
 
         ImGui::Begin("Performance");
-        ImGui::Text("ms: %f", ImGui::GetIO().DeltaTime * 1000.0f);
-        ImGui::Text("fps: %f", 1.0f / ImGui::GetIO().DeltaTime);
+        ImGui::Text("ms: %.2fms (%.0fFPS)", Engine::GetDt() * 1000.0f, 1.0f / Engine::GetDt());
         if (count > 0) {
             ImGui::Text("benchmark: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
         }
 
-        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0", 3);
+        ImGui::SliderInt("Sleep", &Engine::Get().sleepMS, 0, 100);
+        ImGui::SliderFloat("Time", &Viewports[0]->GetWorldRenderer()->timeOfDay, 0.0f, 24.0f);
+        ImGui::Checkbox("Flow Time", &Viewports[0]->GetWorldRenderer()->timeFlow);
+        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0", 3);
+        ImGui::Checkbox("Probes Technique", &Viewports[0]->GetWorldRenderer()->enableProbes);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
         ImGui::Checkbox("Samples Permutation", &Viewports[0]->GetWorldRenderer()->enablePermutation);
         ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);

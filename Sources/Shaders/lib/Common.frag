@@ -26,11 +26,6 @@ vec3 RandomColor(uint s) {
     return fract(vec3(0.3, 0.4, 0.5)*s*0.001);
 }
 
-vec3 GetSkyColor(vec3 e) {
-    e.y = (max(e.y,0.0)*0.8+0.2)*0.8;
-    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4) * 1.0;
-}
-
 //View Textures
 #define LAST_COLOR_TEXTURE Sampler2D[_LastColorTextureRID]
 #define COLOR_TEXTURE Sampler2D[_ColorTextureRID]
