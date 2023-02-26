@@ -100,6 +100,15 @@ vec4 SampleNoise(inout Sampler samp) {
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
 
+// Jarzynski 2020
+uvec3 pcg3d(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
+    v ^= v >> 16u;
+    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
+    return v;
+}
+
 COMPUTE(8, 8, 1)
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
@@ -111,7 +120,17 @@ void main() {
     if(visibility == 0u) {
         return;
     }
+#if 0
+    vec3 acc = vec3(0);
+    {
+        float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+        vec3 worldPos = o + d*t;
+        uint v = pcg3d(uvec3(worldPos)).x & 0xFFFF;
+        acc = fract(vec3(v*0.1+0.5, v*0.3+0.7, v*0.7));
+    }
+#endif
 
+#if 1
     Sampler samp;
     InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%32);
     
@@ -131,9 +150,8 @@ void main() {
         mat.roughness = pow(material.x, 2.2);
         mat.metallic = material.y;
         
-        //acc += albedo * throughput * material.z * 10.0;
+        acc += albedo * throughput * material.z * 100.0;
 
-        
         BRDFSample smp;
         if(SampleBRDF(smp, mat, d, hit.normal, SampleNoise(samp))) {
             o = o + d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
@@ -154,5 +172,6 @@ void main() {
         }
 
     }
+#endif
     imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(acc,1));
 }

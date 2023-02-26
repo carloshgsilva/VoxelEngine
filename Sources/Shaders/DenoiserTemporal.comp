@@ -40,6 +40,6 @@ void main() {
         variance = 1.0;
     }
     
-    radiance = mix(radiance, previousRadiance, 0.9);
+    radiance = mix(radiance, previousRadiance, 0.95);
     imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(radiance, variance));
 }

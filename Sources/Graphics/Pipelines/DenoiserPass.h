@@ -183,7 +183,7 @@ class ScreenProbesFilterPass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ScreenProbesFilter.comp.spv")});
     }
 
-    void Use(Image& dstIrradiance, Image& srcProbes, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
+    void Use(Image& dstIrradiance, Image& srcProbes, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer, int axis) {
         Extent extent = GetDesc(dstIrradiance).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
@@ -195,12 +195,42 @@ class ScreenProbesFilterPass {
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
+            axis,
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }
 
     static ScreenProbesFilterPass& Get() {
         static ScreenProbesFilterPass Instance;
+        return Instance;
+    }
+};
+
+class RadianceProbesTracePass {
+    Pipeline pipeline;
+
+   public:
+    RadianceProbesTracePass() {
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/RadianceProbesTrace.comp.spv")});
+    }
+
+    void Use(Image& dstRadiance, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
+        Extent extent = GetDesc(dstRadiance).extent;
+        CmdBind(pipeline);
+        CmdPush(Constant{
+            GetRID(dstRadiance),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.depth),
+            GetRID(viewBuffer),
+            GetRID(tlas),
+            GetRID(voxInstancesBuffer),
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+    }
+
+    static RadianceProbesTracePass& Get() {
+        static RadianceProbesTracePass Instance;
         return Instance;
     }
 };

@@ -59,13 +59,23 @@ class WorldRenderer {
         ScreenProbes,
     };
 
+    enum class Technique : uint {
+        PathTracedAcummulated,
+        PathTracedRealTime,
+        ProbeBased,
+    };
+
     float timeOfDay = 9.0f;
     bool timeFlow = false;
     OutputImage outputImage = OutputImage::Composed;
-    bool enableJitter = true;
-    bool enablePermutation = true;
+    bool enableTAA = false;
+    bool enableJitter = false;
+    bool enablePermutation = false;
     bool enableDenoiser = true;
-    bool enableProbes = false;
+
+    bool enableProbes = true;
+    bool enableProbesFilter = false;
+    bool enableProbesTemporal = false;
 
     WorldRenderer();
     ~WorldRenderer() {

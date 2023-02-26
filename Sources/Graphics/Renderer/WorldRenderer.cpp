@@ -177,6 +177,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         ScreenProbesTracePass::Get() = ScreenProbesTracePass();
         ScreenProbesSamplePass::Get() = ScreenProbesSamplePass();
         ScreenProbesFilterPass::Get() = ScreenProbesFilterPass();
+        RadianceProbesTracePass::Get() = RadianceProbesTracePass();
         // Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
 
@@ -258,7 +259,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] - 0.5f : glm::vec2(0.0f);
+        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : vec2(0.95f, 0.95f);
         viewData.Frame = enablePermutation ? _Frame : 0;
         viewData.ColorTextureRID = GetRID(gbuffer.color);
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
@@ -277,13 +278,26 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
 
         if (enableProbes) {
+            // CmdTimestamp("RadianceProbesTrace", [&] { RadianceProbesTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+
             CmdTimestamp("ProbeTrace", [&] { ScreenProbesTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
-            if (enableDenoiser) {
-                CmdTimestamp("ProbeFilter", [&] { ScreenProbesFilterPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+            if (enableProbesFilter) {
+                CmdTimestamp("ProbeFilter", [&] {
+                    ScreenProbesFilterPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 1);
+                    ScreenProbesFilterPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 0);
+                });
+                lightBufferA.swap(lightBufferB);
             } else {
                 lightBufferA.swap(lightBufferB);
             }
             CmdTimestamp("ProbeSample", [&] { ScreenProbesSamplePass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+            if (enableProbesTemporal) {
+                CmdTimestamp("ProbeTemporal", [&] {
+                    DenoiserTemporalPass::Get().Use(lightBufferB, lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer);
+                    previousLightBuffer.swap(lightBufferB);
+                    DenoiserAtrousPass::Get().Use(lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer, 1);
+                });
+            }
         } else {
             CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
             CmdTimestamp("Denoise", [&] {
@@ -302,7 +316,11 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         }
 
         CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });
-        CmdTimestamp("TAA", [&] { TAAPass::Get().Use(_TAAComposeBuffer, _CurrentComposeBuffer, _LastComposeBuffer, gbuffer, _ViewBuffer); });
+        if (enableTAA) {
+            CmdTimestamp("TAA", [&] { TAAPass::Get().Use(_TAAComposeBuffer, _CurrentComposeBuffer, _LastComposeBuffer, gbuffer, _ViewBuffer); });
+        } else {
+            _TAAComposeBuffer.swap(_CurrentComposeBuffer);
+        }
         // CmdTimestamp("Bloom", [&] {
         //     CmdRender({_BloomStepBuffer}, {ClearColor{}}, [&] { LightBloomStepPipeline::Get().Use(lightBufferA); });
         //     for (int i = 0; i < BLOOM_MIP_COUNT; i++) {

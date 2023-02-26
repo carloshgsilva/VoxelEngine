@@ -119,17 +119,28 @@ void EditorLayer::OnGui() {
         ImGui::Begin("Performance");
         ImGui::Text("ms: %.2fms (%.0fFPS)", Engine::GetDt() * 1000.0f, 1.0f / Engine::GetDt());
         if (count > 0) {
-            ImGui::Text("benchmark: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
+            ImGui::Text("Average: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
         }
 
-        ImGui::SliderInt("Sleep", &Engine::Get().sleepMS, 0, 100);
+        ImGui::SliderInt("Sleep", &Engine::Get().sleepMS, 0, 1000);
         ImGui::SliderFloat("Time", &Viewports[0]->GetWorldRenderer()->timeOfDay, 0.0f, 24.0f);
         ImGui::Checkbox("Flow Time", &Viewports[0]->GetWorldRenderer()->timeFlow);
+
+        ImGui::Separator();
         ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0", 3);
-        ImGui::Checkbox("Probes Technique", &Viewports[0]->GetWorldRenderer()->enableProbes);
+        ImGui::Checkbox("TAA", &Viewports[0]->GetWorldRenderer()->enableTAA);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
         ImGui::Checkbox("Samples Permutation", &Viewports[0]->GetWorldRenderer()->enablePermutation);
-        ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);
+
+        ImGui::Separator();
+        ImGui::Checkbox("Probes Technique", &Viewports[0]->GetWorldRenderer()->enableProbes);
+        ImGui::Separator();
+        if (Viewports[0]->GetWorldRenderer()->enableProbes) {
+            ImGui::Checkbox("Probes Filter", &Viewports[0]->GetWorldRenderer()->enableProbesFilter);
+            ImGui::Checkbox("Probes Temporal", &Viewports[0]->GetWorldRenderer()->enableProbesTemporal);
+        } else {
+            ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);
+        }
 
         if (GetTimestamps().size() > 0) {
             float scale = 0.0001f;

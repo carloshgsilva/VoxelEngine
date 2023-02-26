@@ -35,8 +35,12 @@ void Engine::Update() {
 
     _OnBeforeUpdate_Callbacks.ExecuteAndClear();
 
-    for (auto& layer : _layerStack) {
-        layer->OnUpdate(dt);
+    if (Window::Get().IsFocused()) {
+        for (auto& layer : _layerStack) {
+            layer->OnUpdate(dt);
+        }
+    } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 
     if (sleepMS > 0) {

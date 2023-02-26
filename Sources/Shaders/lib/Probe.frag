@@ -89,14 +89,13 @@ vec4 SampleNoise(inout Sampler samp) {
     samp.depth++;
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
-vec3 TraceScene(vec3 o, vec3 d, inout Sampler samp) {
+vec3 TraceScene(vec3 o, vec3 d, inout float t, inout Sampler samp) {
     vec3 acc = vec3(0);
     vec3 throughput = vec3(1);
     for(int depth = 0; depth < 4; depth++) {
-
-
         TraceHit hit;
         if(TraceRay(o, d, INF, hit)){
+            if(depth == 0) t = hit.t;
             Material mat;
             vec3 albedo;
             vec3 material;
@@ -106,20 +105,21 @@ vec3 TraceScene(vec3 o, vec3 d, inout Sampler samp) {
             mat.metallic = material.y;
             
             // Sun Light
-            //vec3 skyDir = normalize(d+GetSunDir()*10.0);
-            //if(!TraceShadowRay(o, skyDir, INF)) {
-            //    acc += throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0) * max(dot(GetSunDir(), -d)*10.0, 0);
-            //}
+            vec3 skyDir = normalize(d+GetSunDir()*10.0);
+            if(depth != 0 && dot(skyDir, hit.normal) > 0.0 && !TraceShadowRay(o, skyDir, INF)) {
+                acc += throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0)*10.0;
+            }
 
-            acc += albedo * throughput * material.z * 10.0;
+            acc += albedo * throughput * material.z * 100.0;
 
             BRDFSample smp;
             if(SampleBRDF(smp, mat, d, hit.normal, SampleNoise(samp))) {
                 o = o + d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
                 d = smp.wi;
-                throughput *= smp.brdf;
+                throughput *= pow(smp.brdf, vec3(1/2.2));
             }
         } else {
+            if(depth == 0) t = 1.0e12;
             acc += GetSkyColor(d) * throughput * 0.1;
             break;
         }
@@ -132,8 +132,8 @@ vec2 GetProbeJitter(ivec2 probe) {
 }
 
 float PlaneWeight(vec3 pos, vec3 normal, vec3 p) {
-    float d = dot(p-pos, normal);
-    return exp(-max(0, d-0.001)*100.0);
+    float d = abs(dot(p-pos, normal));
+    return exp(-d*100.0);
 }
 
 

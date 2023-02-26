@@ -13,6 +13,7 @@ class Window : public ModuleDef<Window> {
     int32 width;
     int32 height;
 
+    bool isFocused = true;
     float lastMouseX;
     float lastMouseY;
 
@@ -20,6 +21,7 @@ class Window : public ModuleDef<Window> {
     Window();
     ~Window();
 
+    bool IsFocused();
     bool IsFullscreen();
     void FullscreenToggle();
     void SetFullscreen(bool Fullscreen);

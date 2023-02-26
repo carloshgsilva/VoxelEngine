@@ -15,10 +15,9 @@ PUSH(
 #include "Probe.frag"
 
 void GetProbesPosition(ivec2 cProbePixel, out vec3 pos[2][2]) {
-    vec4 samples = vec4(0);
     for(int y = 0; y < 2; y++) {
-        for(int x = 0; x < 2; x++) {
-            ivec2 nProbePixel = cProbePixel + ivec2(x, y)*8;
+        for(int x = 0; x < 2; x++) {    
+            ivec2 nProbePixel = cProbePixel + ivec2(x, y)*8 - min(ivec2(GetJitter()*8), 7) - 1;
             float nDepth = texelFetch(Sampler2D[DepthTextureRID], nProbePixel, 0).x;
             pos[x][y] = UVDepthToWorld(vec2(nProbePixel)*GetiRes(), nDepth);
         }
@@ -26,32 +25,46 @@ void GetProbesPosition(ivec2 cProbePixel, out vec3 pos[2][2]) {
 }
 
 vec3 GetInterpolatedProbeRadiance(ivec2 pixel, ivec2 offset, vec3 cPos, vec3 cNormal, vec3[2][2] probesPos) {
-    ivec2 probePixel = (pixel/8)*8;
-    vec2 f = (pixel - probePixel)/8.0;
-    vec4 r00 = vec4(texelFetch(Sampler2D[InProbesTextureRID], probePixel + ivec2(0, 0) + offset, 0).xyz, PlaneWeight(cPos, cNormal, probesPos[0][0]));
-    vec4 r10 = vec4(texelFetch(Sampler2D[InProbesTextureRID], probePixel + ivec2(8, 0) + offset, 0).xyz, PlaneWeight(cPos, cNormal, probesPos[1][0]));
-    vec4 r01 = vec4(texelFetch(Sampler2D[InProbesTextureRID], probePixel + ivec2(0, 8) + offset, 0).xyz, PlaneWeight(cPos, cNormal, probesPos[0][1]));
-    vec4 r11 = vec4(texelFetch(Sampler2D[InProbesTextureRID], probePixel + ivec2(8, 8) + offset, 0).xyz, PlaneWeight(cPos, cNormal, probesPos[1][1]));
+    ivec2 probeCoord = (pixel/8)*8;
+    vec2 f = (pixel - probeCoord)/8.0;
+    vec4 r00 = texelFetch(Sampler2D[InProbesTextureRID], probeCoord + ivec2(0, 0) + offset, 0);
+    vec4 r10 = texelFetch(Sampler2D[InProbesTextureRID], probeCoord + ivec2(8, 0) + offset, 0);
+    vec4 r01 = texelFetch(Sampler2D[InProbesTextureRID], probeCoord + ivec2(0, 8) + offset, 0);
+    vec4 r11 = texelFetch(Sampler2D[InProbesTextureRID], probeCoord + ivec2(8, 8) + offset, 0);
+
+    r00.w = r00.w <= 1.0e-6 ? 0.0 : 1.0;
+    r10.w = r10.w <= 1.0e-6 ? 0.0 : 1.0;
+    r01.w = r01.w <= 1.0e-6 ? 0.0 : 1.0;
+    r11.w = r11.w <= 1.0e-6 ? 0.0 : 1.0;
 
     ivec2 screenSize = ivec2(GetRes());
-    if(probePixel.x + 8 >= screenSize.x) {
+    if(probeCoord.x + 8 >= screenSize.x) {
         r10.w = 0.0;
         r11.w = 0.0;
     }
-    if(probePixel.y + 8 >= screenSize.y) {
+    if(probeCoord.y + 8 >= screenSize.y) {
         r01.w = 0.0;
         r11.w = 0.0;
     }
+
+    r00.w *= PlaneWeight(cPos, cNormal, probesPos[0][0]) * ((1.0-f.x) * (1.0-f.y));
+    r10.w *= PlaneWeight(cPos, cNormal, probesPos[1][0]) * ((f.x    ) * (1.0-f.y));
+    r01.w *= PlaneWeight(cPos, cNormal, probesPos[0][1]) * ((1.0-f.x) * (f.y));
+    r11.w *= PlaneWeight(cPos, cNormal, probesPos[1][1]) * ((f.x    ) * (f.y));
 
     r00.xyz *= r00.w;
     r10.xyz *= r10.w;
     r01.xyz *= r01.w;
     r11.xyz *= r11.w;
-
-    vec4 s = mix(mix(r00, r10, f.x), mix(r01, r11, f.x), f.y);
+    
+    vec4 s = r00+r10+r01+r11;
+    if(s.w < 1.0e-6) {
+        //s.w = 4.0;
+    }
 #if 1 // RED = Failed to interpolate
-    if(s.w == 0.0) {
-        return vec3(1,0,0);
+    if(s.w < 1.0e-8) {
+        s.w = 4.0;
+        //return vec3(1,0,0);
     }
 #endif
     return s.xyz/s.w;
@@ -60,9 +73,8 @@ vec3 GetInterpolatedProbeRadiance(ivec2 pixel, ivec2 offset, vec3 cPos, vec3 cNo
 COMPUTE(8, 8, 1)
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 probePixel = (pixel/8)*8 + ivec2(GetJitter()*8);
+    ivec2 probePixel = (pixel/8)*8 + min(ivec2(GetJitter()*8), 7);
     
-
     float cDepth = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     vec3 cNormal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
     vec3 cPos = UVDepthToWorld(pixel*GetiRes(), cDepth);
@@ -70,15 +82,32 @@ void main() {
     vec3 probesPos[2][2];
     GetProbesPosition(probePixel, probesPos);
 
+    vec3 test = vec3(0.0);
+    test += PlaneWeight(cPos, cNormal, probesPos[0][0])*vec3(1,0,0);
+    test += PlaneWeight(cPos, cNormal, probesPos[1][0])*vec3(0,1,0);
+    test += PlaneWeight(cPos, cNormal, probesPos[0][1])*vec3(0,0,1);
+    test += PlaneWeight(cPos, cNormal, probesPos[1][1])*vec3(1,0,1);
+    
+
     vec3 irradiance = vec3(0);
+    float totalW = 0.0;
     for(int y = 0; y < 8; y++) {
         for(int x = 0; x < 8; x++) {
-            vec2 probeUV = (vec2(x, y))/8.0;
+            vec2 probeUV = vec2(x, y)/8.0;
             vec3 dir = OctahedronEncode(probeUV);
-            vec3 radiance = GetInterpolatedProbeRadiance(pixel - ivec2(GetJitter()*8), ivec2(x, y), cPos, cNormal, probesPos);
-            irradiance += max(dot(cNormal, dir), 0)*radiance;
+            vec3 radiance = GetInterpolatedProbeRadiance(pixel - min(ivec2(GetJitter()*8), 7) - 1, ivec2(x, y), cPos, cNormal, probesPos);
+            float w = max(dot(cNormal, dir), 0);
+            irradiance += radiance * w;
+            totalW += w;
         }
     }
-
+    if(totalW > 0.0) {
+        irradiance /= totalW;
+    }
+    
+    //imageStore(Image2DW[OutIrradianceTextureRID], pixel, vec4(test, 1));
     imageStore(Image2DW[OutIrradianceTextureRID], pixel, vec4(irradiance, 1));
+    if(probePixel == pixel) {
+        //imageStore(Image2DW[OutIrradianceTextureRID], pixel, vec4(0,10000,0, 1));
+    }
 }

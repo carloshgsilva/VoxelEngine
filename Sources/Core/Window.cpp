@@ -89,10 +89,18 @@ Window::Window() {
         W->lastMouseX = xPos;
         W->lastMouseY = yPos;
     });
+    glfwSetWindowFocusCallback(window, [](GLFWwindow* window, int focused) {
+        Window* W = (Window*)glfwGetWindowUserPointer(window);
+        W->isFocused = focused;
+    });
 }
 
 Window::~Window() {
     glfwDestroyWindow(window);
+}
+
+bool Window::IsFocused() {
+    return isFocused;
 }
 
 bool Window::IsFullscreen() {

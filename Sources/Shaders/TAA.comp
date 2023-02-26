@@ -36,14 +36,14 @@ void main() {
     }
 
     //Neighbour clip
-    vec3 ref0 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(1, 1) , 0).xyz;
-    vec3 ref1 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(1, 1) , 0).xyz;
+    vec3 ref0 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(1, 1), 0).xyz;
+    vec3 ref1 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(1, 1), 0).xyz;
     vec3 ref2 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(-1, 1), 0).xyz;
     vec3 ref3 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(-1, 1), 0).xyz;
-    vec3 ref4 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(1, 0) , 0).xyz;
-    vec3 ref5 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(0, 1) , 0).xyz;
-    vec3 ref6 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(-1, 0), 0).xyz;
-    vec3 ref7 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(0, -1), 0).xyz;
+    vec3 ref4 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(1, 0), 0).xyz;
+    vec3 ref5 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(1, 0), 0).xyz;
+    vec3 ref6 = texelFetch(Sampler2D[InRadianceTextureRID], pixel+ivec2(0, 1), 0).xyz;
+    vec3 ref7 = texelFetch(Sampler2D[InRadianceTextureRID], pixel-ivec2(0, 1), 0).xyz;
 
     vec3 nmin = min(ref0, min(ref1, min(ref2, min(ref3, min(ref4, min(ref5, min(ref6, ref7)))))));
     vec3 nmax = max(ref0, max(ref1, max(ref2, max(ref3, max(ref4, max(ref5, max(ref6, ref7)))))));
