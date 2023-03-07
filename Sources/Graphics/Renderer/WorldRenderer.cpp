@@ -180,7 +180,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         RadianceProbesTracePass::Get() = RadianceProbesTracePass();
         // Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
-
         Log::info("Shaders Reloaded!");
     }
     static bool once = true;
@@ -236,11 +235,42 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
         CmdCopy(voxInstances.data(), voxInstancesBuffer, sizeof(VoxInstance) * voxInstances.size());
 
-        tlas = rt::CreateTLAS(blasInstances, false);
+        tlas = rt::CreateTLAS(blasInstances.size(), true);
 
         BLASManager::Get().EnsureAllBLASAreBuilt();
-        rt::CmdBuildTLAS(tlas);
+        rt::CmdBuildTLAS(tlas, blasInstances);
         Log::info("Acceleration Structure Reloaded!");
+    }
+
+    {
+        int i = 0;
+        world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
+            if (v.Vox.IsValid() && v.Pallete.IsValid()) {
+                glm::mat4 ttr = t.WorldMatrix;
+                ttr = glm::translate(ttr, -v.Pivot);
+                ttr = glm::scale(ttr, glm::vec3(0.1f));
+                float* tr = (float*)(&ttr);
+                // BLASManager::VoxBLAS rtData = BLASManager::Get().GetBLAS(v.Vox);
+                // holdVox[i] = rtData.geometry;
+                // rt::BLASInstance inst = {
+                //    .blas = rtData.blas,
+                //    .customId = uint32_t(GetRID(rtData.geometry)),
+                //    .transform = {tr[0], tr[4], tr[8], tr[12], tr[1], tr[5], tr[9], tr[13], tr[2], tr[6], tr[10], tr[14]},
+                //};
+                rt::BLASInstance& inst = blasInstances[i];
+                float transform[12] = {tr[0], tr[4], tr[8], tr[12], tr[1], tr[5], tr[9], tr[13], tr[2], tr[6], tr[10], tr[14]};
+                memcpy(inst.transform, transform, sizeof(float) * 12);
+
+                //  VoxInstance voxInstance = {
+                //      .palleteIndex = v.Pallete->GetPalleteIndex(),
+                //      .geometryBufferRID = GetRID(rtData.geometry),
+                //  };
+                //  voxInstances[i] = voxInstance;
+                i++;
+            }
+        });
+
+        CmdTimestamp("TLASRebuild", [&] { rt::CmdBuildTLAS(tlas, blasInstances, true); });
     }
 
     ////////////

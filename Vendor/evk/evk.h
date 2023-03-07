@@ -426,10 +426,10 @@ namespace evk {
         };
 
         BLAS CreateBLAS(const BLASDesc& desc);
-        TLAS CreateTLAS(const std::vector<BLASInstance>& blasInstances, bool allowUpdate);
+        TLAS CreateTLAS(uint64_t blasCount, bool allowUpdate);
 
         void CmdBuildBLAS(const std::vector<BLAS>& blases, bool update = false);
-        void CmdBuildTLAS(const TLAS& tlas, bool update = false);
+        void CmdBuildTLAS(const TLAS& tlas, const std::vector<BLASInstance>& blasInstances, bool update = false);
     }  // namespace rt
 #endif
 }  // namespace evk

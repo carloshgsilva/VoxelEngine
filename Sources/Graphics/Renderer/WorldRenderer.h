@@ -68,12 +68,12 @@ class WorldRenderer {
     float timeOfDay = 9.0f;
     bool timeFlow = false;
     OutputImage outputImage = OutputImage::Composed;
-    bool enableTAA = false;
-    bool enableJitter = false;
-    bool enablePermutation = false;
+    bool enableTAA = true;
+    bool enableJitter = true;
+    bool enablePermutation = true;
     bool enableDenoiser = true;
 
-    bool enableProbes = true;
+    bool enableProbes = false;
     bool enableProbesFilter = false;
     bool enableProbesTemporal = false;
 

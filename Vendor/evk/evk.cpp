@@ -1783,43 +1783,11 @@ namespace evk {
 
             return BLAS{res};
         }
-        TLAS CreateTLAS(const std::vector<BLASInstance>& blasInstances, bool allowUpdate) {
+        TLAS CreateTLAS(uint64_t blasCount, bool allowUpdate) {
             auto& S = GetState();
             Internal_TLAS* res = new Internal_TLAS();
 
-            res->instances.reserve(blasInstances.size());
-            for (int i = 0; i < blasInstances.size(); i++) {
-                const BLASInstance& blasInstance = blasInstances[i];
-                Internal_BLAS& internalBlas = ToInternal(blasInstance.blas);
-
-                VkAccelerationStructureDeviceAddressInfoKHR addressInfo = {
-                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-                    .accelerationStructure = internalBlas.accel,
-                };
-
-                VkTransformMatrixKHR transform{};
-                transform.matrix[0][0] = blasInstance.transform[0];
-                transform.matrix[0][1] = blasInstance.transform[1];
-                transform.matrix[0][2] = blasInstance.transform[2];
-                transform.matrix[0][3] = blasInstance.transform[3];
-                transform.matrix[1][0] = blasInstance.transform[4];
-                transform.matrix[1][1] = blasInstance.transform[5];
-                transform.matrix[1][2] = blasInstance.transform[6];
-                transform.matrix[1][3] = blasInstance.transform[7];
-                transform.matrix[2][0] = blasInstance.transform[8];
-                transform.matrix[2][1] = blasInstance.transform[9];
-                transform.matrix[2][2] = blasInstance.transform[10];
-                transform.matrix[2][3] = blasInstance.transform[11];
-
-                res->instances.emplace_back(VkAccelerationStructureInstanceKHR{
-                    .transform = transform,
-                    .instanceCustomIndex = blasInstance.customId,
-                    .mask = 0xFF,
-                    .instanceShaderBindingTableRecordOffset = 0,
-                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-                    .accelerationStructureReference = S.vkGetAccelerationStructureDeviceAddressKHR(S.device, &addressInfo),
-                });
-            }
+            res->instances.resize(blasCount);
 
             VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
             if (allowUpdate) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
@@ -1830,7 +1798,6 @@ namespace evk {
                 .usage = BufferUsage::Storage | BufferUsage::AccelerationStructureInput,
                 .memoryType = MemoryType::CPU_TO_GPU,
             });
-            WriteBuffer(res->instancesBuffer, res->instances.data(), res->instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 
             VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1955,11 +1922,47 @@ namespace evk {
                 i++;
             }
         }
-        void CmdBuildTLAS(const TLAS& tlas, bool update) {
+        void CmdBuildTLAS(const TLAS& tlas, const std::vector<BLASInstance>& blasInstances, bool update) {
             auto& S = GetState();
             Internal_TLAS& res = ToInternal(tlas);
 
-            EVK_ASSERT(update == false && res.buildInfo.dstAccelerationStructure == VK_NULL_HANDLE, "TLAS is already built, did you meant to build with update == true?");
+            EVK_ASSERT(res.instances.size() == blasInstances.size(), "TLAS has been created with %llu BLAS count but now is being built with %llu BLAS count, the BLAS count must be the same! If the count changed purposely you must create another TLAS.",
+                       res.instances.size(), blasInstances.size());
+            EVK_ASSERT(update == true || res.buildInfo.dstAccelerationStructure == VK_NULL_HANDLE, "TLAS is already built, did you meant to build with update == true?");
+
+            for (int i = 0; i < blasInstances.size(); i++) {
+                const BLASInstance& blasInstance = blasInstances[i];
+                Internal_BLAS& internalBlas = ToInternal(blasInstance.blas);
+
+                VkAccelerationStructureDeviceAddressInfoKHR addressInfo = {
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+                    .accelerationStructure = internalBlas.accel,
+                };
+
+                VkTransformMatrixKHR transform{};
+                transform.matrix[0][0] = blasInstance.transform[0];
+                transform.matrix[0][1] = blasInstance.transform[1];
+                transform.matrix[0][2] = blasInstance.transform[2];
+                transform.matrix[0][3] = blasInstance.transform[3];
+                transform.matrix[1][0] = blasInstance.transform[4];
+                transform.matrix[1][1] = blasInstance.transform[5];
+                transform.matrix[1][2] = blasInstance.transform[6];
+                transform.matrix[1][3] = blasInstance.transform[7];
+                transform.matrix[2][0] = blasInstance.transform[8];
+                transform.matrix[2][1] = blasInstance.transform[9];
+                transform.matrix[2][2] = blasInstance.transform[10];
+                transform.matrix[2][3] = blasInstance.transform[11];
+
+                res.instances[i] = VkAccelerationStructureInstanceKHR{
+                    .transform = transform,
+                    .instanceCustomIndex = blasInstance.customId,
+                    .mask = 0xFF,
+                    .instanceShaderBindingTableRecordOffset = 0,
+                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+                    .accelerationStructureReference = S.vkGetAccelerationStructureDeviceAddressKHR(S.device, &addressInfo),
+                };
+            }
+            WriteBuffer(res.instancesBuffer, res.instances.data(), res.instances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 
             Buffer scratchBuffer = CreateBuffer({
                 .name = "TLAS Scratch",
