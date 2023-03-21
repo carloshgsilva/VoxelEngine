@@ -44,8 +44,8 @@ void main() {
         
         float w = RadiusWeight(radius, size);
         w *= IsInsideScreenWeight(uv);
-        w *= NormalWeight(normal, nNormal);
-        w *= PlaneWeight(pos, normal, nPos);
+        w *= NormalWeight(normal, nNormal, nT);
+        w *= PlaneWeight(pos, normal, nPos, nT);
 
         vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
         acc += w*radiance;

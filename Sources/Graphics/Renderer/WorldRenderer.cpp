@@ -4,7 +4,6 @@
 #include "Core/Input.h"
 
 #include "Profiler/Profiler.h"
-#include "GLFW/glfw3.h"
 
 #include "World/World.h"
 #include "World/Components.h"
@@ -16,18 +15,9 @@
 
 #include "Graphics/Graphics.h"
 #include "Graphics/BLASManager.h"
-// #include "Graphics/Pipelines/GeometrySkyPipeline.h"
-//  #include "Graphics/Pipelines/GeometryVoxelPipeline.h"
-//  #include "Graphics/Pipelines/LightAmbientPipeline.h"
-//  #include "Graphics/Pipelines/LightPointPipeline.h"
-//  #include "Graphics/Pipelines/LightSpotPipeline.h"
-//  #include "Graphics/Pipelines/LightTAAPipeline.h"
-//  #include "Graphics/Pipelines/LightReflectionPipeline.h"
-//  #include "Graphics/Pipelines/ComposeTAAPipeline.h"
 #include "Graphics/Pipelines/LightBloomStep.h"
 #include "Graphics/Pipelines/LightBlur.h"
 #include "Graphics/Pipelines/OutlineVoxelPipeline.h"
-#include "Graphics/Pipelines/ComposePipeline.h"
 #include "Graphics/Pipelines/ColorWorldPipeline.h"
 #include "Graphics/Pipelines/PathTracePass.h"
 #include "Graphics/Pipelines/GBufferPass.h"
@@ -69,7 +59,7 @@ WorldRenderer::WorldRenderer() {
 
     Cmds = new RenderCmds();
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
-    _DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
+    //_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
     _ViewBuffer.Build([&](int i) { return CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU}); });
 }
 
@@ -156,16 +146,16 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     // Swap Buffers //
     //////////////////
     gbuffer.previousDepth.swap(gbuffer.depth);
+    gbuffer.previousNormal.swap(gbuffer.normal);
     _LastComposeBuffer.swap(_TAAComposeBuffer);
 
     // Crtl to reload shaders
-    if (Input::IsKeyPressed(Key::LeftControl) && (glfwGetTime() - lastReloadShaders) > 1.0) {
-        lastReloadShaders = glfwGetTime();
+    if (Input::IsKeyPressed(Key::LeftControl) && (Engine::GetTime() - lastReloadShaders) > 1.0) {
+        lastReloadShaders = Engine::GetTime();
 
         OutlineVoxelPipeline::Get() = OutlineVoxelPipeline();
         LightBloomStepPipeline::Get() = LightBloomStepPipeline();
         LightBlurPipeline::Get() = LightBlurPipeline();
-        ComposePipeline::Get() = ComposePipeline();
         ColorWorldPipeline::Get() = ColorWorldPipeline();
         PathTracePass::Get() = PathTracePass();
         GBufferPass::Get() = GBufferPass();
@@ -178,12 +168,16 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         ScreenProbesSamplePass::Get() = ScreenProbesSamplePass();
         ScreenProbesFilterPass::Get() = ScreenProbesFilterPass();
         RadianceProbesTracePass::Get() = RadianceProbesTracePass();
+        DITracePass::Get() = DITracePass();
+        ReSTIRGITracePass::Get() = ReSTIRGITracePass();
+        ReSTIRGISpatialPass::Get() = ReSTIRGISpatialPass();
+        ReSTIRGIResolvePass::Get() = ReSTIRGIResolvePass();
         // Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
         Log::info("Shaders Reloaded!");
     }
     static bool once = true;
-    if (Input::IsKeyPressed(Key::P) && (glfwGetTime() - lastReloadShaders) > 1.0 || once) {
+    if (Input::IsKeyPressed(Key::P) && (Engine::GetTime() - lastReloadShaders) > 1.0 || once) {
         once = false;
         {
             PROFILE_SCOPE("Load Voxel Assets");
@@ -200,7 +194,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             });
         }
 
-        lastReloadShaders = glfwGetTime();
+        lastReloadShaders = Engine::GetTime();
         blasInstances.clear();
         voxInstances.clear();
         holdVox.clear();
@@ -289,7 +283,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : vec2(0.95f, 0.95f);
+        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : vec2(0.5f);
+        viewData.PreviousJitter = enableJitter ? OFFSETS[(_Frame + 15) % 16] : vec2(0.5f);
         viewData.Frame = enablePermutation ? _Frame : 0;
         viewData.ColorTextureRID = GetRID(gbuffer.color);
         viewData.DepthTextureRID = GetRID(gbuffer.depth);
@@ -307,7 +302,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         });
         CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
 
-        if (enableProbes) {
+        if (technique == Technique::Probe) {
             // CmdTimestamp("RadianceProbesTrace", [&] { RadianceProbesTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
 
             CmdTimestamp("ProbeTrace", [&] { ScreenProbesTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
@@ -328,7 +323,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     DenoiserAtrousPass::Get().Use(lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer, 1);
                 });
             }
-        } else {
+        } else if (technique == Technique::PathTraced) {
             CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
             CmdTimestamp("Denoise", [&] {
                 if (enableDenoiser) {
@@ -341,6 +336,29 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 16);
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 32);
                     lightBufferA.swap(lightBufferB);
+                }
+            });
+        } else if (technique == Technique::ReSTIR) {
+            gbuffer.reservoirTemporalA.b0.swap(gbuffer.reservoirTemporalB.b0);
+            gbuffer.reservoirTemporalA.b1.swap(gbuffer.reservoirTemporalB.b1);
+            gbuffer.reservoirTemporalA.b2.swap(gbuffer.reservoirTemporalB.b2);
+            gbuffer.reservoirTemporalA.b3.swap(gbuffer.reservoirTemporalB.b3);
+            CmdTimestamp("GI Trace", [&] { ReSTIRGITracePass::Get().Use(gbuffer.reservoirTemporalA, gbuffer.reservoirTemporalB, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+            CmdTimestamp("GI Spatial", [&] {
+                ReSTIRGISpatialPass::Get().Use(gbuffer.reservoirSpatialA, gbuffer.reservoirTemporalA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 8);
+                ReSTIRGISpatialPass::Get().Use(gbuffer.reservoirSpatialB, gbuffer.reservoirSpatialA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 5);
+            });
+            CmdTimestamp("GI Resolve", [&] { ReSTIRGIResolvePass::Get().Use(lightBufferA, gbuffer.reservoirSpatialB, gbuffer, _ViewBuffer); });
+            CmdTimestamp("DI Trace", [&] { DITracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+            CmdTimestamp("GI Denoiser", [&] {
+                if (enableDenoiser) {
+                    DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 1);
+                    DenoiserTemporalPass::Get().Use(lightBufferA, lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer);
+                    previousLightBuffer.swap(lightBufferA);
+                    DenoiserAtrousPass::Get().Use(lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 2);
+                    DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 4);
+                    DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 8);
+                    DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 16);
                 }
             });
         }
@@ -366,19 +384,20 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             if (outputImage == OutputImage::Composed) {
                 ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
             } else if (outputImage == OutputImage::Diffuse) {
-                ColorWorldPipeline::Get().Use(lightBufferB, _OutlineBuffer);
+                ColorWorldPipeline::Get().Use(lightBufferA, _OutlineBuffer);
             } else if (outputImage == OutputImage::Normal) {
                 ColorWorldPipeline::Get().Use(gbuffer.normal, _OutlineBuffer);
             } else if (outputImage == OutputImage::ScreenProbes) {
                 ColorWorldPipeline::Get().Use(lightBufferB, _OutlineBuffer);
+            } else if (outputImage == OutputImage::ReSTIR_GI_Radiance) {
+                ColorWorldPipeline::Get().Use(gbuffer.reservoirTemporalB.b3, _OutlineBuffer);
             }
-            // ColorWorldPipeline::Get().Use(cmd, _GeometryBuffer.getAttachment(Passes::Geometry_Color), _OutlineBuffer);
         });
     });
 
     lastView = view;
     _Frame++;
-    if (_Frame > 16 * 100) _Frame = 0;
+    if (_Frame > 16 * 1024 * 32) _Frame = 0;
     Cmds->Clear();
 }
 

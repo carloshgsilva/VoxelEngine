@@ -38,9 +38,9 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    //float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
     uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    vec3 pos = o + d * t;
+    //vec3 pos = o + d * t;
 
     vec3 radiance = vec3(0);
     if(visibility != 0u) {

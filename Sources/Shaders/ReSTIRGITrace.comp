@@ -1,0 +1,322 @@
+#include "Common.frag"
+
+PUSH(
+    int ReservoirA0RID;
+    int ReservoirA1RID;
+    int ReservoirA2RID;
+    int ReservoirA3RID;
+    int ReservoirB0RID;
+    int ReservoirB1RID;
+    int ReservoirB2RID;
+    int ReservoirB3RID;
+    int NormalTextureRID;
+    int PreviousNormalTextureRID;
+    int VisibilityTextureRID;
+    int DepthTextureRID;
+    int PreviousDepthTextureRID;
+    int _ViewBufferRID;
+    int TLASRID;
+    int VoxInstancesRID;
+)
+
+#define IMPORT
+#include "View.frag"
+#include "Light.frag"
+#include "BRDF.frag"
+#include "Reservoir.frag"
+
+const vec2 OFFSETS[64] = {
+    vec2(0.5000, 0.3333),
+    vec2(0.2500, 0.6667),
+    vec2(0.7500, 0.1111),
+    vec2(0.1250, 0.4444),
+    vec2(0.6250, 0.7778),
+    vec2(0.3750, 0.2222),
+    vec2(0.8750, 0.5556),
+    vec2(0.0625, 0.8889),
+    vec2(0.5625, 0.0370),
+    vec2(0.3125, 0.3704),
+    vec2(0.8125, 0.7037),
+    vec2(0.1875, 0.1481),
+    vec2(0.6875, 0.4815),
+    vec2(0.4375, 0.8148),
+    vec2(0.9375, 0.2593),
+    vec2(0.0313, 0.5926),
+    vec2(0.5313, 0.9259),
+    vec2(0.2813, 0.0741),
+    vec2(0.7813, 0.4074),
+    vec2(0.1563, 0.7407),
+    vec2(0.6563, 0.1852),
+    vec2(0.4063, 0.5185),
+    vec2(0.9063, 0.8519),
+    vec2(0.0938, 0.2963),
+    vec2(0.5938, 0.6296),
+    vec2(0.3438, 0.9630),
+    vec2(0.8438, 0.0123),
+    vec2(0.2188, 0.3457),
+    vec2(0.7188, 0.6790),
+    vec2(0.4688, 0.1235),
+    vec2(0.9688, 0.4568),
+    vec2(0.0156, 0.7901),
+    vec2(0.5156, 0.2346),
+    vec2(0.2656, 0.5679),
+    vec2(0.7656, 0.9012),
+    vec2(0.1406, 0.0494),
+    vec2(0.6406, 0.3827),
+    vec2(0.3906, 0.7160),
+    vec2(0.8906, 0.1605),
+    vec2(0.0781, 0.4938),
+    vec2(0.5781, 0.8272),
+    vec2(0.3281, 0.2716),
+    vec2(0.8281, 0.6049),
+    vec2(0.2031, 0.9383),
+    vec2(0.7031, 0.0864),
+    vec2(0.4531, 0.4198),
+    vec2(0.9531, 0.7531),
+    vec2(0.0469, 0.1975),
+    vec2(0.5469, 0.5309),
+    vec2(0.2969, 0.8642),
+    vec2(0.7969, 0.3086),
+    vec2(0.1719, 0.6420),
+    vec2(0.6719, 0.9753),
+    vec2(0.4219, 0.0247),
+    vec2(0.9219, 0.3580),
+    vec2(0.1094, 0.6914),
+    vec2(0.6094, 0.1358),
+    vec2(0.3594, 0.4691),
+    vec2(0.8594, 0.8025),
+    vec2(0.2344, 0.2469),
+    vec2(0.7344, 0.5802),
+    vec2(0.4844, 0.9136),
+    vec2(0.9844, 0.0617),
+    vec2(0.0078, 0.3951),
+};
+struct Sampler {
+    ivec2 pixel;
+    int frame;
+    int depth;
+};
+
+void InitSampler(inout Sampler samp, ivec2 pixel, int frame) {
+    samp.pixel = pixel;
+    samp.frame = frame;
+    samp.depth = 0;
+}
+#define BLUE_NOISE (Sampler2D[ViewBuffer[_ViewBufferRID].BlueNoiseRID])
+vec4 SampleNoise(inout Sampler samp) {
+    vec2 res = textureSize(BLUE_NOISE, 0);
+    samp.depth++;
+    //return texelFetch(BLUE_NOISE, ivec2((vec2(samp.pixel)+vec2(GOLDEN_RATIO*(mod(samp.frame+samp.depth*5,64)), GOLDEN_RATIO*(mod(samp.frame+samp.depth*7+1,64))))*res)%512, 0).r;
+    return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
+}
+
+// Jarzynski 2020
+uvec3 pcg3d(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
+    v ^= v >> 16u;
+    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
+    return v;
+}
+
+struct PathTraceState {
+    vec3 o;
+    vec3 d;
+    vec3 n;
+    vec3 throughput;
+    vec3 acc;
+};
+void InitPathTraceState(out PathTraceState state, vec3 o, vec3 d) {
+    state.o = o;
+    state.d = d;
+    state.n = vec3(0);
+    state.throughput = vec3(1);
+    state.acc = vec3(0);
+}
+bool PathTraceProceed(inout PathTraceState state, inout Sampler samp) {
+    TraceHit hit;
+    if(TraceRay(state.o, state.d, INF, hit)){
+        Material mat;
+        vec3 albedo;
+        vec3 material;
+        GetMaterial(hit.visibility, albedo, material);
+        mat.albedo = albedo;
+        mat.roughness = pow(material.x, 2.2);
+        mat.metallic = material.y;
+        
+        // Sun Light
+        vec3 skyDir = normalize(/*state.d+*/GetSunDir()*10.0);
+        if(dot(skyDir, hit.normal) > 0.0 && !TraceShadowRay(state.o + state.d*hit.t + hit.normal*EPS*10.0, skyDir, INF)) {
+            // TODO: correctly sample light
+            state.acc += albedo * state.throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
+        }
+
+        // Emissive
+        state.acc += albedo * state.throughput * material.z * 10.0;
+
+        BRDFSample smp;
+        if(SampleBRDF(smp, mat, state.d, hit.normal, SampleNoise(samp))) {
+            state.n = hit.normal;
+            state.o = state.o + state.d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
+            state.d = smp.wi;
+            state.throughput *= pow(smp.brdf, vec3(1/2.2));
+            return true;
+        }
+    } else {
+        state.n = -state.d;
+        state.o += state.d * 1.0e12;
+        state.acc += GetSkyColor(state.d) * state.throughput;
+        return false;
+    }
+
+    return false;
+}
+
+ivec2 get_rpx_offset(uint sample_i, uint frame_index) {
+    const ivec2 offsets[4] = {
+        ivec2(-1, -1),
+        ivec2(1, 1),
+        ivec2(-1, 1),
+        ivec2(1, -1),
+    };
+
+    const ivec2 reservoir_px_offset_base = offsets[frame_index & 3] + offsets[(sample_i + (frame_index ^ 1)) & 3];
+
+    return ivec2(reservoir_px_offset_base);
+}
+
+ivec2 PermutationSampling(ivec2 pixel, uint rand) {
+#if 0
+    rand = pcg3d(ivec3(rand)).x;
+    ivec2 offset = ivec2(rand & 3, (rand >> 2) & 3);
+    pixel += offset;
+    pixel.x ^= 3;
+    pixel.y ^= 3;
+    pixel -= offset;
+    return pixel;
+#else
+    const ivec2 xor_seq[4] = {
+        ivec2(3, 3),
+        ivec2(2, 1),
+        ivec2(1, 2),
+        ivec2(3, 3),
+    };
+    pixel ^= xor_seq[rand&3];
+    return pixel;
+#endif
+}
+
+COMPUTE(8, 8, 1)
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    vec2 uv = vec2(pixel+GetJitter())*GetiRes();
+    vec3 camO = GetCameraPosition();
+    vec3 camD = UVToRayDir(uv);
+
+    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
+    if(visibility == 0u) {
+        return;
+    }
+
+    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    vec3 n = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    
+    GISample s;
+    s.xv = camO + camD * t + n*EPS*10.0;
+    s.nv = n;
+
+    vec2 previousUV = WorldToUVLastView(camO + camD * t);
+    ivec2 originPixel = ivec2(previousUV*GetRes());
+    ivec2 previousPixel = originPixel;
+
+    Sampler samp;
+    InitSampler(samp, pixel, GetFrame()%64);
+    Reservoir previousReservoir;
+    bool foundReprojection = false;
+    ReservoirClear(previousReservoir);
+
+    //TODO: if reservoir is starved for samples (r.M < 5) use last frame spatial instead of the temporal
+    //      this introduces lots of bias, so must be careful
+    
+    for(int i = 0; i < 9; i++) {
+        if(i == 0) {
+            previousPixel = originPixel;
+        } else {
+            ivec2 offset = get_rpx_offset(i, GetFrame());
+            previousPixel = originPixel + offset;
+            previousPixel = PermutationSampling(previousPixel, GetFrame()) + offset;
+        }
+
+        // geometry validation
+        vec2 previousUV = vec2(previousPixel + GetPreviousJitter())*GetiRes();
+        float previousDepth = texelFetch(Sampler2D[PreviousDepthTextureRID], previousPixel, 0).x;
+        vec3 previousPos = PrevousView_UVDepthToPos(previousUV, previousDepth);
+
+        float planeDist = abs(dot(previousPos - s.xv, n));
+        vec3 previousNormal = texelFetch(Sampler2D[PreviousNormalTextureRID], previousPixel, 0).xyz;
+        if(planeDist > max(0.0005*t, 0.05) || dot(previousNormal, n) < 0.5 || clamp(previousUV, vec2(0), vec2(1)) != previousUV) {
+            continue;
+        }
+
+        foundReprojection = true;
+
+        Reservoir reservoir;
+        ReservoirLoad(ReservoirB0RID, ReservoirB1RID, ReservoirB2RID, ReservoirB3RID, previousPixel, reservoir);
+        float jacobian = 1.0;
+        float pHat = length(reservoir.s.radiance) / jacobian;
+        ReservoirMerge(previousReservoir, reservoir, pHat, SampleNoise(samp).x);
+    }
+    if(isnan(previousReservoir.w) || foundReprojection == false) {
+        ReservoirClear(previousReservoir);
+    }
+    
+    if(GetFrame()%4 == 0 && previousReservoir.M > 0){ // Radiance validation (only if there's sample in the reservoir)
+        vec3 dir = normalize(previousReservoir.s.xs - previousReservoir.s.xv);
+        PathTraceState state;
+        InitPathTraceState(state, previousReservoir.s.xv, dir);
+        // Sampler samp;
+        InitSampler(samp, pixel, GetFrame()%64);
+        PathTraceProceed(state, samp);
+        if(length(previousReservoir.s.radiance - state.acc) > 0.1) {
+            ReservoirClear(previousReservoir);
+        }
+    } else {
+        // Sampler samp;
+        InitSampler(samp, pixel, GetFrame()%64);
+        PathTraceState state;
+        InitPathTraceState(state, s.xv, SampleUniformHemisphere(s.nv, SampleNoise(samp).xy));
+        PathTraceProceed(state, samp);
+
+        s.xs = state.o;
+        s.ns = state.n;
+    #if 0 // enable multibounce
+        for(int i = 0; i < 3; i++) {
+            if(PathTraceProceed(state, samp) == false) {
+                break;
+            }
+        }
+    #endif
+        s.radiance = state.acc;
+        
+        float w = length(s.radiance);
+        ReservoirClamp(previousReservoir, 1, 10.0);
+        ReservoirUpdate(previousReservoir, s, w, SampleNoise(samp).x);
+        
+    }
+
+    {
+        float den = previousReservoir.M * (length(previousReservoir.s.radiance));
+        if(den > 0.0 && isnan(previousReservoir.w)  == false) {
+            previousReservoir.W = previousReservoir.w / den;
+        } else {
+            #if 0 // resampling fail heat map
+                previousReservoir.W = 1.0;
+                previousReservoir.s.radiance = vec3(1,0,0);
+            #else
+                previousReservoir.W = 0.0;
+            #endif
+        }
+    }
+
+    ReservoirStore(ReservoirA0RID, ReservoirA1RID, ReservoirA2RID, ReservoirA3RID, pixel, previousReservoir);
+}

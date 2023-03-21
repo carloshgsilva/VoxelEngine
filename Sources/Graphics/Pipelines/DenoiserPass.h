@@ -74,6 +74,8 @@ class DenoiserTemporalPass {
             GetRID(inRadiance),
             GetRID(inLastRadiance),
             GetRID(gbuffer.motion),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.previousNormal),
             GetRID(gbuffer.depth),
             GetRID(gbuffer.previousDepth),
             GetRID(viewBuffer),

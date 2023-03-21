@@ -59,4 +59,44 @@ vec3 OctahedronEncode(vec2 f) {
 	return normalize(n);
 }
 
+uint PackNormal(in vec3 nor) {
+    const uint sh = 16;
+    nor /= (abs(nor.x) + abs(nor.y) + abs(nor.z));
+    nor.xy = (nor.z >= 0.0) ? nor.xy : (1.0-abs(nor.yx))*sign(nor.xy);
+    vec2 v = 0.5 + 0.5*nor.xy;
+
+    uint mu = (1u<<sh)-1u;
+    uvec2 d = uvec2(floor(v*float(mu)+0.5));
+    return (d.y<<sh)|d.x;
+}
+
+vec3 UnpackNormal(uint data) {
+    const uint sh = 16;
+    uint mu =(1u<<sh)-1u;
+    
+    uvec2 d = uvec2(data, data>>sh) & mu;
+    vec2 v = vec2(d)/float(mu);
+    
+    v = -1.0 + 2.0*v;
+#if 1
+    // Rune Stubbe's version, much faster than original
+    vec3 nor = vec3(v, 1.0 - abs(v.x) - abs(v.y));
+    float t = max(-nor.z,0.0);
+    nor.x += (nor.x>0.0)?-t:t;
+    nor.y += (nor.y>0.0)?-t:t;
+#endif
+#if 0
+    // is there was a copysign() in GLSL...
+    vec3 nor = vec3(v, 1.0 - abs(v.x) - abs(v.y));
+    nor.xy -= copysignp(max(-nor.z,0.0),nor.xy);
+#endif
+#if 0
+    // original
+    vec3 nor;
+    nor.z = 1.0 - abs(v.x) - abs(v.y);
+    nor.xy = (nor.z>=0.0) ? v.xy : (1.0-abs(v.yx))*sign(v.xy);
+#endif    
+    return normalize(nor);
+}
+
 #endif

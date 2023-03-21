@@ -19,8 +19,9 @@ EditorLayer::EditorLayer() : Layer("Editor") {
     // AssetImporter::Import("Mods/default/ModernHouse.vox", "default");
     // AssetImporter::Import("Mods/default/FarmHouse.vox", "default");
 
-    OpenViewport(Assets::Hash("default/ModernHouse.pf"));
-    // OpenViewport(Assets::Hash("default/FarmHouse.pf"));
+    // OpenViewport(Assets::Hash("default/ModernHouse.pf"));
+    OpenViewport(Assets::Hash("default/castle.pf"));
+    //  OpenViewport(Assets::Hash("default/FarmHouse.pf"));
 }
 
 void EditorLayer::OpenViewport(AssetGUID asset) {
@@ -127,15 +128,14 @@ void EditorLayer::OnGui() {
         ImGui::Checkbox("Flow Time", &Viewports[0]->GetWorldRenderer()->timeFlow);
 
         ImGui::Separator();
-        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0", 3);
+        ImGui::Combo("Technique", (int*)&Viewports[0]->GetWorldRenderer()->technique, "PathTrace\0ReSTIR GI\0Screen Probes\0", 3);
+        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0ReSTIR GI Radiance\n", 4);
         ImGui::Checkbox("TAA", &Viewports[0]->GetWorldRenderer()->enableTAA);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
         ImGui::Checkbox("Samples Permutation", &Viewports[0]->GetWorldRenderer()->enablePermutation);
 
         ImGui::Separator();
-        ImGui::Checkbox("Probes Technique", &Viewports[0]->GetWorldRenderer()->enableProbes);
-        ImGui::Separator();
-        if (Viewports[0]->GetWorldRenderer()->enableProbes) {
+        if (Viewports[0]->GetWorldRenderer()->technique == WorldRenderer::Technique::Probe) {
             ImGui::Checkbox("Probes Filter", &Viewports[0]->GetWorldRenderer()->enableProbesFilter);
             ImGui::Checkbox("Probes Temporal", &Viewports[0]->GetWorldRenderer()->enableProbesTemporal);
         } else {
@@ -197,7 +197,7 @@ void EditorLayer::OnEvent(Event& e) {
     e.Handle<ViewportChangeEvent>([&](ViewportChangeEvent& e) { OnUpdate(0.0f); });
     e.Handle<KeyEvent>([&](KeyEvent& e) {
         if (e.Press && e.KeyCode == Key::F11) {
-            Window::Get().SetFullscreen(true);
+            Window::Get().FullscreenToggle();
         }
     });
 

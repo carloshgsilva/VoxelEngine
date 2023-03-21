@@ -118,6 +118,7 @@ void Window::SetFullscreen(bool Fullscreen) {
         glfwSetWindowMonitor(Window::Get().GetNativeWindow(), monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
     } else {
         glfwSetWindowMonitor(Window::Get().GetNativeWindow(), NULL, 300, 200, 600, 400, GLFW_DONT_CARE);
+        glfwMaximizeWindow(Window::Get().GetNativeWindow());
     }
 }
 

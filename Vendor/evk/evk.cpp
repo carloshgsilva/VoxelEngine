@@ -732,6 +732,43 @@ namespace evk {
             layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
+            // Validate instance layers and extensions
+            {
+                uint32_t count = 0;
+                std::vector<VkLayerProperties> avaible_layers;
+                CHECK_VK(vkEnumerateInstanceLayerProperties(&count, nullptr));
+                avaible_layers.resize(count);
+                CHECK_VK(vkEnumerateInstanceLayerProperties(&count, avaible_layers.data()));
+
+                for (auto& layer : layers) {
+                    bool found = false;
+                    for (auto& avaible_layer : avaible_layers) {
+                        if (strcmp(layer, avaible_layer.layerName) == 0) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    EVK_ASSERT(found, "Failed to find instance layer '%s'!", layer);
+                }
+
+                count = 0;
+                std::vector<VkExtensionProperties> avaible_extensions;
+                CHECK_VK(vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr));
+                avaible_extensions.resize(count);
+                CHECK_VK(vkEnumerateInstanceExtensionProperties(nullptr, &count, avaible_extensions.data()));
+
+                for (auto& extension : extensions) {
+                    bool found = false;
+                    for (auto& avaible_extension : avaible_extensions) {
+                        if (strcmp(extension, avaible_extension.extensionName) == 0) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    EVK_ASSERT(found, "Failed to find instance extension '%s'!", extension);
+                }
+            }
+
             VkInstanceCreateInfo instanceci = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
             instanceci.pApplicationInfo = &appInfo;
             instanceci.enabledExtensionCount = uint32_t(extensions.size());

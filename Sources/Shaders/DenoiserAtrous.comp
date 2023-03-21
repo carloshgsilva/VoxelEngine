@@ -83,8 +83,8 @@ void main() {
             float luminanceWeight = variance*pow(Size, 2.0)*min(abs(luminance - nLuminance) / phi, abs(luminance - nLuminance)/max(luminance, 0.001));
             w *= exp(-luminanceWeight);
             w *= IsInsideScreenWeight(uv);
-            w *= NormalWeight(normal, nNormal);
-            w *= PlaneWeight(pos, normal, nPos);
+            w *= NormalWeight(normal, nNormal, nT);
+            w *= PlaneWeight(pos, normal, nPos, nT);
 
             acc += w*nRadiance;
             mean1 += w*nLuminance;
@@ -99,5 +99,5 @@ void main() {
     //newVariance = mix(newVariance, radianceVar.w, 0.9);
 
     acc /= total;
-    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, newVariance));
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, (Size == 1) ? variance : newVariance));
 }

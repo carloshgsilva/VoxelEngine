@@ -25,6 +25,7 @@ struct ViewData {
     glm::vec3 CameraPosition;
     int _PADDING_0;
     glm::vec2 Jitter;
+    glm::vec2 PreviousJitter;
     int Frame;
     int ColorTextureRID;
     int DepthTextureRID;

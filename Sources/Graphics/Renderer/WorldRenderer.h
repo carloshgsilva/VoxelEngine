@@ -57,23 +57,24 @@ class WorldRenderer {
         Diffuse,
         Normal,
         ScreenProbes,
+        ReSTIR_GI_Radiance,
     };
 
     enum class Technique : uint {
-        PathTracedAcummulated,
-        PathTracedRealTime,
-        ProbeBased,
+        PathTraced,
+        ReSTIR,
+        Probe,
     };
 
     float timeOfDay = 9.0f;
     bool timeFlow = false;
+    Technique technique = Technique::ReSTIR;
     OutputImage outputImage = OutputImage::Composed;
-    bool enableTAA = true;
-    bool enableJitter = true;
+    bool enableTAA = false;
+    bool enableJitter = false;
     bool enablePermutation = true;
     bool enableDenoiser = true;
 
-    bool enableProbes = false;
     bool enableProbesFilter = false;
     bool enableProbesTemporal = false;
 

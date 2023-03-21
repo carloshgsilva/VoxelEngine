@@ -35,7 +35,7 @@ void CreateVoxelsForAsset(AssetRefT<VoxAsset>& asset, std::vector<Vox>& voxels) 
         for (uint32 y = 0; y < extent.height; y++) {
             for (uint32 x = 0; x < extent.width; x++) {
                 uint8 v = volume[x + (y + z * extent.height) * extent.width];
-                if (v > 15) {
+                if (v > 0) {
                     voxels.push_back(Vox{
                         .x = uint8(x),
                         .y = uint8(y),
