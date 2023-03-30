@@ -9,6 +9,7 @@
 #include "Common.frag"
 #include "Math.frag"
 #include "View.frag"
+#include "BRDF.frag"
 
 #ifndef IMPORT
 const int TLASRID = 0;
@@ -93,13 +94,16 @@ BINDING_BUFFER_R(VoxInstances,
     VoxInstance at[];
 )
 
-void GetMaterial(uint visibility, out vec3 outAlbedo, out vec3 outMaterial) {
+void GetMaterial(uint visibility, inout Material mat) {
     uint instanceId;
     uint matId;
     UnpackVisibility(visibility, instanceId, matId);
     int palleteId = VoxInstances[VoxInstancesRID].at[instanceId].palleteIndex;
-    outAlbedo = pow(texelFetch(PALLETE_COLOR_TEXTURE, ivec2(matId, palleteId), 0).xyz, vec3(2.2));
-    outMaterial = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(matId, palleteId), 0).xyz;
+    mat.albedo = pow(texelFetch(PALLETE_COLOR_TEXTURE, ivec2(matId, palleteId), 0).xyz, vec3(2.2));
+    vec3 rme = texelFetch(PALLETE_MATERIAL_TEXTURE, ivec2(matId, palleteId), 0).xyz;
+    mat.roughness = pow(rme.x, 2.2);
+    mat.metallic = rme.y;
+    mat.emissive = rme.z;
 }
 
 #endif

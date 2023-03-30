@@ -1,0 +1,55 @@
+#include "Common.frag"
+
+PUSH(
+    int ColorTextureRID;
+    int NormalTextureRID;
+    int VisibilityTextureRID;
+    int DepthTextureRID;
+    int _ViewBufferRID;
+    int TLASRID;
+    int VoxInstancesRID;
+)
+
+// 1. Allocate
+// 2. Trace
+// 3. Resolve
+
+#define IMPORT
+#include "PathTrace.frag"
+
+BINDING_BUFFER_RW(Cache,
+    vec3 samplePos;
+    uint packedSampleNormal;
+    vec4 irradianceSh[3];
+)
+
+COMPUTE(8, 8, 1)
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    
+    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
+    if(visibility == 0u) {
+        return;
+    }
+    
+    vec2 uv = vec2(pixel+GetJitter())*GetiRes();
+    vec3 o = GetCameraPosition();
+    vec3 d = UVToRayDir(uv);
+    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    
+    vec3 pos = o + d*t;
+
+    vec3 acc = vec3(0);
+    const float SCALE = 4.0;
+    for(float scale = 1.0; scale <= 4.0*4.0*4.0; scale *= 2.0) {
+        vec3 pDiff = abs(pos-o)*SCALE/scale;
+        float dist = max(max(pDiff.x, pDiff.y), pDiff.z);
+        uvec3 id = pcg3d(uvec3(abs(pos-EPS)*SCALE/scale));
+            acc = vec3(id%256)/256.0;
+        if(dist < 10.0) {
+            break;
+        }
+    }
+    
+    imageStore(Image2DW[ColorTextureRID], pixel, vec4(acc,1));
+}

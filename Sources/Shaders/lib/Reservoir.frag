@@ -54,10 +54,6 @@ void ReservoirUpdate(inout Reservoir r, in GISample s, float sW, float rand) {
         r.s = s;
 }
 void ReservoirMerge(inout Reservoir self, in Reservoir r, float pHat, float rand) {
-    // if(self.M == 0) {
-    //     self = r;
-    //     return;
-    // }
     float M0 = self.M;
     ReservoirUpdate(self, r.s, pHat * r.W * r.M, rand);
     self.M = M0 + r.M;

@@ -11,12 +11,13 @@ class ComposePass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Compose.comp.spv")});
     }
 
-    void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& voxInstancesBuffer) {
+    void Use(Image& outRadiance, Image& diffuse, Image& specular, GBuffer& gbuffer, Buffer& viewBuffer, Buffer& voxInstancesBuffer) {
         Extent extent = GetDesc(outRadiance).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(outRadiance),
-            GetRID(inRadiance),
+            GetRID(diffuse),
+            GetRID(specular),
             GetRID(gbuffer.visibility),
             GetRID(gbuffer.depth),
             GetRID(viewBuffer),

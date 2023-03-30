@@ -93,7 +93,9 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     previousLightBuffer = CreateLightImage(Width, Height);
     lightBufferA = CreateLightImage(Width, Height);
     lightBufferB = CreateLightImage(Width, Height);
-    _ReflectionBuffer = CreateLightImage(Width, Height);
+    specularBufferA = CreateLightImage(Width, Height);
+    specularBufferB = CreateLightImage(Width, Height);
+    previousSpecularBuffer = CreateLightImage(Width, Height);
 
     _BloomStepBuffer = CreateLightImage(Width >> 1, Height >> 1);  // second mip
     for (int i = 0; i < BLOOM_MIP_COUNT; i++) {
@@ -121,7 +123,8 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     CmdClear(previousLightBuffer, ClearColor{});
     CmdClear(lightBufferA, ClearColor{});
     CmdClear(lightBufferB, ClearColor{});
-    CmdClear(_ReflectionBuffer, ClearColor{});
+    CmdClear(specularBufferA, ClearColor{});
+    CmdClear(specularBufferB, ClearColor{});
 
     CmdClear(_LastComposeBuffer, ClearColor{});
     CmdClear(_CurrentComposeBuffer, ClearColor{});
@@ -160,25 +163,34 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         PathTracePass::Get() = PathTracePass();
         GBufferPass::Get() = GBufferPass();
         DenoiserDiscPass::Get() = DenoiserDiscPass();
+        DenoiserSpecularPass::Get() = DenoiserSpecularPass();
         DenoiserAtrousPass::Get() = DenoiserAtrousPass();
         DenoiserTemporalPass::Get() = DenoiserTemporalPass();
         ComposePass::Get() = ComposePass();
         TAAPass::Get() = TAAPass();
+        IRCacheTracePass::Get() = IRCacheTracePass();
         ScreenProbesTracePass::Get() = ScreenProbesTracePass();
         ScreenProbesSamplePass::Get() = ScreenProbesSamplePass();
         ScreenProbesFilterPass::Get() = ScreenProbesFilterPass();
-        RadianceProbesTracePass::Get() = RadianceProbesTracePass();
         DITracePass::Get() = DITracePass();
         ReSTIRGITracePass::Get() = ReSTIRGITracePass();
         ReSTIRGISpatialPass::Get() = ReSTIRGISpatialPass();
         ReSTIRGIResolvePass::Get() = ReSTIRGIResolvePass();
+        SpecularTracePass::Get() = SpecularTracePass();
         // Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
         Log::info("Shaders Reloaded!");
     }
-    static bool once = true;
-    if (Input::IsKeyPressed(Key::P) && (Engine::GetTime() - lastReloadShaders) > 1.0 || once) {
-        once = false;
+
+    uint32 blasCount = 0;
+    world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
+        if (v.Vox.IsValid() && v.Pallete.IsValid()) {
+            blasCount++;
+        }
+    });
+
+    if (tlasCount != blasCount) {
+        tlasCount = blasCount;
         {
             PROFILE_SCOPE("Load Voxel Assets");
             world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
@@ -338,6 +350,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     lightBufferA.swap(lightBufferB);
                 }
             });
+        } else if (technique == Technique::IRCache) {
+            IRCacheTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer);
         } else if (technique == Technique::ReSTIR) {
             gbuffer.reservoirTemporalA.b0.swap(gbuffer.reservoirTemporalB.b0);
             gbuffer.reservoirTemporalA.b1.swap(gbuffer.reservoirTemporalB.b1);
@@ -349,21 +363,47 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 ReSTIRGISpatialPass::Get().Use(gbuffer.reservoirSpatialB, gbuffer.reservoirSpatialA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 5);
             });
             CmdTimestamp("GI Resolve", [&] { ReSTIRGIResolvePass::Get().Use(lightBufferA, gbuffer.reservoirSpatialB, gbuffer, _ViewBuffer); });
-            CmdTimestamp("DI Trace", [&] { DITracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
             CmdTimestamp("GI Denoiser", [&] {
                 if (enableDenoiser) {
+#if 0
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 1);
                     DenoiserTemporalPass::Get().Use(lightBufferA, lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer);
                     previousLightBuffer.swap(lightBufferA);
                     DenoiserAtrousPass::Get().Use(lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 2);
-                    DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 4);
-                    DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 8);
+                    DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 16);
+#else
+                    DenoiserTemporalPass::Get().Use(lightBufferB, lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer);
+                    previousLightBuffer.swap(lightBufferB);
+                    DenoiserDiscPass::Get().Use(lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer);
+#endif
                 }
+            });
+            CmdTimestamp("DI Trace", [&] { DITracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+        }
+
+        CmdTimestamp("Specular Trace", [&] { SpecularTracePass::Get().Use(specularBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+        if (enableDenoiser) {
+            CmdTimestamp("Specular Denoise", [&] {
+#if 1
+                DenoiserTemporalPass::Get().Use(specularBufferB, specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer);
+                previousSpecularBuffer.swap(specularBufferB);
+                DenoiserSpecularPass::Get().Use(specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer, 1);
+                // DenoiserAtrousPass::Get().Use(specularBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
+                // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 2);
+                // DenoiserAtrousPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 4);
+                // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
+#elif 1
+                DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 1);
+                DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 1);
+#else
+                DenoiserDiscPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
+                DenoiserDiscPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer);
+#endif
             });
         }
 
-        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });
+        CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferA, specularBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });
         if (enableTAA) {
             CmdTimestamp("TAA", [&] { TAAPass::Get().Use(_TAAComposeBuffer, _CurrentComposeBuffer, _LastComposeBuffer, gbuffer, _ViewBuffer); });
         } else {
@@ -391,6 +431,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 ColorWorldPipeline::Get().Use(lightBufferB, _OutlineBuffer);
             } else if (outputImage == OutputImage::ReSTIR_GI_Radiance) {
                 ColorWorldPipeline::Get().Use(gbuffer.reservoirTemporalB.b3, _OutlineBuffer);
+            } else if (outputImage == OutputImage::Specular) {
+                ColorWorldPipeline::Get().Use(specularBufferA, _OutlineBuffer);
             }
         });
     });

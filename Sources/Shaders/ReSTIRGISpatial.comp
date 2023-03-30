@@ -111,76 +111,6 @@ vec4 SampleNoise(inout Sampler samp) {
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
 
-// Jarzynski 2020
-uvec3 pcg3d(uvec3 v) {
-    v = v * 1664525u + 1013904223u;
-    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
-    v ^= v >> 16u;
-    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
-    return v;
-}
-
-struct PathTraceState {
-    vec3 o;
-    vec3 d;
-    vec3 n;
-    vec3 throughput;
-    vec3 acc;
-};
-void InitPathTraceState(out PathTraceState state, vec3 o, vec3 d) {
-    state.o = o;
-    state.d = d;
-    state.n = vec3(0);
-    state.throughput = vec3(1);
-    state.acc = vec3(0);
-}
-bool PathTraceProceed(inout PathTraceState state, inout Sampler samp) {
-    TraceHit hit;
-    if(TraceRay(state.o, state.d, INF, hit)){
-        Material mat;
-        vec3 albedo;
-        vec3 material;
-        GetMaterial(hit.visibility, albedo, material);
-        mat.albedo = albedo;
-        mat.roughness = pow(material.x, 2.2);
-        mat.metallic = material.y;
-        
-        // Sun Light
-        vec3 skyDir = normalize(state.d+GetSunDir()*10.0);
-        if(dot(skyDir, hit.normal) > 0.0 && !TraceShadowRay(state.o + state.d*hit.t, skyDir, INF)) {
-            // TODO: correctly sample light
-            state.acc += albedo * state.throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
-        }
-
-        state.acc += albedo * state.throughput * material.z * 100.0;
-
-        BRDFSample smp;
-        if(SampleBRDF(smp, mat, state.d, hit.normal, SampleNoise(samp))) {
-            state.n = hit.normal;
-            state.o = state.o + state.d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
-            state.d = smp.wi;
-            state.throughput *= pow(smp.brdf, vec3(1/2.2));
-            return true;
-        }
-    } else {
-        state.n = -state.d;
-        state.o += state.d * 1.0e12;
-        state.acc += GetSkyColor(state.d) * state.throughput;
-        return false;
-    }
-
-    return false;
-}
-
-ivec2 PermutationSampling(ivec2 pixel, uint rand) {
-    ivec2 offset = ivec2(rand & 3, (rand >> 2) & 3);
-    pixel += offset;
-    pixel.x ^= 3;
-    pixel.y ^= 3;
-    pixel -= offset;
-    return pixel;
-}
-
 COMPUTE(8, 8, 1)
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
@@ -206,12 +136,11 @@ void main() {
     Reservoir spatialReservoir;
     ReservoirLoad(ReservoirB0RID, ReservoirB1RID, ReservoirB2RID, ReservoirB3RID, pixel, spatialReservoir);
 
-    float dissoclusion = spatialReservoir.M > 5.0 ? 4.0 : 8.0;
     float radius = 1.0;
-    for (float ang = GetFrame(); radius <= float(SampleSize); ang += GOLDEN_ANGLE) {
+    for (float ang = (GetFrame()%4)*3; radius <= float(SampleSize); ang += GOLDEN_ANGLE) {
         radius += 1.0;
 
-        ivec2 nPixel = pixel + ivec2(vec2(cos(ang), sin(ang)) * radius * dissoclusion * 8.0 / float(SampleSize));
+        ivec2 nPixel = pixel + ivec2(vec2(cos(ang), sin(ang)) * radius * 32.0 / float(SampleSize));
 
         // geometry validation
         vec2 nUV = nPixel*GetiRes();
@@ -235,7 +164,7 @@ void main() {
         ReservoirMerge(spatialReservoir, temporalReservoir, pHat, SampleNoise(samp).x);
     }
 
-    { // visibiliy validation (can be active only on last spatial pass, introduces little bias)
+    if(SampleSize == 5) { // visibiliy validation (only on last spatial pass, introduces little bias)
         float l = length(spatialReservoir.s.xs - s.xv);
         vec3 dir = normalize(spatialReservoir.s.xs - s.xv);
         if(spatialReservoir.M > 0 && TraceShadowRay(s.xv + n*EPS*10.0, dir, l-EPS*100.0)) {

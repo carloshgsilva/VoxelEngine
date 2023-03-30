@@ -104,7 +104,8 @@ bool SampleBRDFSpecular(inout BRDFSample smp, out vec3 F, vec3 V, vec3 N, vec3 a
         smp.brdf.pdf = ggx_pdf / (4.0 * dot(-wo, ni));
     #endif
     
-    return smp.pdf > 0.0;
+    //TODO: why is brdf returning nan?
+    return smp.pdf > 0.0 && isnan(dot(smp.brdf, vec3(1))) == false;
 }
 vec3 SampleCosineHemisphere(vec3 direction, vec2 rand) {
     float theta = 6.2831853 * rand.x;

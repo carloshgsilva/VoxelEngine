@@ -80,8 +80,8 @@ void main() {
             
             const float GAUSSIAN[2] = {0.44198, 0.27901};
             float w = GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
-            float luminanceWeight = variance*pow(Size, 2.0)*min(abs(luminance - nLuminance) / phi, abs(luminance - nLuminance)/max(luminance, 0.001));
-            w *= exp(-luminanceWeight);
+            float luminanceWeight = 0.05*variance*pow(Size, 4.0)*min(abs(luminance - nLuminance) / phi, abs(luminance - nLuminance)/max(luminance, 0.001));
+            // w *= exp(-luminanceWeight);
             w *= IsInsideScreenWeight(uv);
             w *= NormalWeight(normal, nNormal, nT);
             w *= PlaneWeight(pos, normal, nPos, nT);
@@ -92,11 +92,8 @@ void main() {
             total += w;
         }
     }
-
-    //float meanLum = length(acc);
     float newVariance = max(mean2 - mean1*mean1, 0.0); 
     newVariance /= total;
-    //newVariance = mix(newVariance, radianceVar.w, 0.9);
 
     acc /= total;
     imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(acc, (Size == 1) ? variance : newVariance));

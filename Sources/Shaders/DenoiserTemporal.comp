@@ -20,7 +20,7 @@ float GetReprojectionWeight(ivec2 previousPixel, vec3 pos, vec3 n, float depth) 
     vec3 pNormal = texelFetch(Sampler2D[PreviousNormalTextureRID], previousPixel, 0).xyz;
     float pDepth = texelFetch(Sampler2D[PreviousDepthTextureRID], previousPixel, 0).x;
     vec3 pPos = PrevousView_UVDepthToPos(vec2(previousPixel + GetPreviousJitter())*GetiRes(), pDepth);
-    return NormalWeight(pNormal, n, depth) * PlaneWeight(pos, n, pPos, depth);
+    return NormalWeight(pNormal, n, depth) * PlaneWeight(pos, n, pPos, depth) * IsInsideScreenWeight(vec2(previousPixel)*GetiRes());
 }
 
 vec4 GeometryAwareBilinearReprojection(vec2 previousUV, vec3 pos, vec3 n, float depth, inout bool failed) {
@@ -63,19 +63,21 @@ void main() {
     vec2 previousUV = WorldToUVLastView(pos) - (GetPreviousJitter() - 0.5)*GetiRes();// - GetJitter()*GetiRes();;// + (GetPreviousJitter() - 0.5)*GetiRes();//+ 0.5*GetiRes();
     bool reprojectionFailed = false;
     //vec4 previousRadianceVariance = texture(Sampler2D[InLastRadianceTextureRID], previousUV);
-    vec4 previousRadianceVariance = GeometryAwareBilinearReprojection(previousUV, pos, n, t, reprojectionFailed);
-    vec3 previousRadiance = previousRadianceVariance.xyz;
-    float previousVariance = previousRadianceVariance.w;
+    vec4 previousRadianceReact = GeometryAwareBilinearReprojection(previousUV, pos, n, t, reprojectionFailed);
 
-    vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
-    vec3 radiance = radianceVar.xyz;
-    float variance = max(previousVariance - 0.05 , 0);
+    vec4 radianceReact = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
+    vec3 radiance = radianceReact.xyz;
+    float reactivity = max(previousRadianceReact.w - 0.05 , 0);
 
     if(clamp(previousUV, 0.0, 1.0) != previousUV || reprojectionFailed) {
-        previousRadiance = radiance;
-        variance = 1.0;
+        previousRadianceReact.xyz = radiance;
+        reactivity = 1.0;
+    }
+
+    if(radianceReact.w < 0.0001) {
+        // reactivity = 1.0;
     }
     
-    radiance = mix(radiance, previousRadiance, 0.95 * clamp(1.0 - variance, 0, 1));
-    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(radiance, variance));
+    // radiance = mix(radiance, previousRadianceReact.xyz, 0.9 * clamp(1.0 - previousRadianceReact.w, 0, 1));
+    imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(radiance, reactivity));
 }

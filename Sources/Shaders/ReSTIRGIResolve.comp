@@ -109,12 +109,10 @@ void main() {
         s = vec3(0);
     }
 
-    //if(r.M > 0) {
-    //    s = (r.s.nv);
-    //}
     if(isnan(s.x) || isnan(s.y) || isnan(s.z)) {
        s = vec3(1000,0,1000);
+       s = vec3(0);
     }
 
-    imageStore(Image2DW[RadianceTextureRID], pixel, vec4(s, 0));
+    imageStore(Image2DW[RadianceTextureRID], pixel, vec4(s, r.W));
 }

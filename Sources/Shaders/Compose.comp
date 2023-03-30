@@ -2,7 +2,8 @@
 
 PUSH(
     int OutColorTextureRID;
-    int InRadianceTextureRID;
+    int DiffuseTextureRID;
+    int SpecularTextureRID;
     int VisibilityTextureRID;
     int DepthTextureRID;
     int _ViewBufferRID;
@@ -44,10 +45,11 @@ void main() {
 
     vec3 radiance = vec3(0);
     if(visibility != 0u) {
-        vec3 albedo;
-        vec3 material;
-        GetMaterial(visibility, albedo, material);
-        radiance = albedo*(texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz + material.z*10.0);
+        Material mat;
+        GetMaterial(visibility, mat);
+        vec3 diffuse = texelFetch(Sampler2D[DiffuseTextureRID], pixel, 0).xyz + mat.albedo*mat.emissive*1000.0;
+        vec3 specular = texelFetch(Sampler2D[SpecularTextureRID], pixel, 0).xyz;
+        radiance = mat.albedo*diffuse;// + specular;
     } else {
         radiance = GetSkyColor(d);
     }

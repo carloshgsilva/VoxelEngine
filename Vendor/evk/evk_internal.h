@@ -27,10 +27,10 @@ namespace evk {
     const uint32_t BINDING_IMAGE = 2;
     const uint32_t BINDING_TLAS = 3;
 
-    const uint32_t STORAGE_COUNT = 8096;
-    const uint32_t IMAGE_COUNT = 8096;
+    const uint32_t STORAGE_COUNT = 8096 * 2;
+    const uint32_t IMAGE_COUNT = 8096 * 2;
     const uint32_t SAMPLER_COUNT = IMAGE_COUNT;
-    const uint32_t TLAS_COUNT = 8096;
+    const uint32_t TLAS_COUNT = 8096 * 2;
 
     struct FrameData {
         Image image;

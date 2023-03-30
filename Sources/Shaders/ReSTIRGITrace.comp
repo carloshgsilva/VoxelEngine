@@ -110,15 +110,6 @@ vec4 SampleNoise(inout Sampler samp) {
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
 
-// Jarzynski 2020
-uvec3 pcg3d(uvec3 v) {
-    v = v * 1664525u + 1013904223u;
-    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
-    v ^= v >> 16u;
-    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
-    return v;
-}
-
 struct PathTraceState {
     vec3 o;
     vec3 d;
@@ -137,22 +128,17 @@ bool PathTraceProceed(inout PathTraceState state, inout Sampler samp) {
     TraceHit hit;
     if(TraceRay(state.o, state.d, INF, hit)){
         Material mat;
-        vec3 albedo;
-        vec3 material;
-        GetMaterial(hit.visibility, albedo, material);
-        mat.albedo = albedo;
-        mat.roughness = pow(material.x, 2.2);
-        mat.metallic = material.y;
+        GetMaterial(hit.visibility, mat);
         
         // Sun Light
         vec3 skyDir = normalize(/*state.d+*/GetSunDir()*10.0);
         if(dot(skyDir, hit.normal) > 0.0 && !TraceShadowRay(state.o + state.d*hit.t + hit.normal*EPS*10.0, skyDir, INF)) {
             // TODO: correctly sample light
-            state.acc += albedo * state.throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
+            state.acc += mat.albedo * state.throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
         }
 
         // Emissive
-        state.acc += albedo * state.throughput * material.z * 10.0;
+        state.acc += mat.albedo * state.throughput * mat.emissive * 10.0;
 
         BRDFSample smp;
         if(SampleBRDF(smp, mat, state.d, hit.normal, SampleNoise(samp))) {
@@ -235,16 +221,13 @@ void main() {
     bool foundReprojection = false;
     ReservoirClear(previousReservoir);
 
-    //TODO: if reservoir is starved for samples (r.M < 5) use last frame spatial instead of the temporal
-    //      this introduces lots of bias, so must be careful
-    
     for(int i = 0; i < 9; i++) {
         if(i == 0) {
             previousPixel = originPixel;
         } else {
             ivec2 offset = get_rpx_offset(i, GetFrame());
-            previousPixel = originPixel + offset;
-            previousPixel = PermutationSampling(previousPixel, GetFrame()) + offset;
+            // previousPixel = originPixel + offset;
+            // previousPixel = PermutationSampling(previousPixel, GetFrame()) + offset;
         }
 
         // geometry validation
@@ -269,6 +252,7 @@ void main() {
     if(isnan(previousReservoir.w) || foundReprojection == false) {
         ReservoirClear(previousReservoir);
     }
+    ReservoirClamp(previousReservoir, 1, 10.0);
     
     if(GetFrame()%4 == 0 && previousReservoir.M > 0){ // Radiance validation (only if there's sample in the reservoir)
         vec3 dir = normalize(previousReservoir.s.xs - previousReservoir.s.xv);
@@ -277,8 +261,12 @@ void main() {
         // Sampler samp;
         InitSampler(samp, pixel, GetFrame()%64);
         PathTraceProceed(state, samp);
-        if(length(previousReservoir.s.radiance - state.acc) > 0.1) {
-            ReservoirClear(previousReservoir);
+        float f = Luminance(previousReservoir.s.radiance)/Luminance(state.acc);
+        // If change is too small we just update radiance, otherwise we reset it
+        if(f < 0.75 || f > 1.5) {
+            previousReservoir.s.radiance = vec3(0);
+        } else {
+            previousReservoir.s.radiance = state.acc;
         }
     } else {
         // Sampler samp;
@@ -299,13 +287,11 @@ void main() {
         s.radiance = state.acc;
         
         float w = length(s.radiance);
-        ReservoirClamp(previousReservoir, 1, 10.0);
         ReservoirUpdate(previousReservoir, s, w, SampleNoise(samp).x);
-        
     }
 
     {
-        float den = previousReservoir.M * (length(previousReservoir.s.radiance));
+        float den = previousReservoir.M * length(previousReservoir.s.radiance);
         if(den > 0.0 && isnan(previousReservoir.w)  == false) {
             previousReservoir.W = previousReservoir.w / den;
         } else {

@@ -3,6 +3,15 @@
 
 #define M_PI 3.1415926535
 
+// Jarzynski 2020
+uvec3 pcg3d(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
+    v ^= v >> 16u;
+    v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y;
+    return v;
+}
+
 bool IntersectRayAABB(vec3 o, vec3 d, vec3 aabb_min, vec3 aabb_max, out float out_t) {
     vec3 t_a = (aabb_min - o)/d;
     vec3 t_b = (aabb_max - o)/d;

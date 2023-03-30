@@ -67,6 +67,11 @@ vec3 ViewToWorld(vec3 p) {
     return (GetInverseViewMatrix()*vec4(p, 1)).xyz;
 }
 
+vec2 WorldToUV(vec3 world) {
+    vec3 view = (VIEW.ViewMatrix*vec4(world, 1)).xyz;
+    vec4 p = GetProjectionMatrix() * vec4(view, 1.0);
+    return (p.xy / (p.w)*vec2(1.0, -1.0))*0.5 + 0.5;
+}
 vec2 WorldToUVLastView(vec3 world) {
     vec3 view = (VIEW.LastViewMatrix*vec4(world, 1)).xyz;
     vec4 p = GetProjectionMatrix() * vec4(view, 1.0);

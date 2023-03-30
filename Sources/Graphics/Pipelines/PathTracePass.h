@@ -32,6 +32,64 @@ class PathTracePass {
     }
 };
 
+class SpecularTracePass {
+    Pipeline pipeline;
+
+   public:
+    SpecularTracePass() {
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/SpecularTrace.comp.spv")});
+    }
+
+    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
+        Extent extent = GetDesc(dstColor).extent;
+        CmdBind(pipeline);
+        CmdPush(Constant{
+            GetRID(dstColor),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.depth),
+            GetRID(viewBuffer),
+            GetRID(tlas),
+            GetRID(voxInstancesBuffer),
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+    }
+
+    static SpecularTracePass& Get() {
+        static SpecularTracePass Instance;
+        return Instance;
+    }
+};
+
+class IRCacheTracePass {
+    Pipeline pipeline;
+
+   public:
+    IRCacheTracePass() {
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/IRCacheTrace.comp.spv")});
+    }
+
+    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
+        Extent extent = GetDesc(dstColor).extent;
+        CmdBind(pipeline);
+        CmdPush(Constant{
+            GetRID(dstColor),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.depth),
+            GetRID(viewBuffer),
+            GetRID(tlas),
+            GetRID(voxInstancesBuffer),
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+    }
+
+    static IRCacheTracePass& Get() {
+        static IRCacheTracePass Instance;
+        return Instance;
+    }
+};
+
 class DITracePass {
     Pipeline pipeline;
 
@@ -69,18 +127,18 @@ class ReSTIRGITracePass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ReSTIRGITrace.comp.spv")});
     }
 
-    void Use(ReSTIRGIReservoir& temporalA, ReSTIRGIReservoir& temporalB, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
+    void Use(ReSTIRGIReservoir& temporalDst, ReSTIRGIReservoir& temporalSrc, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
         Extent extent = GetDesc(gbuffer.color).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
-            GetRID(temporalA.b0),
-            GetRID(temporalA.b1),
-            GetRID(temporalA.b2),
-            GetRID(temporalA.b3),
-            GetRID(temporalB.b0),
-            GetRID(temporalB.b1),
-            GetRID(temporalB.b2),
-            GetRID(temporalB.b3),
+            GetRID(temporalDst.b0),
+            GetRID(temporalDst.b1),
+            GetRID(temporalDst.b2),
+            GetRID(temporalDst.b3),
+            GetRID(temporalSrc.b0),
+            GetRID(temporalSrc.b1),
+            GetRID(temporalSrc.b2),
+            GetRID(temporalSrc.b3),
             GetRID(gbuffer.normal),
             GetRID(gbuffer.previousNormal),
             GetRID(gbuffer.visibility),

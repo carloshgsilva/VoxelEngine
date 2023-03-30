@@ -26,6 +26,7 @@ class WorldRenderer {
     std::vector<VoxInstance> voxInstances;
     std::vector<rt::BLASInstance> blasInstances;
     rt::TLAS tlas;
+    uint32 tlasCount = 0;
 
     int _Frame{0};
 
@@ -35,7 +36,9 @@ class WorldRenderer {
     Image previousLightBuffer;
     Image lightBufferA;
     Image lightBufferB;
-    Image _ReflectionBuffer;
+    Image specularBufferA;
+    Image specularBufferB;
+    Image previousSpecularBuffer;
 
     Image _BloomStepBuffer;
     std::vector<Image> _Bloom1Buffer;
@@ -58,11 +61,13 @@ class WorldRenderer {
         Normal,
         ScreenProbes,
         ReSTIR_GI_Radiance,
+        Specular,
     };
 
     enum class Technique : uint {
         PathTraced,
         ReSTIR,
+        IRCache,
         Probe,
     };
 
@@ -70,8 +75,8 @@ class WorldRenderer {
     bool timeFlow = false;
     Technique technique = Technique::ReSTIR;
     OutputImage outputImage = OutputImage::Composed;
-    bool enableTAA = false;
-    bool enableJitter = false;
+    bool enableTAA = true;
+    bool enableJitter = true;
     bool enablePermutation = true;
     bool enableDenoiser = true;
 

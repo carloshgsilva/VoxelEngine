@@ -19,8 +19,8 @@ EditorLayer::EditorLayer() : Layer("Editor") {
     // AssetImporter::Import("Mods/default/ModernHouse.vox", "default");
     // AssetImporter::Import("Mods/default/FarmHouse.vox", "default");
 
-    // OpenViewport(Assets::Hash("default/ModernHouse.pf"));
-    OpenViewport(Assets::Hash("default/castle.pf"));
+    OpenViewport(Assets::Hash("default/ModernHouse.pf"));
+    // OpenViewport(Assets::Hash("default/castle.pf"));
     //  OpenViewport(Assets::Hash("default/FarmHouse.pf"));
 }
 
@@ -128,8 +128,8 @@ void EditorLayer::OnGui() {
         ImGui::Checkbox("Flow Time", &Viewports[0]->GetWorldRenderer()->timeFlow);
 
         ImGui::Separator();
-        ImGui::Combo("Technique", (int*)&Viewports[0]->GetWorldRenderer()->technique, "PathTrace\0ReSTIR GI\0Screen Probes\0", 3);
-        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0ReSTIR GI Radiance\n", 4);
+        ImGui::Combo("Technique", (int*)&Viewports[0]->GetWorldRenderer()->technique, "PathTrace\0ReSTIR GI\0IR Cache\0Screen Probes\0", 4);
+        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0ReSTIR GI Radiance\0Specular\0", 5);
         ImGui::Checkbox("TAA", &Viewports[0]->GetWorldRenderer()->enableTAA);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
         ImGui::Checkbox("Samples Permutation", &Viewports[0]->GetWorldRenderer()->enablePermutation);

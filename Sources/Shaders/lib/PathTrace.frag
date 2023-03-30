@@ -1,16 +1,6 @@
-#include "Common.frag"
+#ifndef PATH_TRACE_H
+#define PATH_TRACE_H
 
-PUSH(
-    int ColorTextureRID;
-    int NormalTextureRID;
-    int VisibilityTextureRID;
-    int DepthTextureRID;
-    int _ViewBufferRID;
-    int TLASRID;
-    int VoxInstancesRID;
-)
-
-#define IMPORT
 #include "View.frag"
 #include "Light.frag"
 #include "BRDF.frag"
@@ -81,6 +71,7 @@ const vec2 OFFSETS[64] = {
     vec2(0.9844, 0.0617),
     vec2(0.0078, 0.3951),
 };
+
 struct Sampler {
     ivec2 pixel;
     int frame;
@@ -100,65 +91,54 @@ vec4 SampleNoise(inout Sampler samp) {
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
 
-COMPUTE(8, 8, 1)
-void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec2 uv = vec2(pixel+GetJitter())*GetiRes();
-    vec3 o = GetCameraPosition();
-    vec3 d = UVToRayDir(uv);
 
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    if(visibility == 0u) {
-        return;
-    }
-#if 0
-    vec3 acc = vec3(0);
-    {
-        float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-        vec3 worldPos = o + d*t;
-        uint v = pcg3d(uvec3(worldPos)).x & 0xFFFF;
-        acc = fract(vec3(v*0.1+0.5, v*0.3+0.7, v*0.7));
-    }
-#endif
-
-#if 1
-    Sampler samp;
-    InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%32);
-    
-    vec3 acc = vec3(0);
-    vec3 throughput = vec3(1.0);
-
+struct PathTraceState {
+    vec3 o;
+    vec3 d;
+    vec3 n;
+    vec3 throughput;
+    vec3 acc;
+};
+void InitPathTraceState(out PathTraceState state, vec3 o, vec3 d) {
+    state.o = o;
+    state.d = d;
+    state.n = vec3(0);
+    state.throughput = vec3(1);
+    state.acc = vec3(0);
+}
+bool PathTraceProceed(inout PathTraceState state, inout Sampler samp) {
     TraceHit hit;
-    hit.t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    hit.normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
-    hit.visibility = visibility;
-    for(int depth = 0; depth < 2; depth++) {
+    if(TraceRay(state.o, state.d, INF, hit)){
         Material mat;
         GetMaterial(hit.visibility, mat);
         
-        acc += mat.albedo * throughput * mat.emissive * 10.0;
+        // Sun Light
+        vec3 skyDir = normalize(/*state.d+*/GetSunDir()*10.0);
+        if(dot(skyDir, hit.normal) > 0.0 && !TraceShadowRay(state.o + state.d*hit.t + hit.normal*EPS*10.0, skyDir, INF)) {
+            // TODO: correctly sample light
+            state.acc += mat.albedo * state.throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
+        }
+
+        // Emissive
+        state.acc += mat.albedo * state.throughput * mat.emissive * 10.0;
 
         BRDFSample smp;
-        if(SampleBRDF(smp, mat, d, hit.normal, SampleNoise(samp))) {
-            o = o + d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
-            d = smp.wi;
-
-            if(depth!=0)throughput *= smp.brdf;
-
-            // Continue Bounces
-            if(TraceRay(o, d, INF, hit) == false){
-                acc += GetSkyColor(d) * throughput;
-                break;
-            }
+        if(SampleBRDF(smp, mat, state.d, hit.normal, SampleNoise(samp))) {
+            state.n = hit.normal;
+            state.o = state.o + state.d*hit.t + hit.normal*EPS*max(hit.t, 10.0);
+            state.d = smp.wi;
+            state.throughput *= pow(smp.brdf, vec3(1/2.2));
+            return true;
         }
-
-        // Sun Light
-        vec3 skyDir = normalize(d+GetSunDir()*10.0);
-        if(!TraceShadowRay(o + d*hit.t + hit.normal*EPS*max(hit.t, 10.0), skyDir, INF)) {
-            acc += throughput * GetSunColor() * max(dot(hit.normal, GetSunDir()), 0);
-        }
-
+    } else {
+        state.n = -state.d;
+        state.o += state.d * 1.0e12;
+        state.acc += GetSkyColor(state.d) * state.throughput;
+        return false;
     }
-#endif
-    imageStore(Image2DW[ColorTextureRID], ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y), vec4(acc,1));
+
+    return false;
 }
+
+
+#endif

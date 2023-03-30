@@ -58,6 +58,34 @@ class DenoiserAtrousPass {
     }
 };
 
+class DenoiserSpecularPass {
+    Pipeline pipeline;
+
+   public:
+    DenoiserSpecularPass() {
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/DenoiserSpecular.comp.spv")});
+    }
+
+    void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer, int size) {
+        Extent extent = GetDesc(gbuffer.color).extent;
+        CmdBind(pipeline);
+        CmdPush(Constant{
+            GetRID(outRadiance),
+            GetRID(inRadiance),
+            GetRID(gbuffer.normal),
+            GetRID(gbuffer.depth),
+            GetRID(viewBuffer),
+            size,
+        });
+        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+    }
+
+    static DenoiserSpecularPass& Get() {
+        static DenoiserSpecularPass Instance;
+        return Instance;
+    }
+};
+
 class DenoiserTemporalPass {
     Pipeline pipeline;
 
@@ -204,35 +232,6 @@ class ScreenProbesFilterPass {
 
     static ScreenProbesFilterPass& Get() {
         static ScreenProbesFilterPass Instance;
-        return Instance;
-    }
-};
-
-class RadianceProbesTracePass {
-    Pipeline pipeline;
-
-   public:
-    RadianceProbesTracePass() {
-        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/RadianceProbesTrace.comp.spv")});
-    }
-
-    void Use(Image& dstRadiance, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
-        Extent extent = GetDesc(dstRadiance).extent;
-        CmdBind(pipeline);
-        CmdPush(Constant{
-            GetRID(dstRadiance),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
-            GetRID(viewBuffer),
-            GetRID(tlas),
-            GetRID(voxInstancesBuffer),
-        });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-    }
-
-    static RadianceProbesTracePass& Get() {
-        static RadianceProbesTracePass Instance;
         return Instance;
     }
 };
