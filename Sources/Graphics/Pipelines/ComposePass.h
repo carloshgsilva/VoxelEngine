@@ -18,8 +18,7 @@ class ComposePass {
             GetRID(outRadiance),
             GetRID(diffuse),
             GetRID(specular),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             GetRID(voxInstancesBuffer),
         });

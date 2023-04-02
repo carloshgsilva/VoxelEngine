@@ -5,10 +5,8 @@ PUSH(
     int InRadianceTextureRID;
     int InLastRadianceTextureRID;
     int MotionTextureRID;
-    int NormalTextureRID;
-    int PreviousNormalTextureRID;
-    int DepthTextureRID;
-    int PreviousDepthTextureRID;
+    int GBufferRID;
+    int PreviousGBufferRID;
     int _ViewBufferRID;
 )
 
@@ -17,8 +15,9 @@ PUSH(
 #include "Denoiser.frag"
 
 float GetReprojectionWeight(ivec2 previousPixel, vec3 pos, vec3 n, float depth) {
-    vec3 pNormal = texelFetch(Sampler2D[PreviousNormalTextureRID], previousPixel, 0).xyz;
-    float pDepth = texelFetch(Sampler2D[PreviousDepthTextureRID], previousPixel, 0).x;
+    uvec4 pGBuffer = GBufferFetch(PreviousGBufferRID, previousPixel);
+    vec3 pNormal = GBufferGetNormal(pGBuffer);
+    float pDepth = GBufferGetDepth(pGBuffer);
     vec3 pPos = PrevousView_UVDepthToPos(vec2(previousPixel + GetPreviousJitter())*GetiRes(), pDepth);
     return NormalWeight(pNormal, n, depth) * PlaneWeight(pos, n, pPos, depth) * IsInsideScreenWeight(vec2(previousPixel)*GetiRes());
 }
@@ -55,8 +54,12 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    vec3 n = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    if(GBufferGetVisibility(gbuffer) == 0u) {
+        return;
+    }
+    float t = GBufferGetDepth(gbuffer);
+    vec3 n = GBufferGetNormal(gbuffer);
     vec3 pos = o + d * t;
 
     

@@ -148,8 +148,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     //////////////////
     // Swap Buffers //
     //////////////////
-    gbuffer.previousDepth.swap(gbuffer.depth);
-    gbuffer.previousNormal.swap(gbuffer.normal);
+    gbuffer.previousPacked.swap(gbuffer.packed);
     _LastComposeBuffer.swap(_TAAComposeBuffer);
 
     // Crtl to reload shaders
@@ -169,9 +168,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         ComposePass::Get() = ComposePass();
         TAAPass::Get() = TAAPass();
         IRCacheTracePass::Get() = IRCacheTracePass();
-        ScreenProbesTracePass::Get() = ScreenProbesTracePass();
-        ScreenProbesSamplePass::Get() = ScreenProbesSamplePass();
-        ScreenProbesFilterPass::Get() = ScreenProbesFilterPass();
         DITracePass::Get() = DITracePass();
         ReSTIRGITracePass::Get() = ReSTIRGITracePass();
         ReSTIRGISpatialPass::Get() = ReSTIRGISpatialPass();
@@ -298,8 +294,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : vec2(0.5f);
         viewData.PreviousJitter = enableJitter ? OFFSETS[(_Frame + 15) % 16] : vec2(0.5f);
         viewData.Frame = enablePermutation ? _Frame : 0;
-        viewData.ColorTextureRID = GetRID(gbuffer.color);
-        viewData.DepthTextureRID = GetRID(gbuffer.depth);
         viewData.PalleteColorRID = GetRID(PalleteCache::GetColorTexture());
         viewData.PalleteMaterialRID = GetRID(PalleteCache::GetMaterialTexture());
         viewData.BlueNoiseRID = GetRID(_BlueNoise->GetImage());
@@ -309,33 +303,11 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
     if (tlas) {
         CmdTimestamp("Outline", [&] {
-            // Outline
             CmdRender({_OutlineBuffer}, {ClearColor{}}, [&] { OutlineVoxelPipeline::Get().Use(_ViewBuffer, gbuffer, Cmds->outline); });
         });
         CmdTimestamp("GBuffer", [&] { GBufferPass::Get().Use(gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
 
-        if (technique == Technique::Probe) {
-            // CmdTimestamp("RadianceProbesTrace", [&] { RadianceProbesTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
-
-            CmdTimestamp("ProbeTrace", [&] { ScreenProbesTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
-            if (enableProbesFilter) {
-                CmdTimestamp("ProbeFilter", [&] {
-                    ScreenProbesFilterPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 1);
-                    ScreenProbesFilterPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, 0);
-                });
-                lightBufferA.swap(lightBufferB);
-            } else {
-                lightBufferA.swap(lightBufferB);
-            }
-            CmdTimestamp("ProbeSample", [&] { ScreenProbesSamplePass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
-            if (enableProbesTemporal) {
-                CmdTimestamp("ProbeTemporal", [&] {
-                    DenoiserTemporalPass::Get().Use(lightBufferB, lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer);
-                    previousLightBuffer.swap(lightBufferB);
-                    DenoiserAtrousPass::Get().Use(lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer, 1);
-                });
-            }
-        } else if (technique == Technique::PathTraced) {
+        if (technique == Technique::PathTraced) {
             CmdTimestamp("PathTrace", [&] { PathTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
             CmdTimestamp("Denoise", [&] {
                 if (enableDenoiser) {
@@ -382,26 +354,26 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             CmdTimestamp("DI Trace", [&] { DITracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
         }
 
-        CmdTimestamp("Specular Trace", [&] { SpecularTracePass::Get().Use(specularBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
-        if (enableDenoiser) {
-            CmdTimestamp("Specular Denoise", [&] {
-#if 1
-                DenoiserTemporalPass::Get().Use(specularBufferB, specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer);
-                previousSpecularBuffer.swap(specularBufferB);
-                DenoiserSpecularPass::Get().Use(specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer, 1);
-                // DenoiserAtrousPass::Get().Use(specularBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
-                // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 2);
-                // DenoiserAtrousPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 4);
-                // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
-#elif 1
-                DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 1);
-                DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 1);
-#else
-                DenoiserDiscPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
-                DenoiserDiscPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer);
-#endif
-            });
-        }
+//         CmdTimestamp("Specular Trace", [&] { SpecularTracePass::Get().Use(specularBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+//         if (enableDenoiser) {
+//             CmdTimestamp("Specular Denoise", [&] {
+// #if 1
+//                 DenoiserTemporalPass::Get().Use(specularBufferB, specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer);
+//                 previousSpecularBuffer.swap(specularBufferB);
+//                 DenoiserSpecularPass::Get().Use(specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer, 1);
+//                 // DenoiserAtrousPass::Get().Use(specularBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
+//                 // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 2);
+//                 // DenoiserAtrousPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 4);
+//                 // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
+// #elif 1
+//                 DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 1);
+//                 DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 1);
+// #else
+//                 DenoiserDiscPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
+//                 DenoiserDiscPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer);
+// #endif
+//             });
+//         }
 
         CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferA, specularBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });
         if (enableTAA) {
@@ -426,10 +398,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             } else if (outputImage == OutputImage::Diffuse) {
                 ColorWorldPipeline::Get().Use(lightBufferA, _OutlineBuffer);
             } else if (outputImage == OutputImage::Normal) {
-                ColorWorldPipeline::Get().Use(gbuffer.normal, _OutlineBuffer);
-            } else if (outputImage == OutputImage::ScreenProbes) {
-                ColorWorldPipeline::Get().Use(lightBufferB, _OutlineBuffer);
-            } else if (outputImage == OutputImage::ReSTIR_GI_Radiance) {
+                ColorWorldPipeline::Get().Use(gbuffer.packed, _OutlineBuffer);
+            }else if (outputImage == OutputImage::ReSTIR_GI_Radiance) {
                 ColorWorldPipeline::Get().Use(gbuffer.reservoirTemporalB.b3, _OutlineBuffer);
             } else if (outputImage == OutputImage::Specular) {
                 ColorWorldPipeline::Get().Use(specularBufferA, _OutlineBuffer);

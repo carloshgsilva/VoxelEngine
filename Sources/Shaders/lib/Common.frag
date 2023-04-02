@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include "evk.frag"
+#include "Math.frag"
 
 // requires: 
 //  that push_constant have 'int _ViewBufferRID';
@@ -44,5 +45,29 @@ vec3 RandomColor(uint s) {
 #define VOLUME_TEXTURE USampler3D[_VolumeRID]
 #define SHADOW_VOX_TEXTURE USampler3D[_ShadowVoxRID]
 #define SKY_BOX_TEXTURE SamplerCube[_SkyBoxTextureRID]
+
+uvec4 GBufferFetch(int rid, ivec2 pixel) {
+    return texelFetch(USampler2D[rid], pixel, 0);
+}
+uvec4 GBufferPack(float depth, vec3 normal, float rough, float metal, float emissive, uint visibility) {
+    return uvec4(
+        floatBitsToUint(depth),
+        PackNormal(normal),
+        packUnorm4x8(vec4(rough, metal, emissive, 0)),
+        visibility
+    );
+}
+float GBufferGetDepth(uvec4 packed) {
+    return uintBitsToFloat(packed.x);
+}
+vec3 GBufferGetNormal(uvec4 packed) {
+    return UnpackNormal(packed.y);
+}
+vec3 GBufferGetMaterial(uvec4 packed) {
+    return unpackUnorm4x8(packed.z).xyz;
+}
+uint GBufferGetVisibility(uvec4 packed) {
+    return packed.w;
+}
 
 #endif

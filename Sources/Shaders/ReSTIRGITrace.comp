@@ -9,11 +9,8 @@ PUSH(
     int ReservoirB1RID;
     int ReservoirB2RID;
     int ReservoirB3RID;
-    int NormalTextureRID;
-    int PreviousNormalTextureRID;
-    int VisibilityTextureRID;
-    int DepthTextureRID;
-    int PreviousDepthTextureRID;
+    int GBufferRID;
+    int PreviousGBufferRID;
     int _ViewBufferRID;
     int TLASRID;
     int VoxInstancesRID;
@@ -199,14 +196,13 @@ void main() {
     vec3 camO = GetCameraPosition();
     vec3 camD = UVToRayDir(uv);
 
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    if(visibility == 0u) {
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    if(GBufferGetVisibility(gbuffer) == 0u) {
         return;
     }
+    float t = GBufferGetDepth(gbuffer);
+    vec3 n = GBufferGetNormal(gbuffer);
 
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    vec3 n = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
-    
     GISample s;
     s.xv = camO + camD * t + n*EPS*10.0;
     s.nv = n;
@@ -232,11 +228,12 @@ void main() {
 
         // geometry validation
         vec2 previousUV = vec2(previousPixel + GetPreviousJitter())*GetiRes();
-        float previousDepth = texelFetch(Sampler2D[PreviousDepthTextureRID], previousPixel, 0).x;
+        uvec4 previousGBuffer = GBufferFetch(PreviousGBufferRID, previousPixel);
+        float previousDepth = GBufferGetDepth(previousGBuffer);
         vec3 previousPos = PrevousView_UVDepthToPos(previousUV, previousDepth);
 
         float planeDist = abs(dot(previousPos - s.xv, n));
-        vec3 previousNormal = texelFetch(Sampler2D[PreviousNormalTextureRID], previousPixel, 0).xyz;
+        vec3 previousNormal = GBufferGetNormal(previousGBuffer);
         if(planeDist > max(0.0005*t, 0.05) || dot(previousNormal, n) < 0.5 || clamp(previousUV, vec2(0), vec2(1)) != previousUV) {
             continue;
         }

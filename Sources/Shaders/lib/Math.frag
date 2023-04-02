@@ -69,6 +69,7 @@ vec3 OctahedronEncode(vec2 f) {
 }
 
 uint PackNormal(in vec3 nor) {
+    nor.xy += 1.0e-16; // fix perfect z = vec3(0,0,-1)
     const uint sh = 16;
     nor /= (abs(nor.x) + abs(nor.y) + abs(nor.z));
     nor.xy = (nor.z >= 0.0) ? nor.xy : (1.0-abs(nor.yx))*sign(nor.xy);

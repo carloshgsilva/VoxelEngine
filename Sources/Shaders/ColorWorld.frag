@@ -16,16 +16,17 @@ layout(location=0) out vec4 out_Color;
 void main() {
     vec2 res = (textureSize(COLOR_TEXTURE, 0));
     vec2 iRes = 1.0/res;
+    ivec2 pixel = ivec2(In.UV*res);
 
-    vec3 olc = texelFetch(OUTLINE_TEXTURE, ivec2(In.UV*res), 0).rgb;
-    vec3 oll = texelFetch(OUTLINE_TEXTURE, ivec2(In.UV*res)-ivec2(2, 0), 0).rgb;
-    vec3 olr = texelFetch(OUTLINE_TEXTURE, ivec2(In.UV*res)+ivec2(2, 0), 0).rgb;
-    vec3 olt = texelFetch(OUTLINE_TEXTURE, ivec2(In.UV*res)-ivec2(0, 2), 0).rgb;
-    vec3 olb = texelFetch(OUTLINE_TEXTURE, ivec2(In.UV*res)+ivec2(0, 2), 0).rgb;
+    vec3 olc = texelFetch(OUTLINE_TEXTURE, pixel, 0).rgb;
+    vec3 oll = texelFetch(OUTLINE_TEXTURE, pixel-ivec2(2, 0), 0).rgb;
+    vec3 olr = texelFetch(OUTLINE_TEXTURE, pixel+ivec2(2, 0), 0).rgb;
+    vec3 olt = texelFetch(OUTLINE_TEXTURE, pixel-ivec2(0, 2), 0).rgb;
+    vec3 olb = texelFetch(OUTLINE_TEXTURE, pixel+ivec2(0, 2), 0).rgb;
 
     vec3 overlay = vec3(0);
 
-    vec2 screenCoords = floor(In.UV/iRes);
+    vec2 screenCoords = vec2(pixel);
     if(texelFetch(OUTLINE_TEXTURE, ivec2(In.UV*res), 0).a < 0.5 && mod(screenCoords.x+screenCoords.y, 4).x==0){
         overlay = olc*0.3;
     }

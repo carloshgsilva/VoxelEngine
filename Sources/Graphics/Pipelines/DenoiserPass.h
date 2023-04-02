@@ -12,13 +12,12 @@ class DenoiserDiscPass {
     }
 
     void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(outRadiance),
             GetRID(inRadiance),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
@@ -39,13 +38,12 @@ class DenoiserAtrousPass {
     }
 
     void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer, int size) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(outRadiance),
             GetRID(inRadiance),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             size,
         });
@@ -67,13 +65,12 @@ class DenoiserSpecularPass {
     }
 
     void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer, int size) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(outRadiance),
             GetRID(inRadiance),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             size,
         });
@@ -95,17 +92,15 @@ class DenoiserTemporalPass {
     }
 
     void Use(Image& outRadiance, Image& inRadiance, Image& inLastRadiance, GBuffer& gbuffer, Buffer& viewBuffer) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(outRadiance),
             GetRID(inRadiance),
             GetRID(inLastRadiance),
             GetRID(gbuffer.motion),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.previousNormal),
-            GetRID(gbuffer.depth),
-            GetRID(gbuffer.previousDepth),
+            GetRID(gbuffer.packed),
+            GetRID(gbuffer.previousPacked),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
@@ -126,15 +121,14 @@ class TAAPass {
     }
 
     void Use(Image& outRadiance, Image& inRadiance, Image& inLastRadiance, GBuffer& gbuffer, Buffer& viewBuffer) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(outRadiance),
             GetRID(inRadiance),
             GetRID(inLastRadiance),
             GetRID(gbuffer.motion),
-            GetRID(gbuffer.depth),
-            GetRID(gbuffer.previousDepth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
@@ -142,96 +136,6 @@ class TAAPass {
 
     static TAAPass& Get() {
         static TAAPass Instance;
-        return Instance;
-    }
-};
-
-class ScreenProbesTracePass {
-    Pipeline pipeline;
-
-   public:
-    ScreenProbesTracePass() {
-        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ScreenProbesTrace.comp.spv")});
-    }
-
-    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
-        Extent extent = GetDesc(dstColor).extent;
-        CmdBind(pipeline);
-        CmdPush(Constant{
-            GetRID(dstColor),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
-            GetRID(viewBuffer),
-            GetRID(tlas),
-            GetRID(voxInstancesBuffer),
-        });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-    }
-
-    static ScreenProbesTracePass& Get() {
-        static ScreenProbesTracePass Instance;
-        return Instance;
-    }
-};
-
-class ScreenProbesSamplePass {
-    Pipeline pipeline;
-
-   public:
-    ScreenProbesSamplePass() {
-        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ScreenProbesSample.comp.spv")});
-    }
-
-    void Use(Image& dstIrradiance, Image& srcProbes, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
-        Extent extent = GetDesc(dstIrradiance).extent;
-        CmdBind(pipeline);
-        CmdPush(Constant{
-            GetRID(dstIrradiance),
-            GetRID(srcProbes),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
-            GetRID(viewBuffer),
-            GetRID(tlas),
-            GetRID(voxInstancesBuffer),
-        });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-    }
-
-    static ScreenProbesSamplePass& Get() {
-        static ScreenProbesSamplePass Instance;
-        return Instance;
-    }
-};
-
-class ScreenProbesFilterPass {
-    Pipeline pipeline;
-
-   public:
-    ScreenProbesFilterPass() {
-        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/ScreenProbesFilter.comp.spv")});
-    }
-
-    void Use(Image& dstIrradiance, Image& srcProbes, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer, int axis) {
-        Extent extent = GetDesc(dstIrradiance).extent;
-        CmdBind(pipeline);
-        CmdPush(Constant{
-            GetRID(dstIrradiance),
-            GetRID(srcProbes),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
-            GetRID(viewBuffer),
-            GetRID(tlas),
-            GetRID(voxInstancesBuffer),
-            axis,
-        });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-    }
-
-    static ScreenProbesFilterPass& Get() {
-        static ScreenProbesFilterPass Instance;
         return Instance;
     }
 };

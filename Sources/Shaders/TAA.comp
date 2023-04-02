@@ -5,8 +5,7 @@ PUSH(
     int InRadianceTextureRID;
     int InLastRadianceTextureRID;
     int MotionTextureRID;
-    int DepthTextureRID;
-    int PreviousDepthTextureRID;
+    int GBufferRID;
     int _ViewBufferRID;
 )
 
@@ -16,18 +15,17 @@ PUSH(
 
 COMPUTE(8, 8, 1)
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = vec2(pixel+0.5)*GetiRes();
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    float t = GBufferGetDepth(gbuffer);
     vec3 pos = o + d * t;
 
     vec2 previousUV = WorldToUVLastView(pos);
-    float previousDepth = texture(Sampler2D[PreviousDepthTextureRID], previousUV).x;
     vec3 previousRadiance = texture(Sampler2D[InLastRadianceTextureRID], previousUV).xyz;
-    vec3 previousPos = PrevousView_UVDepthToPos(previousUV, previousDepth);
 
     vec3 radiance = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).xyz;
 

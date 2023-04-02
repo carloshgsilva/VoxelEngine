@@ -8,99 +8,103 @@
 #include <thread>
 #include <chrono>
 #include <mutex>
+#include <map>
 
-#define ACTIVATE_PROFILER 0
+#define ACTIVATE_PROFILER 1
+
+struct FrameScopeCapture {
+    static constexpr uint32 MAX_ENTRY_COUNT = 1024;
+    struct Entry {
+        double begin;
+        double end;
+        const char* name;
+    };
+
+    uint32 Begin(const char* name, double begin) {
+        uint32 idx = count++;
+        entries[idx] = {begin, 0.0, name};
+        return idx;
+    }
+    void End(uint32 index, double end) {
+        entries[index].end = end;
+    }
+    void Clear() {
+        count = 0;
+    }
+
+    template<typename BeginT, typename EndT>
+    void Iterate(const BeginT& begin, const EndT& end) {
+        uint32 stack[64];
+        int stack_id = -1;
+
+        for(int i = 0; i < count; i++) {
+            Entry& entry = entries[i];
+            while(stack_id >= 0 && (entries[stack[stack_id]].end < entry.begin)) {
+                Entry& stack_entry = entries[stack[stack_id]];
+                end();
+                stack_id--;
+            }
+
+            stack[++stack_id] = i;
+            begin(entry);
+        }
+
+        while(stack_id >= 0) {
+            Entry& stack_entry = entries[stack[stack_id]];
+            end();
+            stack_id--;
+        }
+    }
+
+    int count = 0;
+    Entry entries[MAX_ENTRY_COUNT];
+};
 
 class Profiler : public ModuleDef<Profiler> {
+    static constexpr uint32 MAX_CAPTURE_COUNT = 32;
 public:
+    static void AdvanceFrame() {
+        Get().index = (Get().index + 1) % MAX_CAPTURE_COUNT;
+    }
 
-	struct ProfileResult {
-		std::string Name;
-		std::chrono::steady_clock::time_point StartTime{ std::chrono::milliseconds(0)};
-		std::chrono::steady_clock::duration ElapsedTime{0};
-		std::thread::id ThreadID;
-	};
-	class ProfilerTimer {
-		std::chrono::steady_clock::time_point _StartTime;
-		const char* _Name;
-	public:
-		ProfilerTimer(const char* Name) {
-			_StartTime = std::chrono::steady_clock::now();
-			_Name = Name;
-		}
-		~ProfilerTimer() {
-			auto end = std::chrono::steady_clock().now();
-			auto elapsedTime = end.time_since_epoch() - _StartTime.time_since_epoch();
-		
-			ProfileResult Result;
-			Result.Name = _Name;
-			Result.StartTime = _StartTime;
-			Result.ElapsedTime = elapsedTime;
-			Result.ThreadID = std::this_thread::get_id();
-			Profiler::WriteProfile(Result);
-		}
-	};
+    static FrameScopeCapture& GetCurrentCapture() {
+        return Get().framesCapture[Get().index % MAX_CAPTURE_COUNT];
+    }
+    static FrameScopeCapture& GetPreviousCapture() {
+        return Get().framesCapture[(Get().index + MAX_CAPTURE_COUNT - 1) % MAX_CAPTURE_COUNT];
+    }
 
-	static void Begin(std::string file){
-#if ACTIVATE_PROFILER
-		Get()._OutStream = std::ofstream(file);
-		auto& s = Get()._OutStream;
+    uint32 index = 0;
+    FrameScopeCapture framesCapture[MAX_CAPTURE_COUNT];
+};
 
-		s << "{\"otherData\": {},\"traceEvents\":[{}";
-		Get()._ProfilerStartTime = std::chrono::steady_clock::now().time_since_epoch();
-#endif
-	}
-	static void WriteProfile(ProfileResult& R) {
-		std::stringstream json;
-
-		using MicroSecs = std::chrono::duration<double, std::micro>;
-		
-		json << std::setprecision(3) << std::fixed;
-		json << ", {";
-		json << "\"cat\":\"function\",";
-		json << "\"dur\":" << std::chrono::duration_cast<MicroSecs>(R.ElapsedTime).count() << ',';
-		json << "\"name\":\"" << R.Name << "\",";
-		json << "\"ph\":\"X\",";
-		json << "\"pid\":0,";
-		json << "\"tid\":" << R.ThreadID << ",";
-		json << "\"ts\":" << std::chrono::duration_cast<MicroSecs>( (R.StartTime - Profiler::Get()._ProfilerStartTime).time_since_epoch() ).count();
-		json << "}";
-
-		std::lock_guard lock(Get()._Mutex);
-		Get()._OutStream << json.str();
-	}
-	static void End(){
-#if ACTIVATE_PROFILER
-		auto& s = Get()._OutStream;
-		s << "]}";
-		s.close();
-#endif
-	}
-
-
-	static void BeginGPU() {
-		Get()._GPUResult.Name = "GPU";
-		Get()._GPUResult.StartTime = std::chrono::steady_clock::now();
-	}
-	static void EndGPU() {
-		if (Get()._GPUResult.StartTime.time_since_epoch().count() == 0)return;
-		Get()._GPUResult.ElapsedTime = std::chrono::steady_clock().now().time_since_epoch() - Get()._GPUResult.StartTime.time_since_epoch();
-		Profiler::WriteProfile(Get()._GPUResult);
-	}
-
+struct ProfileScope {
+    ProfileScope(const char* name);
+    ~ProfileScope();
 private:
-	ProfileResult _GPUResult;
-	std::ofstream _OutStream;
-	std::mutex _Mutex;
-	std::chrono::steady_clock::duration _ProfilerStartTime;
-	friend class ProfilerTimer;
+    double begin = 0.0f;
+    const char* name;
+    uint32 entryIndex = 0;
 };
 
 #if ACTIVATE_PROFILER
-	#define PROFILE_FUNC() Profiler::ProfilerTimer __profile_func_timer##__LINE__("" __FUNCTION__);
-	#define PROFILE_SCOPE(Name) Profiler::ProfilerTimer __profile_timer##__LINE__(Name);
+    #define PROFILE_FUNC() ProfileScope __profile##__LINE__(__FUNCTION__);
+    #define PROFILE_SCOPE(name) ProfileScope __profile##__LINE__(name);
 #else
-	#define PROFILE_FUNC()
-	#define PROFILE_SCOPE(Name)
+    #define PROFILE_FUNC()
+    #define PROFILE_SCOPE(name)
 #endif
 
+struct RuntimeProfiler {
+    static constexpr uint32 MAX_WINDOW_SIZE = 32;
+    struct Window {
+        float window[MAX_WINDOW_SIZE] = {};
+        uint32 index = 0;
+    };
+
+    void Measure(const char* name, float time);
+    void OnImGui(float width) const;
+
+private:
+    std::map<const char*, Window> timestamps = {};
+};

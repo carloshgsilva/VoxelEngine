@@ -4,6 +4,7 @@
 #include "Window.h"
 #include "LayerStack.h"
 #include "Util/CallbackQueue.h"
+#include "Profiler/Profiler.h"
 
 #include <iostream>
 
@@ -15,12 +16,13 @@ class Engine {
 
     // TODO: Does The AssetManager need to be on the engine class? Nop it will be an EngineSystem
 
+    RuntimeProfiler profiler = {};
     CallbackQueue<void> _PostInitialize_Callbacks;
     CallbackQueue<Event&> _OnEvent_Callbacks;
     CallbackQueue<void> _OnBeforeUpdate_Callbacks;
     LayerStack _layerStack;
     float dt = 0.0f;
-    float previousTime = 0.0f;
+    double previousTime = 0.0f;
 
     void StartEngine();
     void Update();
@@ -54,6 +56,8 @@ class Engine {
     }
     static void PopOverlay() {
     }
+
+    static RuntimeProfiler& GetRuntimeProfiler() { return Get().profiler; }
 
     static void Run();
 

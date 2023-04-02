@@ -2,9 +2,7 @@
 
 PUSH(
     int ColorTextureRID;
-    int NormalTextureRID;
-    int VisibilityTextureRID;
-    int DepthTextureRID;
+    int GBufferRID;
     int _ViewBufferRID;
     int TLASRID;
     int VoxInstancesRID;
@@ -106,13 +104,13 @@ void main() {
     vec2 uv = vec2(pixel+GetJitter())*GetiRes();
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    vec3 n = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
-
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    if(visibility == 0u) {
+    
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    if(GBufferGetVisibility(gbuffer) == 0u) {
         return;
     }
+    float t = GBufferGetDepth(gbuffer);
+    vec3 n = GBufferGetNormal(gbuffer);
     
     Sampler samp;
     InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%32);

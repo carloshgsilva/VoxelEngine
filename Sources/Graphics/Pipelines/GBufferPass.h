@@ -12,14 +12,11 @@ class GBufferPass {
     }
 
     void Use(GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
-            GetRID(gbuffer.color),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
+            GetRID(gbuffer.packed),
             GetRID(gbuffer.motion),
-            GetRID(gbuffer.depth),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),

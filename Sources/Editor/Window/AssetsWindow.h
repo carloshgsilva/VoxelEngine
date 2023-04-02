@@ -69,5 +69,5 @@ public:
 	virtual void OnGUI();
 	virtual void OnUpdate(float dt);
 
-	virtual std::string GetName() { return ICON_FA_DESKTOP "  Assets"; }
+	virtual std::string GetName() { return ICON_FA_FOLDER "  Assets"; }
 };

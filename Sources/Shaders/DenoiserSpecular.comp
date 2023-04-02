@@ -3,8 +3,7 @@
 PUSH(
     int OutRadianceTextureRID;
     int InRadianceTextureRID;
-    int NormalTextureRID;
-    int DepthTextureRID;
+    int GBufferRID;
     int _ViewBufferRID;
     int Size;
 )
@@ -37,11 +36,12 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    vec3 normal = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
-    if(dot(normal, vec3(1)) == 0) {
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    if(GBufferGetVisibility(gbuffer) == 0u) {
         return;
     }
+    float t = GBufferGetDepth(gbuffer);
+    vec3 normal = GBufferGetNormal(gbuffer);
     vec3 pos = o + d * t;
 
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
@@ -66,12 +66,14 @@ void main() {
 
         vec2 nUV = WorldToUV(nLobePos);
         ivec2 nPixel = ivec2(nUV*GetRes() + offset);
+
+        uvec4 nGBuffer = GBufferFetch(GBufferRID, nPixel);
         vec3 nDir = UVToRayDir(nUV);
-        float nT = texelFetch(Sampler2D[DepthTextureRID], nPixel, 0).x;
+        float nT = GBufferGetDepth(nGBuffer);
         vec3 nPos = o + nDir * nT;
         vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
         float nLuminance = Luminance(nRadiance);
-        vec3 nNormal = texelFetch(Sampler2D[NormalTextureRID], nPixel, 0).xyz;
+        vec3 nNormal = GBufferGetNormal(nGBuffer);
         
         const float GAUSSIAN[2] = {0.44198, 0.27901};
         float w = 1.0;//GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];

@@ -13,34 +13,35 @@
 #include <GLFW/glfw3.h>
 
 void Engine::StartEngine() {
-    Profiler::Begin("Tracing.json");
     while (!Window::Get().ShouldClose()) {
         Update();
+        Profiler::AdvanceFrame();
     }
     _layerStack.Clear();
-    Profiler::End();
 }
 
 void Engine::Update() {
-    PROFILE_FUNC()
-
-    float time = (float)glfwGetTime();
-    dt = time - previousTime;
+    double time = GetTime();
+    dt = float(time - previousTime);
     previousTime = time;
 
     {
-        PROFILE_SCOPE("glfwPollEvents")
-        glfwPollEvents();
-    }
+        PROFILE_SCOPE("Update");
 
-    _OnBeforeUpdate_Callbacks.ExecuteAndClear();
-
-    if (Window::Get().IsFocused()) {
-        for (auto& layer : _layerStack) {
-            layer->OnUpdate(dt);
+        {
+            PROFILE_SCOPE("PollEvents")
+            glfwPollEvents();
         }
-    } else {
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+
+        _OnBeforeUpdate_Callbacks.ExecuteAndClear();
+
+        if (Window::Get().IsFocused()) {
+            for (auto& layer : _layerStack) {
+                layer->OnUpdate(dt);
+            }
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
     }
 
     if (sleepMS > 0) {
@@ -76,5 +77,5 @@ void Engine::Run() {
 }
 
 double Engine::GetTime() {
-    return glfwGetTime();
+    return glfwGetTime()*1.0e3;
 }

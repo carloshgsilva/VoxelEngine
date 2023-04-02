@@ -9,11 +9,7 @@ PUSH(
     int ReservoirB1RID;
     int ReservoirB2RID;
     int ReservoirB3RID;
-    int NormalTextureRID;
-    int PreviousNormalTextureRID;
-    int VisibilityTextureRID;
-    int DepthTextureRID;
-    int PreviousDepthTextureRID;
+    int GBufferRID;
     int _ViewBufferRID;
     int TLASRID;
     int VoxInstancesRID;
@@ -107,7 +103,6 @@ void InitSampler(inout Sampler samp, ivec2 pixel, int frame) {
 vec4 SampleNoise(inout Sampler samp) {
     vec2 res = textureSize(BLUE_NOISE, 0);
     samp.depth++;
-    //return texelFetch(BLUE_NOISE, ivec2((vec2(samp.pixel)+vec2(GOLDEN_RATIO*(mod(samp.frame+samp.depth*5,64)), GOLDEN_RATIO*(mod(samp.frame+samp.depth*7+1,64))))*res)%512, 0).r;
     return texelFetch(BLUE_NOISE, (samp.pixel+ivec2(OFFSETS[(samp.frame+samp.depth)%64]*512.0))%512, 0);
 }
 
@@ -118,13 +113,12 @@ void main() {
     vec3 camO = GetCameraPosition();
     vec3 camD = UVToRayDir(uv);
 
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    if(visibility == 0u) {
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    if(GBufferGetVisibility(gbuffer) == 0u) {
         return;
     }
-
-    float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    vec3 n = texelFetch(Sampler2D[NormalTextureRID], pixel, 0).xyz;
+    float t = GBufferGetDepth(gbuffer);
+    vec3 n = GBufferGetNormal(gbuffer);
     
     GISample s;
     s.xv = camO + camD * t + n*EPS*10.0;
@@ -137,54 +131,55 @@ void main() {
     ReservoirLoad(ReservoirB0RID, ReservoirB1RID, ReservoirB2RID, ReservoirB3RID, pixel, spatialReservoir);
 
     float radius = 1.0;
-    for (float ang = (GetFrame()%4)*3; radius <= float(SampleSize); ang += GOLDEN_ANGLE) {
-        radius += 1.0;
+    // for (float ang = (GetFrame()%4)*3; radius <= float(SampleSize); ang += GOLDEN_ANGLE) {
+    //     radius += 1.0;
 
-        ivec2 nPixel = pixel + ivec2(vec2(cos(ang), sin(ang)) * radius * 32.0 / float(SampleSize));
+    //     ivec2 nPixel = pixel + ivec2(vec2(cos(ang), sin(ang)) * radius * 32.0 / float(SampleSize));
 
-        // geometry validation
-        vec2 nUV = nPixel*GetiRes();
-        if(clamp(nUV, vec2(0), vec2(1)) != nUV) {
-            continue;
-        }
-        float nDepth = texelFetch(Sampler2D[DepthTextureRID], nPixel, 0).x;
-        vec3 nPos = UVDepthToWorld(nUV, nDepth);
-        float planeDist = abs(dot(nPos - s.xv, n));
-        vec3 nNormal = texelFetch(Sampler2D[NormalTextureRID], nPixel, 0).xyz;
-        if(planeDist > max(0.0005*t, 0.05) || dot(nNormal, n) < 0.5) {
-            continue;
-        }
+    //     // geometry validation
+    //     vec2 nUV = nPixel*GetiRes();
+    //     if(clamp(nUV, vec2(0), vec2(1)) != nUV) {
+    //         continue;
+    //     }
+    //     uvec4 nGBuffer = GBufferFetch(GBufferRID, nPixel);
+    //     float nDepth = GBufferGetDepth(nGBuffer);
+    //     vec3 nPos = UVDepthToWorld(nUV, nDepth);
+    //     float planeDist = abs(dot(nPos - s.xv, n));
+    //     vec3 nNormal = GBufferGetNormal(nGBuffer);
+    //     if(planeDist > max(0.0005*t, 0.05) || dot(nNormal, n) < 0.5) {
+    //         continue;
+    //     }
 
-        Reservoir temporalReservoir;
-        ReservoirLoad(ReservoirB0RID, ReservoirB1RID, ReservoirB2RID, ReservoirB3RID, nPixel, temporalReservoir);
+    //     Reservoir temporalReservoir;
+    //     ReservoirLoad(ReservoirB0RID, ReservoirB1RID, ReservoirB2RID, ReservoirB3RID, nPixel, temporalReservoir);
 
-        float jacobian = 1.0;
-        float pHat = length(temporalReservoir.s.radiance) / jacobian;
-        // ReservoirClamp(spatialReservoir, temporalReservoir.M, 300.0);
-        ReservoirMerge(spatialReservoir, temporalReservoir, pHat, SampleNoise(samp).x);
-    }
+    //     float jacobian = 1.0;
+    //     float pHat = length(temporalReservoir.s.radiance) / jacobian;
+    //     // ReservoirClamp(spatialReservoir, temporalReservoir.M, 300.0);
+    //     ReservoirMerge(spatialReservoir, temporalReservoir, pHat, SampleNoise(samp).x);
+    // }
 
-    if(SampleSize == 5) { // visibiliy validation (only on last spatial pass, introduces little bias)
-        float l = length(spatialReservoir.s.xs - s.xv);
-        vec3 dir = normalize(spatialReservoir.s.xs - s.xv);
-        if(spatialReservoir.M > 0 && TraceShadowRay(s.xv + n*EPS*10.0, dir, l-EPS*100.0)) {
-            ReservoirClear(spatialReservoir);
-        }
-    }
+    // if(SampleSize == 5) { // visibiliy validation (only on last spatial pass, introduces little bias)
+    //     float l = length(spatialReservoir.s.xs - s.xv);
+    //     vec3 dir = normalize(spatialReservoir.s.xs - s.xv);
+    //     if(spatialReservoir.M > 0 && TraceShadowRay(s.xv + n*EPS*10.0, dir, l-EPS*100.0)) {
+    //         ReservoirClear(spatialReservoir);
+    //     }
+    // }
 
-    {
-        float den = spatialReservoir.M * (length(spatialReservoir.s.radiance));
-        if(den > 0.0 && isnan(spatialReservoir.w) == false) {
-            spatialReservoir.W = spatialReservoir.w / den;
-        } else {
-            #if 0 // resampling fail heat map
-                spatialReservoir.W = 1.0;
-                spatialReservoir.s.radiance = vec3(1,0,0);
-            #else
-                spatialReservoir.W = 0.0;
-            #endif
-        }
-    }
+    // {
+    //     float den = spatialReservoir.M * (length(spatialReservoir.s.radiance));
+    //     if(den > 0.0 && isnan(spatialReservoir.w) == false) {
+    //         spatialReservoir.W = spatialReservoir.w / den;
+    //     } else {
+    //         #if 0 // resampling fail heat map
+    //             spatialReservoir.W = 1.0;
+    //             spatialReservoir.s.radiance = vec3(1,0,0);
+    //         #else
+    //             spatialReservoir.W = 0.0;
+    //         #endif
+    //     }
+    // }
     
     ReservoirStore(ReservoirA0RID, ReservoirA1RID, ReservoirA2RID, ReservoirA3RID, pixel, spatialReservoir);
 }

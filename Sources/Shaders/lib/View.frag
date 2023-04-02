@@ -21,8 +21,6 @@ BINDING_BUFFER_R(ViewBuffer,
     vec2 Jitter;
     vec2 PreviousJitter;
 	int Frame;
-    int _ColorTextureRID;
-    int _DepthTextureRID;
     int _PalleteColorRID;
     int _PalleteMaterialRID;
 	int BlueNoiseRID;

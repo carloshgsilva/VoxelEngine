@@ -35,14 +35,9 @@ struct ReSTIRGIReservoir {
 };
 
 struct GBuffer {
-    Image color;
-    Image visibility;
-    Image normal;
-    Image previousNormal;
-    Image material;
+    Image packed; // vec4(Depth, Normal, RoughMetalEmissivePADDING, Visibility)
+    Image previousPacked;
     Image motion;
-    Image depth;
-    Image previousDepth;
     ReSTIRGIReservoir reservoirTemporalA;
     ReSTIRGIReservoir reservoirTemporalB;
     ReSTIRGIReservoir reservoirSpatialA;
@@ -57,25 +52,12 @@ struct GBuffer {
             .usage = ImageUsage::Sampled | ImageUsage::Storage,
         };
 
-        desc.format = Format::BGRA8Unorm;
-        color = CreateImage(desc);
-
-        desc.format = Format::R32Uint;
-        visibility = CreateImage(desc);
-
-        desc.format = Format::RGBA8Snorm;
-        normal = CreateImage(desc);
-        previousNormal = CreateImage(desc);
-
-        desc.format = Format::BGRA8Unorm;
-        material = CreateImage(desc);
+        desc.format = Format::RGBA32Uint;
+        packed = CreateImage(desc);
+        previousPacked = CreateImage(desc);
 
         desc.format = Format::RG16Sfloat;
         motion = CreateImage(desc);
-
-        desc.format = Format::R32Sfloat;
-        depth = CreateImage(desc);
-        previousDepth = CreateImage(desc);
     }
 };
 

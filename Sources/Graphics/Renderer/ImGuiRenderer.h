@@ -6,7 +6,7 @@
 #include "GLFW/glfw3.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_evk.h""
+#include "imgui/imgui_impl_evk.h"
 
 #include "imgui/IconsFontAwesome5.h"
 
@@ -32,4 +32,5 @@ public:
 	static const inline ImVec4 AccentDark = ImVec4(0.0f, 0.65f, 0.0f, 1.0f);
 	static const inline ImVec4 PrimaryLight = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
 	static const inline ImVec4 PrimaryDark = ImVec4(0.08f, 0.08f, 0.08f, 1.0f);
+	static const inline ImVec4 Border = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
 };

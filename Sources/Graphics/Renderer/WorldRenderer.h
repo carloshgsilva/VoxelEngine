@@ -59,7 +59,6 @@ class WorldRenderer {
         Composed,
         Diffuse,
         Normal,
-        ScreenProbes,
         ReSTIR_GI_Radiance,
         Specular,
     };
@@ -68,7 +67,6 @@ class WorldRenderer {
         PathTraced,
         ReSTIR,
         IRCache,
-        Probe,
     };
 
     float timeOfDay = 9.0f;

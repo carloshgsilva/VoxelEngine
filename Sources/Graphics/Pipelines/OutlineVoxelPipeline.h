@@ -17,7 +17,7 @@ class OutlineVoxelPipeline {
 	struct PushConstant {
 		int ViewBufferRID;
 		int VolumeRID;
-		int DepthTextureRID;
+		int GBufferRID;
 		int PADDING_0;
 		glm::mat4 WorldMatrix;
 		glm::vec3 Color;
@@ -44,7 +44,7 @@ public:
 		CmdBind(pipeline);
 		PushConstant pc{};
 		pc.ViewBufferRID = GetRID(viewBuffer);
-		pc.DepthTextureRID = GetRID(gbuffer.depth);
+		pc.GBufferRID = GetRID(gbuffer.packed);
 
 		{
 			PROFILE_SCOPE("Cmd Build");

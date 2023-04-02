@@ -27,8 +27,6 @@ struct ViewData {
     glm::vec2 Jitter;
     glm::vec2 PreviousJitter;
     int Frame;
-    int ColorTextureRID;
-    int DepthTextureRID;
     int PalleteColorRID;
     int PalleteMaterialRID;
     int BlueNoiseRID;

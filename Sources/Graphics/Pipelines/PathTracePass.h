@@ -16,9 +16,7 @@ class PathTracePass {
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(dstColor),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
@@ -45,9 +43,7 @@ class SpecularTracePass {
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(dstColor),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
@@ -74,9 +70,7 @@ class IRCacheTracePass {
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(dstColor),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
@@ -103,9 +97,7 @@ class DITracePass {
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(dstColor),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
@@ -128,7 +120,7 @@ class ReSTIRGITracePass {
     }
 
     void Use(ReSTIRGIReservoir& temporalDst, ReSTIRGIReservoir& temporalSrc, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(temporalDst.b0),
@@ -139,11 +131,8 @@ class ReSTIRGITracePass {
             GetRID(temporalSrc.b1),
             GetRID(temporalSrc.b2),
             GetRID(temporalSrc.b3),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.previousNormal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
-            GetRID(gbuffer.previousDepth),
+            GetRID(gbuffer.packed),
+            GetRID(gbuffer.previousPacked),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
@@ -166,7 +155,7 @@ class ReSTIRGISpatialPass {
     }
 
     void Use(ReSTIRGIReservoir& spatialA, ReSTIRGIReservoir& temporalB, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer, int sampleSize) {
-        Extent extent = GetDesc(gbuffer.color).extent;
+        Extent extent = GetDesc(gbuffer.packed).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(spatialA.b0),
@@ -177,11 +166,7 @@ class ReSTIRGISpatialPass {
             GetRID(temporalB.b1),
             GetRID(temporalB.b2),
             GetRID(temporalB.b3),
-            GetRID(gbuffer.normal),
-            GetRID(gbuffer.previousNormal),
-            GetRID(gbuffer.visibility),
-            GetRID(gbuffer.depth),
-            GetRID(gbuffer.previousDepth),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
@@ -213,8 +198,7 @@ class ReSTIRGIResolvePass {
             GetRID(reservoir.b1),
             GetRID(reservoir.b2),
             GetRID(reservoir.b3),
-            GetRID(gbuffer.depth),
-            GetRID(gbuffer.normal),
+            GetRID(gbuffer.packed),
             GetRID(viewBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);

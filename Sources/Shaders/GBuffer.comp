@@ -1,11 +1,8 @@
 #include "Common.frag"
 
 PUSH(
-    int ColorTextureRID;
-    int NormalTextureRID;
-    int VisibilityTextureRID;
+    int GBufferRID;
     int MotionTextureRID;
-    int DepthTextureRID;
     int _ViewBufferRID;
     int TLASRID;
     int VoxInstancesRID;
@@ -17,31 +14,20 @@ PUSH(
 
 COMPUTE(8, 8, 1)
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = vec2(pixel+GetJitter())*GetiRes();
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
     Material mat;
-    vec2 motion = vec2(0);
+    // TODO: vec2 motion = vec2(0);
 
     TraceHit hit;
-#if 0
-    if(RayTrace(o, d, hit, INF)) {
-        normal = hit.normal;
-        visibility = hit.visibility;
-        motion = uv - WorldToUVLastView(o + d * hit.t);
-        t = hit.t;
-    }
-#else
     if(TraceRay(o, d, INF, hit)) {
         GetMaterial(hit.visibility, mat);
     }
-#endif
 
-    imageStore(Image2DW[ColorTextureRID], pixel, vec4(mat.albedo, 1));
-    imageStore(Image2DW[NormalTextureRID], pixel, vec4(hit.normal, 1));
-    imageStore(UImage2DW[VisibilityTextureRID], pixel, uvec4(hit.visibility));
-    imageStore(Image2DW[MotionTextureRID], pixel, vec4(motion, 0, 0));
-    imageStore(Image2DW[DepthTextureRID], pixel, vec4(hit.t));
+    uvec4 gbuffer = GBufferPack(hit.t, hit.normal, mat.roughness, mat.metallic, mat.emissive, hit.visibility);
+    imageStore(UImage2DW[GBufferRID], pixel, gbuffer);
+    // imageStore(Image2DW[MotionTextureRID], pixel, vec4(motion, 0, 0));
 }

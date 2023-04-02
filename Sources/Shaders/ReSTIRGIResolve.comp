@@ -6,8 +6,7 @@ PUSH(
     int Reservoir1RID;
     int Reservoir2RID;
     int Reservoir3RID;
-    int DepthRID;
-    int NormalRID;
+    int GBufferRID;
     int _ViewBufferRID;
 )
 
@@ -92,9 +91,12 @@ void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = vec2(pixel+GetJitter())*GetiRes();
 
-    
-    float t = texelFetch(Sampler2D[DepthRID], pixel, 0).x;
-    vec3 n = texelFetch(Sampler2D[NormalRID], pixel, 0).xyz;
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    if(GBufferGetVisibility(gbuffer) == 0u) {
+        return;
+    }
+    float t = GBufferGetDepth(gbuffer);
+    vec3 n = GBufferGetNormal(gbuffer);
     vec3 pos = UVDepthToWorld(uv, t);
 
     Reservoir r;

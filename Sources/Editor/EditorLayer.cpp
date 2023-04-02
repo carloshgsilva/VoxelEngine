@@ -9,6 +9,8 @@
 #include "Mod/ModLoader.h"
 #include "Profiler/Profiler.h"
 
+static RuntimeProfiler timestamps = {};
+
 EditorLayer::EditorLayer() : Layer("Editor") {
     _Commands.SetOnCmd([this]() { this->Viewport->SetDirty(); });
 
@@ -64,6 +66,10 @@ float totalTime = 0.0f;
 float count = 0.0f;
 void EditorLayer::OnGui() {
     PROFILE_FUNC();
+    
+    for(auto& ts : evk::GetTimestamps()) {
+        timestamps.Measure(ts.name, float(ts.end-ts.start));
+    }
 
     if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Z))) {
         _Commands.Undo();
@@ -106,57 +112,86 @@ void EditorLayer::OnGui() {
     }
     ImGui::EndMainMenuBar();
 
-    // Simple frame time benchmark
+    ImGui::Begin(ICON_FA_ROCKET "  Performance");
     {
-        if (Input::IsKeyPressed(Key::B)) {
-            totalTime += Engine::GetDt() * 1000.0f;
-            count++;
-        }
-        if (Input::IsKeyPressed(Key::N)) {
-            totalTime = 0.0f;
-            count = 0.0f;
-        }
+        auto& cap = Profiler::GetPreviousCapture();
+        float start = float(cap.entries[0].begin);
+        float finish = float(cap.entries[0].end);
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float SCALE = ImGui::GetContentRegionAvail().x / (finish - start);
+        cap.Iterate([&](auto& e){
+            ImVec2 a = {p.x + float(e.begin - start)*SCALE, p.y};
+            ImVec2 b = {a.x + float(e.end - e.begin)*SCALE, a.y + ImGui::GetTextLineHeight()};
+            ImGui::GetWindowDrawList()->AddRectFilled(a, b, ImGui::GetColorU32(ImGuiRenderer::Accent));
+            
+            
+            ImVec2 oldCursor = ImGui::GetCursorScreenPos();
+            ImVec2 t = {a.x + 4.0f, a.y};
+            ImGui::SetCursorScreenPos(t);
+            ImGui::Text("%s %.2f", e.name, float(e.end - e.begin));
+            ImGui::SetCursorScreenPos(oldCursor);
+            p.y += ImGui::GetTextLineHeight() + 2.0f;
+            // ImGui::Text("%s %f -> %f", e.name, e.begin, e.end);
+            // ImGui::Indent();
+        }, [&](){
+            p.y -= ImGui::GetTextLineHeight() + 2.0f;
+            // ImGui::Unindent();
+        });
+        p.y += 150.0f;
+        ImGui::SetCursorScreenPos(p);
+        
+        Profiler::GetPreviousCapture().Clear();
 
-        ImGui::Begin("Performance");
-        ImGui::Text("ms: %.2fms (%.0fFPS)", Engine::GetDt() * 1000.0f, 1.0f / Engine::GetDt());
-        if (count > 0) {
-            ImGui::Text("Average: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
+        if(ImGui::BeginChild("CPU", {450.0f, 0.0f}, true)){
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_CheckMark]);
+            ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiRenderer::Border);
+            ImGui::Text("CPU");
+            ImGui::Separator();
+            ImGui::PopStyleColor(2);
+            {
+                if (Input::IsKeyPressed(Key::B)) {
+                    totalTime += Engine::GetDt() * 1000.0f;
+                    count++;
+                }
+                if (Input::IsKeyPressed(Key::N)) {
+                    totalTime = 0.0f;
+                    count = 0.0f;
+                }
+                ImGui::Text("%.2fms (%.0fFPS)", Engine::GetDt() * 1000.0f, 1.0f / Engine::GetDt());
+                if (count > 0) {
+                    ImGui::Text("Average: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
+                }
+            }
+
+            Engine::GetRuntimeProfiler().OnImGui(200.0f);
         }
+        ImGui::EndChild();
+        ImGui::SameLine();
+        if(ImGui::BeginChild("GPU", {300.0f, 0.0f}, true)){
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_CheckMark]);
+            ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiRenderer::Border);
+            ImGui::Text("GPU");
+            ImGui::Separator();
+            ImGui::PopStyleColor(2);
+            timestamps.OnImGui(100.0f);
+        }
+        ImGui::EndChild();
 
         ImGui::SliderInt("Sleep", &Engine::Get().sleepMS, 0, 1000);
         ImGui::SliderFloat("Time", &Viewports[0]->GetWorldRenderer()->timeOfDay, 0.0f, 24.0f);
         ImGui::Checkbox("Flow Time", &Viewports[0]->GetWorldRenderer()->timeFlow);
 
         ImGui::Separator();
-        ImGui::Combo("Technique", (int*)&Viewports[0]->GetWorldRenderer()->technique, "PathTrace\0ReSTIR GI\0IR Cache\0Screen Probes\0", 4);
-        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ScreenProbes\0ReSTIR GI Radiance\0Specular\0", 5);
+        ImGui::Combo("Technique", (int*)&Viewports[0]->GetWorldRenderer()->technique, "PathTrace\0ReSTIR GI\0IR Cache\0", 3);
+        ImGui::Combo("Output", (int*)&Viewports[0]->GetWorldRenderer()->outputImage, "Composed\0Diffuse\0Normal\0ReSTIR GI Radiance\0Specular\0", 4);
         ImGui::Checkbox("TAA", &Viewports[0]->GetWorldRenderer()->enableTAA);
         ImGui::Checkbox("Sub Pixel Jitter", &Viewports[0]->GetWorldRenderer()->enableJitter);
         ImGui::Checkbox("Samples Permutation", &Viewports[0]->GetWorldRenderer()->enablePermutation);
 
         ImGui::Separator();
-        if (Viewports[0]->GetWorldRenderer()->technique == WorldRenderer::Technique::Probe) {
-            ImGui::Checkbox("Probes Filter", &Viewports[0]->GetWorldRenderer()->enableProbesFilter);
-            ImGui::Checkbox("Probes Temporal", &Viewports[0]->GetWorldRenderer()->enableProbesTemporal);
-        } else {
-            ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);
-        }
-
-        if (GetTimestamps().size() > 0) {
-            float scale = 0.0001f;
-            for (auto& ts : GetTimestamps()) {
-                ImVec2 cursor = ImGui::GetCursorScreenPos();
-                cursor.x += 58.0f;
-                ImVec2 min = {static_cast<float>(cursor.x + ts.start * scale), cursor.y};
-                ImVec2 max = {static_cast<float>(cursor.x + ts.end * scale), min.y + ImGui::GetFontSize()};
-                ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(255, 0, 0, 255));
-                ImGui::GetWindowDrawList()->AddText(min, IM_COL32(255, 255, 255, 255), ts.name);
-                ImGui::Text("%.2f", static_cast<float>(ts.end - ts.start) * 10e-6);
-            }
-        }
-
-        ImGui::End();
+        ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);
     }
+    ImGui::End();
 
     _Assets->OnGUI();
     _Hierarchy->OnGUI();
@@ -175,19 +210,22 @@ void EditorLayer::OnUpdate(float dt) {
 
     {
         PROFILE_SCOPE("Update Viewports")
-        // Update Viewports
+
         for (auto vp : Viewports) {
             vp->OnUpdate(dt);
         }
     }
     {
         PROFILE_SCOPE("Render Windows")
-        // Render Gui
 
         if (Window::Get().GetWidth() != 0 && Window::Get().GetHeight() != 0) {
             if (this->Viewport != nullptr) this->Viewport->RenderWorld();
             _imguiRenderer.OnGUI([&] { OnGui(); });
-            CmdPresent([&] { _imguiRenderer.Draw(); });
+            CmdTimestamp("ImGui", [&]{
+                CmdPresent([&] {
+                    _imguiRenderer.Draw();
+                });
+            });
         }
         evk::Submit();
     }

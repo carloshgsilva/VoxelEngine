@@ -1,19 +1,17 @@
-#version 450
-
-#include "lib/Common.frag"
-
 #define LOD 0
 
 
 layout(push_constant) uniform uPushConstant{
     int _ViewBufferRID;
     int _VolumeRID;
-    int _DepthTextureRID;
+    int GBufferRID;
     mat4 u_WorldMatrix;
     vec3 u_OutlineColor;
 };
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "Common.frag"
+#include "View.frag"
 
 layout(location=0) in struct {
     vec3 localDirection;
@@ -94,7 +92,9 @@ float bestDepth(vec2 uv, vec2 iRes){
     float d = 0.0;
     for(float x=-1;x<=1;x++){
         for(float y=-1;y<=1;y++){
-            d = max(d, texelFetch(_BindingSampler2D[ _DepthTextureRID], ivec2(uv/iRes)+ivec2(x, y), 0).x);
+            uvec4 gbuffer = GBufferFetch(GBufferRID, ivec2(uv/iRes)+ivec2(x, y));
+            float t = GBufferGetDepth(gbuffer);
+            d = max(d, t);
         }
     }
     return d;
@@ -117,7 +117,7 @@ void main() {
         vec4 projectedPixel = (GetProjectionMatrix()*GetViewMatrix()*u_WorldMatrix*vec4(hitPos*0.1, 1));
         gl_FragDepth = (projectedPixel.w-NEAR)/(FAR-NEAR);
 
-        vec2 iRes = 1.0/textureSize(DEPTH_TEXTURE, 0);
+        vec2 iRes = 1.0/textureSize(Sampler2D[GBufferRID], 0);
         vec2 uv = (projectedPixel.xy/projectedPixel.w)*vec2(1,-1)*0.5 + 0.5;
         float sceneDepth = bestDepth(uv, iRes);
         if(gl_FragDepth - sceneDepth > 0.000005){

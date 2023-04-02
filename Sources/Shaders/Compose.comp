@@ -4,8 +4,7 @@ PUSH(
     int OutColorTextureRID;
     int DiffuseTextureRID;
     int SpecularTextureRID;
-    int VisibilityTextureRID;
-    int DepthTextureRID;
+    int GBufferRID;
     int _ViewBufferRID;
     int VoxInstancesRID;
 )
@@ -39,9 +38,8 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
 
-    //float t = texelFetch(Sampler2D[DepthTextureRID], pixel, 0).x;
-    uint visibility = texelFetch(USampler2D[VisibilityTextureRID], pixel, 0).x;
-    //vec3 pos = o + d * t;
+    uvec4 gbuffer = GBufferFetch(GBufferRID, pixel);
+    uint visibility = GBufferGetVisibility(gbuffer);
 
     vec3 radiance = vec3(0);
     if(visibility != 0u) {
@@ -53,9 +51,7 @@ void main() {
     } else {
         radiance = GetSkyColor(d);
     }
-
-    // radiance = vec3(exp(-1/texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0).w*0.0001)); // debug variance
-
+    
     float exposure = 1.0;
     // exposure tone mapping
     vec3 mapped = vec3(1.0) - exp(-radiance * exposure);
