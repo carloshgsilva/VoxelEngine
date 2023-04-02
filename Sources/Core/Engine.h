@@ -21,7 +21,7 @@ class Engine {
     CallbackQueue<Event&> _OnEvent_Callbacks;
     CallbackQueue<void> _OnBeforeUpdate_Callbacks;
     LayerStack _layerStack;
-    float dt = 0.0f;
+    float dt = 0.0f; // in seconds
     double previousTime = 0.0f;
 
     void StartEngine();

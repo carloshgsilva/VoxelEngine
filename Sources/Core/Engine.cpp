@@ -22,7 +22,7 @@ void Engine::StartEngine() {
 
 void Engine::Update() {
     double time = GetTime();
-    dt = float(time - previousTime);
+    dt = float(time - previousTime)*1e-3f;
     previousTime = time;
 
     {
