@@ -9,19 +9,12 @@
 #include <iostream>
 
 class Engine {
-    // std::vector<Ref<Layer>> layers
-
-    // TODO: Events
-    // Ref<EventDispatcher> eventDispatcher
-
-    // TODO: Does The AssetManager need to be on the engine class? Nop it will be an EngineSystem
-
     RuntimeProfiler profiler = {};
     CallbackQueue<void> _PostInitialize_Callbacks;
     CallbackQueue<Event&> _OnEvent_Callbacks;
     CallbackQueue<void> _OnBeforeUpdate_Callbacks;
     LayerStack _layerStack;
-    float dt = 0.0f; // in seconds
+    float dt = 0.0f; // in seconds per frame
     double previousTime = 0.0f;
 
     void StartEngine();
