@@ -221,7 +221,7 @@ void main() {
         if(i == 0) {
             previousPixel = originPixel;
         } else {
-            ivec2 offset = get_rpx_offset(i, GetFrame());
+            // ivec2 offset = get_rpx_offset(i, GetFrame());
             // previousPixel = originPixel + offset;
             // previousPixel = PermutationSampling(previousPixel, GetFrame()) + offset;
         }

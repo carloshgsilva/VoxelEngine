@@ -59,7 +59,7 @@ void main() {
     vec3 acc = radiance;
     float total = 1.0;
     float radius = 1.0;
-    for (float ang = GetFrame(); radius <= (max(reactivity, 0.5) * 8); ang += GOLDEN_ANGLE) {
+    for (float ang = GetFrame()*0.0; radius <= (max(reactivity, 0.5) * 8); ang += GOLDEN_ANGLE) {
         radius += 1.0/radius;
         
         ivec2 nPixel = pixel + ivec2(vec2(cos(ang), sin(ang)) * radius * 2);

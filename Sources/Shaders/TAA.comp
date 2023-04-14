@@ -46,9 +46,8 @@ void main() {
     vec3 nmin = min(ref0, min(ref1, min(ref2, min(ref3, min(ref4, min(ref5, min(ref6, ref7)))))));
     vec3 nmax = max(ref0, max(ref1, max(ref2, max(ref3, max(ref4, max(ref5, max(ref6, ref7)))))));
 
+    // vec2 motion = previousUV - uv;
     previousRadiance = clamp(previousRadiance, nmin, nmax);
-
-    vec2 motion = previousUV - uv;
 
     vec3 temp = mix(radiance, previousRadiance, 0.95);
     imageStore(Image2DW[OutRadianceTextureRID], pixel, vec4(temp, 1));

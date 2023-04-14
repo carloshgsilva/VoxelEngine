@@ -353,26 +353,26 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             CmdTimestamp("DI Trace", [&] { DITracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
         }
 
-//         CmdTimestamp("Specular Trace", [&] { SpecularTracePass::Get().Use(specularBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
-//         if (enableDenoiser) {
-//             CmdTimestamp("Specular Denoise", [&] {
-// #if 1
-//                 DenoiserTemporalPass::Get().Use(specularBufferB, specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer);
-//                 previousSpecularBuffer.swap(specularBufferB);
-//                 DenoiserSpecularPass::Get().Use(specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer, 1);
-//                 // DenoiserAtrousPass::Get().Use(specularBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
-//                 // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 2);
-//                 // DenoiserAtrousPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 4);
-//                 // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
-// #elif 1
-//                 DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 1);
-//                 DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 1);
-// #else
-//                 DenoiserDiscPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
-//                 DenoiserDiscPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer);
-// #endif
-//             });
-//         }
+        CmdTimestamp("Specular Trace", [&] { SpecularTracePass::Get().Use(specularBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer); });
+        if (enableDenoiser) {
+            CmdTimestamp("Specular Denoise", [&] {
+#if 0
+                DenoiserTemporalPass::Get().Use(specularBufferB, specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer);
+                previousSpecularBuffer.swap(specularBufferB);
+                DenoiserSpecularPass::Get().Use(specularBufferA, previousSpecularBuffer, gbuffer, _ViewBuffer, 1);
+                // DenoiserAtrousPass::Get().Use(specularBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 1);
+                // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 2);
+                // DenoiserAtrousPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 4);
+                // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
+#elif 1
+                DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 1);
+                DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 1);
+#else
+                DenoiserDiscPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
+                DenoiserDiscPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer);
+#endif
+            });
+        }
 
         CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferA, specularBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });
         if (enableTAA) {
