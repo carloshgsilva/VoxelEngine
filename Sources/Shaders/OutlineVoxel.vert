@@ -63,7 +63,8 @@ layout(push_constant) uniform uPushConstant{
     vec3 u_OutlineColor;
 };
 
-BINDING_VIEW_BUFFER()
+#define IMPORT
+#include "View.frag"
 
 layout(location=0) out struct{
     vec3 localDirection;

@@ -13,7 +13,7 @@ struct GISample {
 struct Reservoir {
     float w; // total weight
     float M; // sample count
-    float W;
+    float W; // selected sample W
 
     GISample s;
 };

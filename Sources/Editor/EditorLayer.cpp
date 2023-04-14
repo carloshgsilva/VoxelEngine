@@ -21,8 +21,8 @@ EditorLayer::EditorLayer() : Layer("Editor") {
     // AssetImporter::Import("Mods/default/ModernHouse.vox", "default");
     // AssetImporter::Import("Mods/default/FarmHouse.vox", "default");
 
-    OpenViewport(Assets::Hash("default/ModernHouse.pf"));
-    // OpenViewport(Assets::Hash("default/castle.pf"));
+    // OpenViewport(Assets::Hash("default/ModernHouse.pf"));
+    OpenViewport(Assets::Hash("default/castle.pf"));
     //  OpenViewport(Assets::Hash("default/FarmHouse.pf"));
 }
 
@@ -114,6 +114,7 @@ void EditorLayer::OnGui() {
 
     ImGui::Begin(ICON_FA_ROCKET "  Performance");
     {
+        /*
         auto& cap = Profiler::GetPreviousCapture();
         float start = float(cap.entries[0].begin);
         float finish = float(cap.entries[0].end);
@@ -139,6 +140,7 @@ void EditorLayer::OnGui() {
         });
         p.y += 150.0f;
         ImGui::SetCursorScreenPos(p);
+        */
         
         Profiler::GetPreviousCapture().Clear();
 

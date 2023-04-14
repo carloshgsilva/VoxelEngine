@@ -59,7 +59,7 @@ void main() {
     vec3 acc = radiance;
     float total = 1.0;
     float radius = 1.0;
-    for (float ang = GetFrame(); radius <= (reactivity > 0.01 ? 8.0 : 2.0); ang += GOLDEN_ANGLE) {
+    for (float ang = GetFrame(); radius <= (max(reactivity, 0.5) * 8); ang += GOLDEN_ANGLE) {
         radius += 1.0/radius;
         
         ivec2 nPixel = pixel + ivec2(vec2(cos(ang), sin(ang)) * radius * 2);
@@ -78,8 +78,8 @@ void main() {
         }
         
         float w = 1.0;
-        float luminanceWeight = 0.001*abs(luminance - nLuminance)/max(luminance, 0.001);
-        w *= exp(-luminanceWeight*(1.0-reactivity));
+        float luminanceWeight = 0.001*radius*abs(luminance - nLuminance)/max(luminance, 0.001);
+        w *= exp(-luminanceWeight);
         w *= IsInsideScreenWeight(uv);
         w *= NormalWeight(normal, nNormal, nT);
         w *= PlaneWeight(pos, normal, nPos, nT);

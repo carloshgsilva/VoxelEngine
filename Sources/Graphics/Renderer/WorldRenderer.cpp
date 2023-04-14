@@ -156,8 +156,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         lastReloadShaders = Engine::GetTime();
 
         OutlineVoxelPipeline::Get() = OutlineVoxelPipeline();
-        LightBloomStepPipeline::Get() = LightBloomStepPipeline();
-        LightBlurPipeline::Get() = LightBlurPipeline();
+        // LightBloomStepPipeline::Get() = LightBloomStepPipeline();
+        // LightBlurPipeline::Get() = LightBlurPipeline();
         ColorWorldPipeline::Get() = ColorWorldPipeline();
         PathTracePass::Get() = PathTracePass();
         GBufferPass::Get() = GBufferPass();
@@ -345,9 +345,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 16);
 #else
-                    DenoiserTemporalPass::Get().Use(lightBufferB, lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer);
-                    previousLightBuffer.swap(lightBufferB);
-                    DenoiserDiscPass::Get().Use(lightBufferA, previousLightBuffer, gbuffer, _ViewBuffer);
+                    DenoiserDiscPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer);
+                    DenoiserDiscPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer);
 #endif
                 }
             });
