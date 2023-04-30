@@ -125,7 +125,7 @@ void main() {
     
     Material mat;
     GetMaterial(hit.visibility, mat);
-    mat.roughness = min(mat.roughness, 0.1);
+    // mat.roughness = min(mat.roughness, 0.00001);
     
     BRDFSample smp;
     vec3 F = vec3(0);
