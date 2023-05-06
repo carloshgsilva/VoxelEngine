@@ -32,6 +32,7 @@ class WorldRenderer {
 
     // Framebuffers
     GBuffer gbuffer;
+    Buffer radianceCacheBuffer;
 
     Image previousLightBuffer;
     Image lightBufferA;

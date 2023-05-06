@@ -4,6 +4,8 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_shader_image_load_formatted  : require
+#extension GL_EXT_shader_atomic_float  : require
+
 //#extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_ray_query : enable
 

@@ -21,8 +21,8 @@ EditorLayer::EditorLayer() : Layer("Editor") {
     // AssetImporter::Import("Mods/default/ModernHouse.vox", "default");
     // AssetImporter::Import("Mods/default/FarmHouse.vox", "default");
 
-    // OpenViewport(Assets::Hash("default/ModernHouse.pf"));
-    OpenViewport(Assets::Hash("default/castle.pf"));
+    OpenViewport(Assets::Hash("default/ModernHouse.pf"));
+    // OpenViewport(Assets::Hash("default/castle.pf"));
     //  OpenViewport(Assets::Hash("default/FarmHouse.pf"));
 }
 

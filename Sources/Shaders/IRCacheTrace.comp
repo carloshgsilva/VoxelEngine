@@ -6,6 +6,7 @@ PUSH(
     int _ViewBufferRID;
     int TLASRID;
     int VoxInstancesRID;
+    int RadianceCacheRID;
 )
 
 // 1. Allocate
@@ -16,9 +17,7 @@ PUSH(
 #include "PathTrace.frag"
 
 BINDING_BUFFER_RW(Cache,
-    vec3 samplePos;
-    uint packedSampleNormal;
-    vec4 irradianceSh[3];
+    vec4 at[65536];
 )
 
 COMPUTE(8, 8, 1)
@@ -30,6 +29,7 @@ void main() {
         return;
     }
     float t = GBufferGetDepth(gbuffer);
+    vec3 n = GBufferGetNormal(gbuffer);
     
     vec2 uv = vec2(pixel+GetJitter())*GetiRes();
     vec3 o = GetCameraPosition();
@@ -38,15 +38,42 @@ void main() {
     vec3 pos = o + d*t;
 
     vec3 acc = vec3(0);
+#if 0
     const float SCALE = 4.0;
     for(float scale = 1.0; scale <= 4.0*4.0*4.0; scale *= 2.0) {
         vec3 pDiff = abs(pos-o)*SCALE/scale;
         float dist = max(max(pDiff.x, pDiff.y), pDiff.z);
         uvec3 id = pcg3d(uvec3(abs(pos-EPS)*SCALE/scale));
-            acc = vec3(id%256)/256.0;
+        acc = vec3(id%256)/256.0;
         if(dist < 10.0) {
             break;
         }
+    }
+#else
+    const float SCALE = 4.0;
+    vec3 pDiff = abs(pos-o)*SCALE;
+    float dist = max(max(pDiff.x, pDiff.y), pDiff.z);
+    uvec3 id = pcg3d(uvec3(abs(pos-EPS)*SCALE));
+    uint idx = id.x%65536;
+    vec4 v = Cache[RadianceCacheRID].at[idx];
+    // acc = vec3(id%256)/256.0;
+    if(v.w > 0.001) {
+        acc = vec3(v.xyz/v.w);
+    }
+#endif
+
+    if(pixel.x % 8 == 0 && pixel.y % 8 == 0) {
+        Sampler samp;
+        InitSampler(samp, pixel, GetFrame()%64);
+        PathTraceState state;
+        InitPathTraceState(state, pos, SampleUniformHemisphere(n, SampleNoise(samp).xy));
+        PathTraceProceed(state, samp);
+        
+        atomicAdd(Cache[RadianceCacheRID].at[idx].x, state.acc.x);
+        atomicAdd(Cache[RadianceCacheRID].at[idx].y, state.acc.y);
+        atomicAdd(Cache[RadianceCacheRID].at[idx].z, state.acc.z);
+        atomicAdd(Cache[RadianceCacheRID].at[idx].w, 1.0);
+        // Cache[RadianceCacheRID].at[idx] = vec4(0);
     }
     
     imageStore(Image2DW[ColorTextureRID], pixel, vec4(acc,1));

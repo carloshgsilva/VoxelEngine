@@ -162,7 +162,7 @@ void main() {
     if(SampleSize == 5) { // visibiliy validation (only on last spatial pass, introduces little bias)
         float l = length(spatialReservoir.s.xs - s.xv);
         vec3 dir = normalize(spatialReservoir.s.xs - s.xv);
-        if(spatialReservoir.M > 0 && TraceShadowRay(s.xv + n*EPS*10.0, dir, l-EPS*100.0)) {
+        if(spatialReservoir.M > 0 && TraceShadowRay(s.xv + n*EPS*10.0, dir, min(l-EPS*100.0, 0.01*t))) {
             ReservoirClear(spatialReservoir);
         }
     }

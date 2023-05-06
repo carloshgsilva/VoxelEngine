@@ -1,0 +1,25 @@
+#include "Common.frag"
+
+PUSH(
+    int RadianceCacheRID;
+)
+
+BINDING_BUFFER_RW(Cache,
+    vec4 at[65536];
+)
+
+COMPUTE(8, 1, 1)
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+
+    vec4 v = Cache[RadianceCacheRID].at[idx];
+    const float MAX_SAMPLES = 64;
+    if(v.w > MAX_SAMPLES) {
+        float m = MAX_SAMPLES;
+        v *= m/v.w;
+        Cache[RadianceCacheRID].at[idx] = v;
+    }
+    if(isnan(v.x) || isnan(v.y) || isnan(v.z) || isnan(v.w) || v.w < 0.99) {
+        Cache[RadianceCacheRID].at[idx] = vec4(0, 0, 0, 0);
+    }
+}

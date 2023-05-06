@@ -254,7 +254,7 @@ void main() {
     if(GetFrame()%4 == 0 && previousReservoir.M > 0){ // Radiance validation (only if there's sample in the reservoir)
         vec3 dir = normalize(previousReservoir.s.xs - previousReservoir.s.xv);
         PathTraceState state;
-        InitPathTraceState(state, previousReservoir.s.xv, dir);
+        InitPathTraceState(state, s.xv, dir);
         // Sampler samp;
         InitSampler(samp, pixel, GetFrame()%64);
         PathTraceProceed(state, samp);

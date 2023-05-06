@@ -65,7 +65,7 @@ class IRCacheTracePass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/IRCacheTrace.comp.spv")});
     }
 
-    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer) {
+    void Use(Image& dstColor, GBuffer& gbuffer, Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer, Buffer& radianceCacheBuffer) {
         Extent extent = GetDesc(dstColor).extent;
         CmdBind(pipeline);
         CmdPush(Constant{
@@ -74,12 +74,34 @@ class IRCacheTracePass {
             GetRID(viewBuffer),
             GetRID(tlas),
             GetRID(voxInstancesBuffer),
+            GetRID(radianceCacheBuffer),
         });
         CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
     }
 
     static IRCacheTracePass& Get() {
         static IRCacheTracePass Instance;
+        return Instance;
+    }
+};
+class IRCacheNormalizePass {
+    Pipeline pipeline;
+
+   public:
+    IRCacheNormalizePass() {
+        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/IRCacheNormalize.comp.spv")});
+    }
+
+    void Use(Buffer& radianceCacheBuffer) {
+        CmdBind(pipeline);
+        CmdPush(Constant{
+            GetRID(radianceCacheBuffer),
+        });
+        CmdDispatch(65536 / 8, 1, 1);
+    }
+
+    static IRCacheNormalizePass& Get() {
+        static IRCacheNormalizePass Instance;
         return Instance;
     }
 };

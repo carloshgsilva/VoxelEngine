@@ -47,6 +47,7 @@ void Engine::Update() {
     if (sleepMS > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepMS));
     }
+    Profiler::Get().GetCurrentCapture().Clear();
 }
 
 void Engine::Create() {
