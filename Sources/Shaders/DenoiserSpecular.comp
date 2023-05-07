@@ -43,6 +43,7 @@ void main() {
     }
     float t = GBufferGetDepth(gbuffer);
     vec3 normal = GBufferGetNormal(gbuffer);
+    float roughness = GBufferGetMaterial(gbuffer).x;
     vec3 pos = o + d * t;
 
     vec4 radianceVar = texelFetch(Sampler2D[InRadianceTextureRID], pixel, 0);
@@ -71,11 +72,11 @@ void main() {
         vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
         float nLuminance = Luminance(nRadiance);
         vec3 nNormal = GBufferGetNormal(nGBuffer);
+        float nRoughness = GBufferGetMaterial(nGBuffer).x;
         
         const float GAUSSIAN[2] = {0.44198, 0.27901};
-        float w = 1.0;//GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
-        // float luminanceWeight = 0.000001*min(abs(luminance - nLuminance), 100000.0);
-        // w *= exp(-luminanceWeight);
+        float w = 1.0;
+        w *= exp(-150.0*abs(nRoughness - roughness));
         w *= IsInsideScreenWeight(uv);
         w *= NormalWeight(normal, nNormal, nT);
         w *= PlaneWeight(pos, normal, nPos, nT);
