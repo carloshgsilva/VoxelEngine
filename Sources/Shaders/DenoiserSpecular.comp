@@ -12,23 +12,6 @@ PUSH(
 #include "View.frag"
 #include "Denoiser.frag"
 
-// https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-vec3 SpecularDominantDirection(vec3 n, vec3 v, float roughness) {
-    vec3 r = reflect(-v, n);
-    float f = (1.0 - roughness) * (sqrt(1.0 - roughness) + roughness);
-    return normalize(mix(n, r, f));
-}
-// Get tangent vectors for the basis for specular filtering.
-// Based on "Fast Denoising with Self Stabilizing Recurrent Blurs" by Dmitry Zhdan
-void GetSpecularFilterKernelBasis(vec3 v, vec3 n, float roughness, float scale, out vec3 t1, out vec3 t2) {
-    vec3 dominant = SpecularDominantDirection(n, v, roughness);
-    vec3 reflected = reflect(-dominant, n);
-
-    t1 = normalize(cross(n, reflected)) * scale;
-    t2 = cross(reflected, t1);
-}
-
-
 COMPUTE(8, 8, 1)
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
@@ -54,35 +37,31 @@ void main() {
     vec3 acc = radiance;
     float total = 1.0;
     float radius = 1.0;
-    vec2 offset = texelFetch(Sampler2D[ViewBuffer[_ViewBufferRID].BlueNoiseRID], (pixel+GetFrame()*10)%512, 0).xy*2.0 - 1.0;
-    for (float ang = (GetFrame()%4)*3; radius <= float(8); ang += GOLDEN_ANGLE) {
-        radius += 1.0;
-        vec3 t1, t2;
-        GetSpecularFilterKernelBasis(normalize(d), normal, 0.1, max(hitdist*t, 5.0), t1, t2);
+    vec2 offsetRnd = texelFetch(Sampler2D[ViewBuffer[_ViewBufferRID].BlueNoiseRID], (pixel+GetFrame()*10)%512, 0).xy*2.0 - 1.0;
+    for(int x = -2; x <= 2; x++) {
+        for(int y = -2; y <= 2; y++) {
+            ivec2 offset = ivec2((vec2(x, y) + offsetRnd) * clamp(20.0*roughness*hitdist/(hitdist+t), 0, 4));
+            ivec2 nPixel = ivec2(pixel + offset);
+            vec2 nUV = vec2(nPixel)*GetiRes();
 
-        vec3 nLobePos = pos + (t1*(cos(ang)+offset.x) + t2*(sin(ang)+offset.y))*radius*0.0005;
+            uvec4 nGBuffer = GBufferFetch(GBufferRID, nPixel);
+            vec3 nDir = UVToRayDir(nUV);
+            float nT = GBufferGetDepth(nGBuffer);
+            vec3 nPos = o + nDir * nT;
+            vec4 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0);
+            float nLuminance = Luminance(nRadiance.xyz);
+            vec3 nNormal = GBufferGetNormal(nGBuffer);
+            float nRoughness = GBufferGetMaterial(nGBuffer).x;
+            
+            float w = 1.0;
+            w *= exp(-150.0*abs(nRoughness - roughness));
+            w *= IsInsideScreenWeight(nUV);
+            w *= NormalWeight(normal, nNormal, nT);
+            w *= PlaneWeight(pos, normal, nPos, nT);
 
-        vec2 nUV = WorldToUV(nLobePos);
-        ivec2 nPixel = ivec2(nUV*GetRes() + offset);
-
-        uvec4 nGBuffer = GBufferFetch(GBufferRID, nPixel);
-        vec3 nDir = UVToRayDir(nUV);
-        float nT = GBufferGetDepth(nGBuffer);
-        vec3 nPos = o + nDir * nT;
-        vec3 nRadiance = texelFetch(Sampler2D[InRadianceTextureRID], nPixel, 0).xyz;
-        float nLuminance = Luminance(nRadiance);
-        vec3 nNormal = GBufferGetNormal(nGBuffer);
-        float nRoughness = GBufferGetMaterial(nGBuffer).x;
-        
-        const float GAUSSIAN[2] = {0.44198, 0.27901};
-        float w = 1.0;
-        w *= exp(-150.0*abs(nRoughness - roughness));
-        w *= IsInsideScreenWeight(uv);
-        w *= NormalWeight(normal, nNormal, nT);
-        w *= PlaneWeight(pos, normal, nPos, nT);
-
-        acc += w*nRadiance;
-        total += w;
+            acc += w*nRadiance.xyz;
+            total += w;
+        }
     }
 
     acc /= total;

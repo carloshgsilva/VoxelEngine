@@ -87,6 +87,9 @@ bool SampleBRDFSpecular(inout BRDFSample smp, out vec3 F, vec3 V, vec3 N, vec3 a
     vec3 ni = SampleGGXVNDF(-wo, roughness, rnd.x, rnd.y);
     float ggx_pdf = GGXPdfVN(a2, -wo, ni);
     vec3 wi = reflect(wo, ni);
+    if(wi.z < 0.0) {
+        return false;
+    }
 
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     F = FresnelSchlick(F0, vec3(1.0), dot(ni, wi));
