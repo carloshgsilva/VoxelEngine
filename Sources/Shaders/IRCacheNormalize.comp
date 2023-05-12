@@ -4,22 +4,40 @@ PUSH(
     int RadianceCacheRID;
 )
 
+#include "Reservoir.frag"
+
+#define CACHE_MAX_CANDIDATES 8
 BINDING_BUFFER_RW(Cache,
     vec4 at[65536];
+    uint hash[65536];
+    uint age[65536];
+    uint condidates_count[65536];
+    Reservoir condidates[65536][CACHE_MAX_CANDIDATES];
 )
 
-COMPUTE(8, 1, 1)
+COMPUTE(64, 1, 1)
 void main() {
     uint idx = gl_GlobalInvocationID.x;
 
     vec4 v = Cache[RadianceCacheRID].at[idx];
+    uint age = Cache[RadianceCacheRID].age[idx];
+    age++;
+
+    if(age > 8) {
+        Cache[RadianceCacheRID].hash[idx] = 0;
+        Cache[RadianceCacheRID].age[idx] = 0;
+        Cache[RadianceCacheRID].at[idx] = vec4(0);
+        return;
+    }
+
     const float MAX_SAMPLES = 64;
     if(v.w > MAX_SAMPLES) {
         float m = MAX_SAMPLES;
         v *= m/v.w;
         Cache[RadianceCacheRID].at[idx] = v;
     }
-    if(isnan(v.x) || isnan(v.y) || isnan(v.z) || isnan(v.w) || v.w < 0.99) {
-        Cache[RadianceCacheRID].at[idx] = vec4(0, 0, 0, 0);
-    }
+    Cache[RadianceCacheRID].age[idx] = age;
+    //if(isnan(v.x) || isnan(v.y) || isnan(v.z) || isnan(v.w) || v.w < 0.99) {
+    //    Cache[RadianceCacheRID].at[idx] = vec4(0, 0, 0, 0);
+    //}
 }

@@ -116,5 +116,5 @@ void main() {
        s = vec3(0);
     }
 
-    imageStore(Image2DW[RadianceTextureRID], pixel, vec4(s, max(1.0 - r.M*0.005, 0)));
+    imageStore(Image2DW[RadianceTextureRID], pixel, vec4(s, r.M));
 }

@@ -61,7 +61,11 @@ WorldRenderer::WorldRenderer() {
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
     //_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
     _ViewBuffer.Build([&](int i) { return CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU}); });
-    radianceCacheBuffer = CreateBuffer({.name = "Radiance Cache", .size = 65536 * 4 * sizeof(float), .usage = BufferUsage::Storage});
+    radianceCacheBuffer = CreateBuffer({
+        .name = "Radiance Cache",
+        .size = 65536 * (4 * sizeof(float) + 3 * sizeof(uint32) + 16 * sizeof(float)),
+        .usage = BufferUsage::Storage
+    });
 }
 
 void WorldRenderer::CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color) {
@@ -351,7 +355,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     DenoiserAtrousPass::Get().Use(lightBufferB, previousLightBuffer, gbuffer, _ViewBuffer, 2);
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 16);
-#elif 0
+#elif 1
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 1);
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 2);
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);

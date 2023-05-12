@@ -13,7 +13,7 @@ void RuntimeProfiler::Measure(const char* name, float time) {
 }
 
 void RuntimeProfiler::OnImGui(float width) const {
-    constexpr float SCALE = 500.0f;
+    constexpr float SCALE = 200.0f;
     for (auto& ts : timestamps) {
         float min = FLT_MAX;
         float max = -FLT_MAX;

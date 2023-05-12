@@ -97,7 +97,7 @@ class IRCacheNormalizePass {
         CmdPush(Constant{
             GetRID(radianceCacheBuffer),
         });
-        CmdDispatch(65536 / 8, 1, 1);
+        CmdDispatch(65536 / 64, 1, 1);
     }
 
     static IRCacheNormalizePass& Get() {
