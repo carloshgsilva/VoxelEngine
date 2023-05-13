@@ -107,14 +107,14 @@ void main() {
     float jacobian = (dot(r.s.ns, toReuse) / dot(r.s.ns, toVisible)) * (lengthSq(toVisible) / lengthSq(toReuse));
     float f = max(dot(n, normalize(r.s.xs-pos)), 0.5) * M_PI;// * max(jacobian, 0.001);
     vec3 s = r.s.radiance * r.W * f;
-    if(r.M == 0) {
+    if(r.M <= 0 || r.W < 0.0) {
         s = vec3(0);
     }
 
     if(isnan(s.x) || isnan(s.y) || isnan(s.z)) {
-       s = vec3(1000,0,1000);
+    //    s = vec3(1000,0,0);
        s = vec3(0);
     }
 
-    imageStore(Image2DW[RadianceTextureRID], pixel, vec4(s, r.M));
+    imageStore(Image2DW[RadianceTextureRID], pixel, vec4(vec3(s), r.M));
 }

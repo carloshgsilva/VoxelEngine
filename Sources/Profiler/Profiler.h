@@ -68,14 +68,18 @@ public:
     }
 
     static FrameScopeCapture& GetCurrentCapture() {
-        return Get().framesCapture[Get().index % MAX_CAPTURE_COUNT];
+        return Get().framesCPUCapture[Get().index % MAX_CAPTURE_COUNT];
     }
     static FrameScopeCapture& GetPreviousCapture() {
-        return Get().framesCapture[(Get().index + MAX_CAPTURE_COUNT - 1) % MAX_CAPTURE_COUNT];
+        return Get().framesCPUCapture[(Get().index + MAX_CAPTURE_COUNT - 1) % MAX_CAPTURE_COUNT];
+    }
+    static FrameScopeCapture& GetGPUCurrentCapture() {
+        return Get().framesGPUCapture[Get().index % MAX_CAPTURE_COUNT];
     }
 
     uint32 index = 0;
-    FrameScopeCapture framesCapture[MAX_CAPTURE_COUNT];
+    FrameScopeCapture framesCPUCapture[MAX_CAPTURE_COUNT];
+    FrameScopeCapture framesGPUCapture[MAX_CAPTURE_COUNT];
 };
 
 struct ProfileScope {

@@ -92,10 +92,13 @@ class IRCacheNormalizePass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/IRCacheNormalize.comp.spv")});
     }
 
-    void Use(Buffer& radianceCacheBuffer) {
+    void Use(Buffer& viewBuffer, rt::TLAS& tlas, Buffer& voxInstancesBuffer, Buffer& radianceCacheBuffer) {
         CmdBind(pipeline);
         CmdPush(Constant{
             GetRID(radianceCacheBuffer),
+            GetRID(viewBuffer),
+            GetRID(tlas),
+            GetRID(voxInstancesBuffer),
         });
         CmdDispatch(65536 / 64, 1, 1);
     }

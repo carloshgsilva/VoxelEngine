@@ -61,9 +61,10 @@ WorldRenderer::WorldRenderer() {
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
     //_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
     _ViewBuffer.Build([&](int i) { return CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU}); });
+    constexpr uint64 RESERVOIR_SIZE = 24 * sizeof(float);
     radianceCacheBuffer = CreateBuffer({
         .name = "Radiance Cache",
-        .size = 65536 * (4 * sizeof(float) + 3 * sizeof(uint32) + 16 * sizeof(float)),
+        .size = 65536 * (3 * sizeof(uint32) + (8 + 1) * RESERVOIR_SIZE),
         .usage = BufferUsage::Storage
     });
 }
@@ -333,7 +334,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 IRCacheTracePass::Get().Use(lightBufferA, gbuffer, _ViewBuffer, tlas, voxInstancesBuffer, radianceCacheBuffer);
             });
             CmdTimestamp("Cache Norm", [&] {
-                IRCacheNormalizePass::Get().Use(radianceCacheBuffer);
+                IRCacheNormalizePass::Get().Use(_ViewBuffer, tlas, voxInstancesBuffer, radianceCacheBuffer);
             });
         } else if (technique == Technique::ReSTIR) {
             gbuffer.reservoirTemporalA.b0.swap(gbuffer.reservoirTemporalB.b0);

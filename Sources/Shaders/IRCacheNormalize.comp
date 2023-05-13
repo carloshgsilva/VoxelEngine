@@ -2,42 +2,56 @@
 
 PUSH(
     int RadianceCacheRID;
+    int _ViewBufferRID;
+    int TLASRID;
+    int VoxInstancesRID;
 )
 
+#define IMPORT
+#include "PathTrace.frag"
 #include "Reservoir.frag"
 
 #define CACHE_MAX_CANDIDATES 8
 BINDING_BUFFER_RW(Cache,
-    vec4 at[65536];
     uint hash[65536];
     uint age[65536];
-    uint condidates_count[65536];
-    Reservoir condidates[65536][CACHE_MAX_CANDIDATES];
+    uint candidates_count[65536];
+    Reservoir candidates[65536][CACHE_MAX_CANDIDATES];
+    Reservoir reservoir[65536];
 )
 
 COMPUTE(64, 1, 1)
 void main() {
     uint idx = gl_GlobalInvocationID.x;
 
-    vec4 v = Cache[RadianceCacheRID].at[idx];
     uint age = Cache[RadianceCacheRID].age[idx];
     age++;
 
     if(age > 8) {
         Cache[RadianceCacheRID].hash[idx] = 0;
         Cache[RadianceCacheRID].age[idx] = 0;
-        Cache[RadianceCacheRID].at[idx] = vec4(0);
+        ReservoirClear(Cache[RadianceCacheRID].reservoir[idx]);
+        // Cache[RadianceCacheRID].reservoir[idx].s.radiance = vec3(0);
         return;
     }
-
-    const float MAX_SAMPLES = 64;
-    if(v.w > MAX_SAMPLES) {
-        float m = MAX_SAMPLES;
-        v *= m/v.w;
-        Cache[RadianceCacheRID].at[idx] = v;
-    }
     Cache[RadianceCacheRID].age[idx] = age;
-    //if(isnan(v.x) || isnan(v.y) || isnan(v.z) || isnan(v.w) || v.w < 0.99) {
-    //    Cache[RadianceCacheRID].at[idx] = vec4(0, 0, 0, 0);
-    //}
+
+    uint candidates_count = min(Cache[RadianceCacheRID].candidates_count[idx], CACHE_MAX_CANDIDATES);
+    if(candidates_count > 0) {
+        Sampler samp;
+        InitSampler(samp, ivec2(gl_GlobalInvocationID.xy), GetFrame()%64);
+        Reservoir r = Cache[RadianceCacheRID].reservoir[idx];
+        for(uint i = 0; i < candidates_count; i++) {
+            Reservoir candidate = Cache[RadianceCacheRID].candidates[idx][i];
+            float jacobian = 1.0; // TODO: ReSTIR Jacobian
+            float pHat = length(candidate.s.radiance) / jacobian;
+            // ReservoirMerge(r, candidate, pHat, SampleNoise(samp).x);
+            ReservoirUpdate(r, candidate.s, pHat, SampleNoise(samp).x);
+        }
+        ReservoirClamp(r, 1, 400.0);
+        ReservoirFinalize(r);
+        Cache[RadianceCacheRID].reservoir[idx] = r;
+        Cache[RadianceCacheRID].candidates_count[idx] = 0;
+    }
+    
 }

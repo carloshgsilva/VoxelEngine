@@ -64,8 +64,18 @@ void ReservoirClamp(inout Reservoir self, float count, float factor) {
         self.M = factor * count;
     }
 }
-void ReservoirFinalize() {
-    
+void ReservoirFinalize(inout Reservoir r) {
+    float den = r.M * length(r.s.radiance);
+    if(den > 0.0 && isnan(r.w)  == false) {
+        r.W = r.w / den;
+    } else {
+        #if 0 // resampling fail heat map
+            r.W = 1.0;
+            r.s.radiance = vec3(0,1,0);
+        #else
+            r.W = 0.0;
+        #endif
+    }
 }
 
 #endif

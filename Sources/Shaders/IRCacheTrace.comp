@@ -15,11 +15,11 @@ PUSH(
 
 #define CACHE_MAX_CANDIDATES 8
 BINDING_BUFFER_RW(Cache,
-    vec4 at[65536];
     uint hash[65536];
     uint age[65536];
-    uint condidates_count[65536];
-    Reservoir condidates[65536][CACHE_MAX_CANDIDATES];
+    uint candidates_count[65536];
+    Reservoir candidates[65536][CACHE_MAX_CANDIDATES];
+    Reservoir reservoir[65536];
 )
 
 float uint2float(uint x) {
@@ -71,39 +71,61 @@ void main() {
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
     
+    // Sampler samp;
+    // InitSampler(samp, pixel, GetFrame()%64);
     vec3 pos = o + d*t;
     vec3 acc = vec3(0);
     uint idx = 0;
-    if(GetCellIdx(pos, idx)) {
+    if(GetCellIdx(pos/*+SampleNoise(samp).xyz*0.5*/, idx)) {
         Cache[RadianceCacheRID].age[idx] = 0;
-        vec4 v = Cache[RadianceCacheRID].at[idx];
-        if(v.w > 0.001) {
-            acc = vec3(v.xyz/v.w);
-        }
 
-        if(pixel.x % 8 == 0 && pixel.y % 8 == 0) {
+        ivec2 off = ivec2(OFFSETS[GetFrame()%64]*8);
+        if(pixel.x % 8 == off.x && pixel.y % 8 == off.y) {
+            GISample s;
+            s.xv = pos;
+            s.nv = n;
+
             Sampler samp;
             InitSampler(samp, pixel, GetFrame()%64);
             PathTraceState state;
-            InitPathTraceState(state, pos, SampleUniformHemisphere(n, SampleNoise(samp).xy));
+            InitPathTraceState(state, pos + n*EPS, SampleUniformHemisphere(n, SampleNoise(samp).xy));
             bool hit = PathTraceProceed(state, samp);
 
-            uint bounceIdx = 0;
-            if(hit && GetCellIdx(state.o, bounceIdx)) {
-                vec4 v = Cache[RadianceCacheRID].at[bounceIdx];
-                Cache[RadianceCacheRID].age[bounceIdx] = 0;
-                if(v.w > 0.001) {
-                    state.acc += v.xyz/v.w;
-                }
+            // TODO: Multi bounce
+            //if(hit) {
+            //    uint bounceIdx = 0;
+            //    if(hit && GetCellIdx(state.o, bounceIdx)) {
+            //        Reservoir r = Cache[RadianceCacheRID].reservoir[bounceIdx];
+            //        Cache[RadianceCacheRID].age[bounceIdx] = 0;
+            //        if(r.M > 0.0) {
+            //            state.acc += r.s.radiance*r.W* max(0, dot(n, normalize(r.s.xs - r.s.xv)));
+            //        }
+            //    }
+            //}
+            
+            uint candidate_id = atomicAdd(Cache[RadianceCacheRID].candidates_count[idx], 1);
+            if(candidate_id < CACHE_MAX_CANDIDATES) {
+                Reservoir r;
+                ReservoirClear(r);
+
+                s.xs = state.o;
+                s.ns = state.n;
+                s.radiance = state.acc;
+                float w = length(s.radiance);
+                ReservoirUpdate(r, s, w, SampleNoise(samp).x);
+                ReservoirFinalize(r);
+                Cache[RadianceCacheRID].candidates[idx][candidate_id] = r;
             }
-           
-            atomicAdd(Cache[RadianceCacheRID].at[idx].x, state.acc.x);
-            atomicAdd(Cache[RadianceCacheRID].at[idx].y, state.acc.y);
-            atomicAdd(Cache[RadianceCacheRID].at[idx].z, state.acc.z);
-            atomicAdd(Cache[RadianceCacheRID].at[idx].w, 1.0);
+        }
+        
+        Reservoir r = Cache[RadianceCacheRID].reservoir[idx];
+        if(r.M > 0.0) {
+            acc = r.s.radiance*r.W;//* max(0, dot(n, normalize(r.s.xs - r.s.xv)));// * max(0, dot(n, normalize(r.s.xs - r.s.xv)));// * r.W;
+        } else {
+            acc = vec3(0,0,1); // Reservoir is empty
         }
     } else {
-        acc = vec3(1,0,0);
+        acc = vec3(1,0,0); // Failed to find/allocate cell
     }
     // acc = RandomColor(idx);
     

@@ -72,7 +72,7 @@ class WorldRenderer {
 
     float timeOfDay = 9.0f;
     bool timeFlow = false;
-    Technique technique = Technique::ReSTIR;
+    Technique technique = Technique::IRCache;
     OutputImage outputImage = OutputImage::Composed;
     bool enableTAA = true;
     bool enableJitter = true;
