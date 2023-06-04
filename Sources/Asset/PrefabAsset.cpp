@@ -10,9 +10,9 @@ glm::vec3 readVec3(const std::string& str) {
 	int s2 = str.find_first_of(' ', s1+1);
 
 	glm::vec3 v;
-	std::from_chars(str.data(), str.data() + s1, v.x);
-	std::from_chars(str.data() + s1+1, str.data() + s2, v.y);
-	std::from_chars(str.data() + s2+1, str.data() + str.size(), v.z);
+	v.x = strtof(str.data(), (char**)(str.data() + s1));
+	v.y = strtof(str.data() + s1+1, (char**)(str.data() + s2));
+	v.z = strtof(str.data() + s2+1, (char**)(str.data() + str.size()));
 
 	return v;
 }

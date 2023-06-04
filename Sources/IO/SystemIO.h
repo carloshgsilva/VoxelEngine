@@ -9,6 +9,7 @@ public:
 	static void Run(std::string s) {
 		system(s.c_str());
 	}
+	/*
 	static void Run(std::wstring s) {
 		int len = WideCharToMultiByte(CP_ACP, 0, s.c_str(), s.size() + 1, 0, 0, 0, 0);
 
@@ -19,4 +20,5 @@ public:
 
 		system(str.c_str());
 	}
+	*/
 };

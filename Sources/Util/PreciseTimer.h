@@ -3,6 +3,8 @@
 #include "IO/Log.h"
 
 #include <string>
+
+#if WIN32
 #include <profileapi.h>
 
 class PreciseTimer {
@@ -25,3 +27,22 @@ public:
 	}
 
 };
+
+#else
+//TODO: PreciseTimer on other os
+class PreciseTimer {
+	std::string identifier;
+	double elapsedTime;
+
+public:
+	PreciseTimer(std::string identifier) : identifier(identifier) {
+		
+	}
+
+	~PreciseTimer() {
+		
+	}
+
+};
+
+#endif

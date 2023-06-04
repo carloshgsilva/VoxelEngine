@@ -12,8 +12,6 @@
 
 //TODO: Make it a Singleton (Module) as ImGui is already is singleton
 class ImGuiRenderer {
-	std::shared_ptr<struct InternalState> state;
-
 public:
 
 	ImGuiRenderer();

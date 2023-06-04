@@ -57,7 +57,7 @@ WorldRenderer::WorldRenderer() {
     // Create Initial Framebuffers
     RecreateFramebuffer(320, 240);  // Small Initial buffer allocation
 
-    Cmds = new RenderCmds();
+    Cmds = std::make_shared<RenderCmds>();
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
     //_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
     _ViewBuffer.Build([&](int i) { return CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU}); });
@@ -298,8 +298,8 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
-        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : vec2(0.5f);
-        viewData.PreviousJitter = enableJitter ? OFFSETS[(_Frame + 15) % 16] : vec2(0.5f);
+        viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : glm::vec2(0.5f);
+        viewData.PreviousJitter = enableJitter ? OFFSETS[(_Frame + 15) % 16] : glm::vec2(0.5f);
         viewData.Frame = enablePermutation ? _Frame : 0;
         viewData.PalleteColorRID = GetRID(PalleteCache::GetColorTexture());
         viewData.PalleteMaterialRID = GetRID(PalleteCache::GetMaterialTexture());

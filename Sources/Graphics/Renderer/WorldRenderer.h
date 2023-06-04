@@ -53,7 +53,7 @@ class WorldRenderer {
 
     Image _ColorBuffer;
 
-    struct RenderCmds* Cmds;
+    std::shared_ptr<struct RenderCmds> Cmds;
 
    public:
     enum class OutputImage : uint {
@@ -83,9 +83,7 @@ class WorldRenderer {
     bool enableProbesTemporal = false;
 
     WorldRenderer();
-    ~WorldRenderer() {
-        delete Cmds;
-    }
+    ~WorldRenderer() { }
 
     void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
 

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <functional>
 #include <optional>
+#include <unordered_map>
 
 namespace ScriptUtil {
     inline std::size_t hashMethodSignature(
@@ -109,8 +110,8 @@ public:
 
         using ForeignMethod = std::function<void(WrenVM*, Base*)>;
 
-        template <typename Sig, Sig sig> struct MemberFieldDetail;
-        template<typename T, T Base::* Field> struct MemberFieldDetail<T Base::*, Field> { using FieldType = T; };
+        //template <typename Sig, Sig sig> struct MemberFieldDetail;
+        //template<typename T, T Base::* Field> struct MemberFieldDetail<T Base::*, Field> { using FieldType = T; };
         
         ForeignClassContext& Ctor() {
             WrenForeignClassMethods m{};
@@ -128,6 +129,7 @@ public:
 
         template<auto Field>
         ForeignClassContext& Field(const char* name) {
+            /*
             using FieldType = typename MemberFieldDetail<decltype(Field), Field>::FieldType;
             // Get
             Method(name, [](WrenVM* vm) {
@@ -162,7 +164,7 @@ public:
                     static_assert(false, "Failed to resolve Var type");
                 }
             });
-
+            */
             return *this;
         }
 
@@ -195,7 +197,6 @@ public:
 
         ModuleContext& End() { return *_module; }
     };
-
     struct ModuleContext {
         ScriptVM* _context;
         const char* _name;

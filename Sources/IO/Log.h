@@ -1,5 +1,6 @@
 #pragma once
 
+#if WIN32
 #ifndef NOMINMAX
     #define NOMINMAX // prevent windows redefining min/max
 #endif
@@ -9,6 +10,7 @@
 #endif
 
 #include <windows.h>
+#endif
 
 #undef LoadImage
 #undef near

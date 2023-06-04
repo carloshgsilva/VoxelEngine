@@ -4,6 +4,8 @@
 #include "Core/Input.h"
 
 #include <functional>
+#include <vector>
+#include <string>
 
 // Represents an event that the user may do
 // Window -> Engine.DispatchEvent() -> Layer.OnEvent(); -> World.OnEvent();
@@ -50,7 +52,7 @@ struct KeyEvent : public EventDef<KeyEvent> {
 // General Events //
 ////////////////////
 struct DropFileEvent : public EventDef<DropFileEvent> {
-	std::vector<std::string> Files;
+	std::vector<std::string> Files = {};
 };
 struct FocusChangeEvent : public EventDef<FocusChangeEvent> {
 	bool Focused;

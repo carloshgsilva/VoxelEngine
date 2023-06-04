@@ -32,6 +32,7 @@ target_link_libraries(VoxelEngine PUBLIC evk)
 # json11
 file(GLOB_RECURSE JSON11_SOURCE ${CMAKE_SOURCE_DIR}/Vendor/json11/*.cpp)
 add_library(json11 ${JSON11_SOURCE})
+target_compile_features(json11 PRIVATE cxx_std_20)
 target_link_libraries(VoxelEngine PUBLIC json11)
 
 # wren
@@ -51,6 +52,7 @@ target_link_libraries(VoxelEngine PUBLIC imgui)
 # fastnoise
 file(GLOB_RECURSE FASTNOISE_SOURCE ${CMAKE_SOURCE_DIR}/Vendor/FastNoise/*.cpp)
 add_library(fastnoise ${FASTNOISE_SOURCE})
+target_compile_features(fastnoise PRIVATE cxx_std_20)
 target_link_libraries(VoxelEngine PUBLIC fastnoise)
 
 # stb

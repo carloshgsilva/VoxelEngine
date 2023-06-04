@@ -1,18 +1,9 @@
 #include "ImGuiRenderer.h"
 #include "Profiler/Profiler.h"
 
-#include <vulkan/vulkan.hpp>
-
-#define EVK_INTERNAL_STATE 1
 #include <evk/evk.h>
 
-struct InternalState {
-    vk::DescriptorPool _PerFrameDescriptorPool;
-};
-
 ImGuiRenderer::ImGuiRenderer() {
-    state = std::make_shared<InternalState>();
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();

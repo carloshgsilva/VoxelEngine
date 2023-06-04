@@ -37,8 +37,6 @@ constexpr Unique<T> NewUnique(Args&& ... args) {
 
 
 struct TypeDef {
-	bool IsClass;
-	bool IsClassPtr;
 	bool IsFundamental;
 	size_t Size;
 };
@@ -49,8 +47,6 @@ struct Internal_TypeId {
 };
 template<typename T>
 TypeDef Internal_TypeId<T>::Def = {
-	std::is_base_of_v<class Object, T>,
-	std::is_base_of_v<class Object, std::remove_pointer_t<T>> && std::is_pointer_v<T>,
 	std::is_fundamental_v<T>
 };
 
@@ -82,5 +78,7 @@ using uint64 = uint64_t;
 
 #define CHECK(expression) \
 if ((!(expression))) { \
-Log::error("Check Error: {} Line: {}" , __FILE__, __LINE__); throw std::exception(__FILE__); \
+	Log::error("CHECK: {}:{}" , __FILE__, __LINE__); \
+	Log::error("{} == false" , #expression); \
+	assert(false); \
 } \

@@ -15,6 +15,14 @@
 inline static const bool _Debug = false;
 inline static const bool _Debug_Nodes_Creation = false;
 
+#if __APPLE__
+namespace std {
+    void from_chars(const char* begin, const char* end, float& v) {
+        v = strtof(begin, (char**)end);
+    }
+}
+#endif
+
 /*
 store a row-major rotation in the bits of a byte
 

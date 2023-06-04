@@ -30,7 +30,7 @@ public:
 
 	//Fundamentals (int, float, double)
 	template <typename T>
-	FORCEINLINE friend std::enable_if_t<std::is_fundamental_v<T>, Stream&> 
+	friend std::enable_if_t<std::is_fundamental_v<T>, Stream&> 
 	operator|(Stream& S, T& Value) {
 		S.Serialize(&Value, sizeof(T));
 		return S;

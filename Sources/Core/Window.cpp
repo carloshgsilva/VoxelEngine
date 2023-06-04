@@ -11,16 +11,13 @@ Window::Window() {
     height = 480;
 
     // Init GLFW
-    if (!glfwInit()) {
-        Log::error("Failed to Init GLFW!");
-        exit(-1);
-    }
+    CHECK(glfwInit());
 
     // Init Vulkan
-    if (!glfwVulkanSupported()) {
-        throw std::exception("Vulkan not supported!");
-    }
-
+#if EVK_VULKAN
+    CHECK(glfwVulkanSupported());
+#endif
+    
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
     window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);

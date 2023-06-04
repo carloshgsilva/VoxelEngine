@@ -138,6 +138,69 @@ public:
 	}
 };
 
+// Global class to load and manage Assets
+class Assets : public ModuleDef<Assets> {
+	std::unordered_map<AssetGUID, AssetRef> _AssetsCache;
+
+	static AssetGUID _GenerateGUID(void* seed) {
+		std::hash<void*> h;
+		return h(seed);
+	}
+
+	AssetRef _Load(AssetGUID GUID);
+
+
+public:
+
+	static AssetGUID Hash(const std::string& assetPath) {
+		std::hash<std::string> h = {};
+		return h(assetPath);
+	}
+
+	// Create a asset in a file in the @path
+	// after created the Asset._GUID will be defined
+	// also caches it
+	// [Editor Only]
+	static void CreateAsset(AssetRef asset, const std::string& path);
+
+	// Saves a already existing asset 
+	// [Editor Only]
+	static void SaveAsset(AssetRef asset);
+
+	// Delete an existing file asset
+	// [Editor Only]
+	static void DeleteAsset(AssetGUID guid);
+
+	//Load an asset from any Mod by its GUID
+	static AssetRef Load(AssetGUID GUID) { return Get()._Load(GUID); }
+	//Load an asset from any Mod by its name relative to Mods folder
+	static AssetRef Load(const std::string& name) { return Get()._Load(Hash(name)); }
+
+	// Tries to free memory
+	// It only frees memory that are mapped to files (with GUID)
+	// Runtime assets are not freed
+	static void GarbageCollect() {
+		//TODO: Try to clean assets that are not used Both Runtime and Loaded ones
+		CHECK(0);
+	}
+};
+
+class AssetSerializer {
+public:
+	static AssetRef Load(Stream& S) {
+		std::filesystem::path p = std::filesystem::path(S.GetIdentifier());
+		std::string ext = p.extension().string().substr(1);
+		AssetRef a = Asset::Factories()[ext]();
+		a->Serialize(S);
+		a->OnLoad();
+		return a;
+	}
+	static void Save(AssetRef asset, Stream& S) {
+		asset->Serialize(S);
+	}
+};
+
+
 // Used to reference an Asset that has a Mod/Path even though it may be not loaded
 // Also used to save the asset reference
 template<class T, typename = std::enable_if<std::is_base_of_v<Asset, T>>>
@@ -189,65 +252,3 @@ public:
 	std::string GetAsHex() { return fmt::format("{0:X}", _GUID); }
 };
 
-
-// Global class to load and manage Assets
-class Assets : public ModuleDef<Assets> {
-	std::unordered_map<AssetGUID, AssetRef> _AssetsCache;
-
-	static AssetGUID _GenerateGUID(void* seed) {
-		std::hash<void*> h;
-		return h(seed);
-	}
-
-	AssetRef _Load(AssetGUID GUID);
-
-
-public:
-
-	static AssetGUID Hash(const std::string& assetPath) {
-		std::hash<std::string> h;
-		return h(assetPath);
-	}
-
-	// Create a asset in a file in the @path
-	// after created the Asset._GUID will be defined
-	// also caches it
-	// [Editor Only]
-	static void CreateAsset(AssetRef asset, const std::string& path);
-
-	// Saves a already existing asset 
-	// [Editor Only]
-	static void SaveAsset(AssetRef asset);
-
-	// Delete an existing file asset
-	// [Editor Only]
-	static void DeleteAsset(AssetGUID guid);
-
-	//Load an asset from any Mod by its GUID
-	static AssetRef Load(AssetGUID GUID) { return Get()._Load(GUID); }
-	//Load an asset from any Mod by its name relative to Mods folder
-	static AssetRef Load(const std::string& name) { return Get()._Load(Hash(name)); }
-
-	// Tries to free memory
-	// It only frees memory that are mapped to files (with GUID)
-	// Runtime assets are not freed
-	static void GarbageCollect() {
-		//TODO: Try to clean assets that are not used Both Runtime and Loaded ones
-		CHECK(0);
-	}
-};
-
-class AssetSerializer {
-public:
-	static AssetRef Load(Stream& S) {
-		std::filesystem::path p = std::filesystem::path(S.GetIdentifier());
-		std::string ext = p.extension().string().substr(1);
-		AssetRef a = Asset::Factories()[ext]();
-		a->Serialize(S);
-		a->OnLoad();
-		return a;
-	}
-	static void Save(AssetRef asset, Stream& S) {
-		asset->Serialize(S);
-	}
-};

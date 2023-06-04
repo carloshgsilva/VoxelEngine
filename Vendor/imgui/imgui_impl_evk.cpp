@@ -1,5 +1,4 @@
 #include "imgui_impl_evk.h"
-#include "evk_internal.h"
 #include "evk.h"
 
 using namespace evk;
