@@ -1,11 +1,6 @@
 #include "Graphics.h"
 
-#if EVK_VULKAN
 #include <evk/evk_vulkan.h>
-#endif
-#if EVK_METAL
-#define GLFW_EXPOSE_NATIVE_COCOA
-#endif
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -32,7 +27,6 @@ Graphics::Graphics() {
 
     CHECK(evk::InitializeEVK(evkInitDesc));
 
-#if EVK_VULKAN
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(evk::GetState().instance, window, nullptr, &surface) != VK_SUCCESS) {
         Log::error("Failed to create window surface!");
@@ -40,8 +34,4 @@ Graphics::Graphics() {
     if (!InitializeSwapchain(surface)) {
         Log::error("Failed to initialize swapchain!");
     }
-#endif
-#if EVK_METAL
-   evk::InitializeSwapchain(glfwGetCocoaWindow(window));
-#endif
 }

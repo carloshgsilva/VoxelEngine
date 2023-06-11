@@ -38,26 +38,25 @@
 #define BINDING_BUFFER_R(name, code) layout(binding = 0) restrict readonly buffer name##_t { code } name[];
 #define BINDING_BUFFER_W(name, code) layout(binding = 0) restrict writeonly buffer name##_t { code } name[];
 
-#define ARRAY_SIZE 65536
-layout(binding = 1) uniform sampler2D Sampler2D[ARRAY_SIZE];
-layout(binding = 1) uniform usampler2D USampler2D[ARRAY_SIZE];
-layout(binding = 1) uniform sampler3D Sampler3D[ARRAY_SIZE];
-layout(binding = 1) uniform usampler3D USampler3D[ARRAY_SIZE];
-layout(binding = 1) uniform samplerCube SamplerCube[ARRAY_SIZE];
+layout(binding = 1) uniform sampler2D Sampler2D[];
+layout(binding = 1) uniform usampler2D USampler2D[];
+layout(binding = 1) uniform sampler3D Sampler3D[];
+layout(binding = 1) uniform usampler3D USampler3D[];
+layout(binding = 1) uniform samplerCube SamplerCube[];
 
-layout(binding = 2) uniform restrict writeonly image2D Image2DW[ARRAY_SIZE];
-layout(binding = 2) uniform restrict writeonly iimage2D IImage2DW[ARRAY_SIZE];
-layout(binding = 2) uniform restrict writeonly uimage2D UImage2DW[ARRAY_SIZE];
-layout(binding = 2) uniform restrict writeonly image3D Image3DW[ARRAY_SIZE];
-layout(binding = 2) uniform restrict writeonly iimage3D IImage3DW[ARRAY_SIZE];
-layout(binding = 2) uniform restrict writeonly uimage3D UImage3DW[ARRAY_SIZE];
-layout(binding = 2) uniform restrict readonly image2D Image2DR[ARRAY_SIZE];
-layout(binding = 2) uniform restrict readonly iimage2D IImage2DR[ARRAY_SIZE];
-layout(binding = 2) uniform restrict readonly uimage2D UImage2DR[ARRAY_SIZE];
-layout(binding = 2) uniform restrict readonly image3D Image3DR[ARRAY_SIZE];
-layout(binding = 2) uniform restrict readonly iimage3D IImage3DR[ARRAY_SIZE];
-layout(binding = 2) uniform restrict readonly uimage3D UImage3DR[ARRAY_SIZE];
+layout(binding = 2) uniform restrict writeonly image2D Image2DW[];
+layout(binding = 2) uniform restrict writeonly iimage2D IImage2DW[];
+layout(binding = 2) uniform restrict writeonly uimage2D UImage2DW[];
+layout(binding = 2) uniform restrict writeonly image3D Image3DW[];
+layout(binding = 2) uniform restrict writeonly iimage3D IImage3DW[];
+layout(binding = 2) uniform restrict writeonly uimage3D UImage3DW[];
+layout(binding = 2) uniform restrict readonly image2D Image2DR[];
+layout(binding = 2) uniform restrict readonly iimage2D IImage2DR[];
+layout(binding = 2) uniform restrict readonly uimage2D UImage2DR[];
+layout(binding = 2) uniform restrict readonly image3D Image3DR[];
+layout(binding = 2) uniform restrict readonly iimage3D IImage3DR[];
+layout(binding = 2) uniform restrict readonly uimage3D UImage3DR[];
 
-layout(binding = 3) uniform accelerationStructureEXT TLAS[ARRAY_SIZE];
+layout(binding = 3) uniform accelerationStructureEXT TLAS[];
 
 #endif

@@ -124,8 +124,8 @@ void ViewportWindow::OnEvent(Event& E) {
         }
     } else if (E.Is<ViewportChangeEvent>()) {
         Engine::OnBeforeUpdate([=] {
-            //_WorldRenderer->RecreateFramebuffer(_Width, _Height);
-            // OnUpdate(0.016f);
+            _WorldRenderer->RecreateFramebuffer(_Width, _Height);
+             OnUpdate(0.016f);
         });
     } else if (E.Is<KeyEvent>()) {
         auto& ke = E.As<KeyEvent>();

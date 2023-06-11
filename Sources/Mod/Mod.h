@@ -40,7 +40,7 @@ protected:
 	}
 
 
-	virtual AssetRef Load(const std::string& path) { CHECK(0); }
+	virtual AssetRef Load(const std::string& path) { CHECK(0); return {}; }
 
 public:
 	inline static const std::filesystem::path MODS = "Assets/Mods";
