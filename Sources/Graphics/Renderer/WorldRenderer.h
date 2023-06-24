@@ -19,7 +19,7 @@ class WorldRenderer {
 
     AssetRefT<ImageAsset> _BlueNoise;
     AssetRefT<SkyBoxAsset> _DefaultSkyBox;
-    PerFrame<Buffer> _ViewBuffer;
+    Buffer _ViewBuffer;
 
     std::vector<Buffer> holdVox;
     Buffer voxInstancesBuffer;

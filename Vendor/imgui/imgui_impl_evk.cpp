@@ -4,8 +4,8 @@
 using namespace evk;
 
 static Image g_fontImage;
-static Buffer g_vertexBuffers[2];
-static Buffer g_indexBuffers[2];
+static Buffer g_vertexBuffer;
+static Buffer g_indexBuffer;
 static Pipeline g_pipeline;
 
 void CreateOrResizeBuffer(Buffer& buff, uint64_t desired_size, BufferUsage usage) {
@@ -75,33 +75,32 @@ IMGUI_IMPL_API bool ImGui_ImplEvk_Init() {
 }
 IMGUI_IMPL_API void ImGui_ImplEvk_Shutdown() {
     g_fontImage.release();
-    g_vertexBuffers[0].release();
-    g_vertexBuffers[1].release();
-    g_indexBuffers[0].release();
-    g_indexBuffers[1].release();
+    g_vertexBuffer.release();
+    g_indexBuffer.release();
     g_pipeline.release();
 }
-IMGUI_IMPL_API void ImGui_ImplEvk_RenderDrawData(ImDrawData* draw_data) {
-    if (draw_data->TotalVtxCount == 0) return;
 
-    int frameIdx = evk::GetFrameIndex();
-    Buffer vertexBuffer = g_vertexBuffers[frameIdx];
-    Buffer indexBuffer = g_indexBuffers[frameIdx];
-    CreateOrResizeBuffer(vertexBuffer, draw_data->TotalVtxCount * sizeof(ImDrawVert), BufferUsage::Vertex);
-    CreateOrResizeBuffer(indexBuffer,  draw_data->TotalIdxCount * sizeof(ImDrawIdx),  BufferUsage::Index);
+
+IMGUI_IMPL_API void ImGui_ImplEvk_PrepareRender(ImDrawData* draw_data) {
+    CreateOrResizeBuffer(g_vertexBuffer, draw_data->TotalVtxCount * sizeof(ImDrawVert), BufferUsage::Vertex);
+    CreateOrResizeBuffer(g_indexBuffer,  draw_data->TotalIdxCount * sizeof(ImDrawIdx),  BufferUsage::Index);
     
-    CmdVertex(vertexBuffer);
-    CmdIndex(indexBuffer, true);
-
     uint64_t vtx_dst = 0;
     uint64_t idx_dst = 0;
     for (int n = 0; n < draw_data->CmdListsCount; n++) {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        WriteBuffer(vertexBuffer, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert), vtx_dst * sizeof(ImDrawVert));
-        WriteBuffer(indexBuffer, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx), idx_dst * sizeof(ImDrawIdx));
+        CmdCopy(cmd_list->VtxBuffer.Data, g_vertexBuffer, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert), vtx_dst * sizeof(ImDrawVert));
+        CmdCopy(cmd_list->IdxBuffer.Data, g_indexBuffer, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx), idx_dst * sizeof(ImDrawIdx));
         vtx_dst += cmd_list->VtxBuffer.Size;
         idx_dst += cmd_list->IdxBuffer.Size;
     }
+}
+
+IMGUI_IMPL_API void ImGui_ImplEvk_RenderDrawData(ImDrawData* draw_data) {
+    if (draw_data->TotalVtxCount == 0) return;
+
+    CmdVertex(g_vertexBuffer);
+    CmdIndex(g_indexBuffer, true);
 
     ImVec2 clip_off = draw_data->DisplayPos;
     ImVec2 clip_scale = draw_data->FramebufferScale;

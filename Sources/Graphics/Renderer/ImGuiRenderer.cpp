@@ -54,10 +54,11 @@ void ImGuiRenderer::OnGUI(std::function<void()> cb) {
     cb();
 
     ImGui::EndFrame();
+    ImGui::Render();
+    ImGui_ImplEvk_PrepareRender(ImGui::GetDrawData());
 }
 
 void ImGuiRenderer::Draw() {
-    ImGui::Render();
     ImGui_ImplEvk_RenderDrawData(ImGui::GetDrawData());
 }
 

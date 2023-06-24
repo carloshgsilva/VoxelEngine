@@ -60,7 +60,7 @@ WorldRenderer::WorldRenderer() {
     Cmds = std::make_shared<RenderCmds>();
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
     //_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
-    _ViewBuffer.Build([&](int i) { return CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU}); });
+    _ViewBuffer = CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU});
     constexpr uint64 RESERVOIR_SIZE = 24 * sizeof(float);
     radianceCacheBuffer = CreateBuffer({
         .name = "Radiance Cache",
@@ -305,7 +305,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.PalleteMaterialRID = GetRID(PalleteCache::GetMaterialTexture());
         viewData.BlueNoiseRID = GetRID(_BlueNoise->GetImage());
         viewData.TimeOfDay = timeOfDay;
-        WriteBuffer(_ViewBuffer, &viewData, sizeof(ViewData));
+        CmdCopy(&viewData, _ViewBuffer, sizeof(ViewData));
     }
 
     if (tlas) {
