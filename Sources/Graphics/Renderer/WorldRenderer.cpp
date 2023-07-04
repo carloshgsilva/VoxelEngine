@@ -24,8 +24,6 @@
 #include "Graphics/Pipelines/DenoiserPass.h"
 #include "Graphics/Pipelines/ComposePass.h"
 
-static inline constexpr bool ENABLE_UPSAMPLING = false;
-
 const int BLOOM_MIP_COUNT = 5;
 const int MAX_BVH_COUNT = 16384;
 
@@ -81,11 +79,6 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
     if (Width <= 1) Width = 1;
     if (Height <= 1) Height = 1;
 
-    if (ENABLE_UPSAMPLING) {
-        Width /= 2;
-        Height /= 2;
-    }
-
     _Bloom1Buffer.clear();
     _Bloom2Buffer.clear();
 
@@ -110,11 +103,6 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
         int h = std::max(Height >> mip, 1u);
         _Bloom1Buffer.push_back(CreateLightImage(w, h));
         _Bloom2Buffer.push_back(CreateLightImage(w, h));
-    }
-
-    if (ENABLE_UPSAMPLING) {
-        Width *= 2;
-        Height *= 2;
     }
 
     // Compose
@@ -295,7 +283,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         viewData.InverseViewMatrix = view.CameraMatrix;  // glm::inverse(view.ViewMatrix);
         viewData.ProjectionMatrix = view.ProjectionMatrix;
         viewData.InverseProjectionMatrix = glm::inverse(view.ProjectionMatrix);
-        viewData.Res = glm::vec2(view.Width, view.Height) * (ENABLE_UPSAMPLING ? 0.5f : 1.0f);
+        viewData.Res = glm::vec2(view.Width, view.Height);
         viewData.iRes = 1.0f / viewData.Res;
         viewData.CameraPosition = view.Position;
         viewData.Jitter = enableJitter ? OFFSETS[_Frame % 16] : glm::vec2(0.5f);

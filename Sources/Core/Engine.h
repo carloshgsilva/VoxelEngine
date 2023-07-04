@@ -21,7 +21,7 @@ class Engine {
     void Update();
 
    public:
-    int sleepMS = 1;
+    int sleepMS = 0;
 
     void DispatchEvent(Event& E) {
         _OnEvent_Callbacks.ExecuteAll(E);
