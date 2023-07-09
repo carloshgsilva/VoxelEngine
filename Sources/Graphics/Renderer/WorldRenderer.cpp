@@ -182,20 +182,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
 
     if (tlasCount != blasCount) {
         tlasCount = blasCount;
-        {
-            PROFILE_SCOPE("Load Voxel Assets");
-            world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
-                if (v.Vox.IsValid() && v.Pallete.IsValid()) {
-                    glm::mat4 mat = t.WorldMatrix;
-                    mat = glm::translate(mat, -v.Pivot);
-                    glm::mat4 last_mat = t.PreviousWorldMatrix;
-                    last_mat = glm::translate(last_mat, -v.Pivot);
-
-                    v.Vox->GetImage();
-                    v.Pallete->GetPalleteIndex();
-                }
-            });
-        }
 
         lastReloadShaders = Engine::GetTime();
         blasInstances.clear();
