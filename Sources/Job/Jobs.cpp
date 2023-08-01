@@ -1,5 +1,7 @@
 #include "Jobs.h"
 
+#include <Windows.h>
+
 Jobs::Context Jobs::MainThreadContext = {};
 
 bool Jobs::_TryToGetJob(Job& j) {

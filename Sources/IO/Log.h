@@ -1,21 +1,6 @@
 #pragma once
 
-#if WIN32
-#ifndef NOMINMAX
-    #define NOMINMAX // prevent windows redefining min/max
-#endif
-
-#ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-#endif
-
-#include <windows.h>
-#endif
-
-#undef LoadImage
-#undef near
-#undef far
-
+#define FMT_USE_WINDOWS_H 0
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <iostream>

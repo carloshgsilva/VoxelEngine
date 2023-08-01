@@ -4,7 +4,6 @@
 
 #include "Systems/TransformSystem.h"
 #include "Systems/PhysicsSystem.h"
-#include "Systems/ShadowVoxSystem.h"
 #include "Systems/ScriptSystem.h"
 #include "Systems/CharacterSystem.h"
 #include "Systems/IKSystem.h"
@@ -13,7 +12,6 @@
 World::World() {
 	Transform = RegisterSystem<TransformSystem>();
 	Physics = RegisterSystem<PhysicsSystem>();
-	ShadowVox = RegisterSystem<ShadowVoxSystem>();
 	Script = RegisterSystem<ScriptSystem>();
 	Character = RegisterSystem<CharacterSystem>();
 	IK = RegisterSystem<IKSystem>();
@@ -24,7 +22,6 @@ World::World() {
 World::~World() {
 	delete Transform;
 	delete Physics;
-	delete ShadowVox;
 	delete Script;
 	delete Character;
 	delete IK;
@@ -41,7 +38,6 @@ void World::Update(float dt) {
 	Character->OnUpdate(dt);
 	Transform->OnUpdate(dt);
 	IK->OnUpdate(dt);
-	ShadowVox->OnUpdate(dt);
 }
 
 entt::entity World::Create(const std::string& name) {

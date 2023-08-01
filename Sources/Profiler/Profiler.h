@@ -2,12 +2,6 @@
 
 #include "Core/Module.h"
 
-#include <fstream>
-#include <sstream>
-#include <iomanip>
-#include <thread>
-#include <chrono>
-#include <mutex>
 #include <map>
 
 #define ACTIVATE_PROFILER 1

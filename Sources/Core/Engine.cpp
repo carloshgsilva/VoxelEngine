@@ -57,8 +57,6 @@ void Engine::Create() {
 
     // Initialize EngineSystems
     {
-        PreciseTimer t("[Engine] Init Systems");
-
         Jobs::Initialize();
         Window::Initialize();
         Graphics::Initialize();

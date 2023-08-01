@@ -1,12 +1,9 @@
 #pragma once
 
 #include "Core.h"
-#include "Window.h"
 #include "LayerStack.h"
 #include "Util/CallbackQueue.h"
 #include "Profiler/Profiler.h"
-
-#include <iostream>
 
 class Engine {
     RuntimeProfiler profiler = {};

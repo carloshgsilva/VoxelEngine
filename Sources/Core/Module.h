@@ -2,7 +2,6 @@
 
 #include "Core/Core.h"
 #include "IO/Log.h"
-#include "Util/PreciseTimer.h"
 
 //Base class for Module
 //When defining an Module use ModuleDef<T>
@@ -19,7 +18,6 @@ class ModuleDef {
 	inline static int initialization_state = SYSTEM_STATE_UNINITIALIZED;
 
 	static void Initialize() {
-		PreciseTimer t(fmt::format("[Module] Initialize {}", typeid(T).name()));
 		CHECK(initialization_state == SYSTEM_STATE_UNINITIALIZED);
 		Get();
 	}

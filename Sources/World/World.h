@@ -23,7 +23,6 @@ public:
 	//Systems
 	class TransformSystem* Transform;
 	class PhysicsSystem* Physics;
-	class ShadowVoxSystem* ShadowVox;
 	class ScriptSystem* Script;
 	class CharacterSystem* Character;
 	class IKSystem* IK;
