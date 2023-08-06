@@ -8,6 +8,9 @@
 #include "Editor/Util/AutoAssetImporter.h"
 #include "Mod/ModLoader.h"
 #include "Profiler/Profiler.h"
+#include "Core/Window.h"
+
+#include <imgui/imnodes.h>
 
 static RuntimeProfiler timestamps = {};
 
@@ -194,6 +197,44 @@ void EditorLayer::OnGui() {
         ImGui::Checkbox("Denoiser", &Viewports[0]->GetWorldRenderer()->enableDenoiser);
     }
     ImGui::End();
+
+    ImGui::Begin("Script");
+        ImNodes::BeginNodeEditor();
+
+        ImNodes::BeginNode(1);
+            ImGui::Text("Idle");
+            ImNodes::BeginInputAttribute(1);
+            // in between Begin|EndAttribute calls, you can call ImGui
+            // UI functions
+            ImGui::Text("input pin");
+            ImNodes::EndInputAttribute();
+            ImNodes::BeginOutputAttribute(2);
+            // in between Begin|EndAttribute calls, you can call ImGui
+            // UI functions
+            ImGui::Text("output pin");
+            ImNodes::EndOutputAttribute();
+        ImGui::Dummy(ImVec2(180.0f, 45.0f));
+        ImNodes::EndNode();
+
+        
+        ImNodes::BeginNode(2);
+            ImGui::Text("Chasing");
+            ImNodes::BeginInputAttribute(3);
+            // in between Begin|EndAttribute calls, you can call ImGui
+            // UI functions
+            ImGui::Text("input pin");
+            ImNodes::EndInputAttribute();
+            ImNodes::BeginOutputAttribute(4);
+            // in between Begin|EndAttribute calls, you can call ImGui
+            // UI functions
+            ImGui::Text("output pin");
+            ImNodes::EndOutputAttribute();
+        ImGui::Dummy(ImVec2(180.0f, 45.0f));
+        ImNodes::EndNode();
+
+        ImNodes::EndNodeEditor();
+    ImGui::End();
+    
 
     _Assets->OnGUI();
     _Hierarchy->OnGUI();

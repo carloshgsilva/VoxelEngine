@@ -82,7 +82,9 @@
 		"any": "cpp",
 		"complex": "cpp",
 		"typeindex": "cpp",
-		"variant": "cpp"
+		"variant": "cpp",
+		"numeric": "cpp",
+		"stack": "cpp"
 	},
 	"shaderc-lint.buildOnSave": true,
 	"shaderc-lint.shadercOutputDir": "Assets/Mods/default/Shaders",

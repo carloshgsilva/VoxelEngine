@@ -9,7 +9,6 @@
 #include "World/Components.h"
 #include "World/Systems/TransformSystem.h"
 #include "World/Systems/CameraSystem.h"
-#include "World/Systems/ShadowVoxSystem.h"
 
 #include "Editor/Importer/AssetImporter.h"
 
@@ -335,7 +334,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 2);
                     DenoiserAtrousPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer, 4);
                     DenoiserAtrousPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer, 8);
-
 #else
                     DenoiserDiscPass::Get().Use(lightBufferB, lightBufferA, gbuffer, _ViewBuffer);
                     DenoiserDiscPass::Get().Use(lightBufferA, lightBufferB, gbuffer, _ViewBuffer);

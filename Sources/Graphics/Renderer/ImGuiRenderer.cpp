@@ -1,11 +1,14 @@
 #include "ImGuiRenderer.h"
 #include "Profiler/Profiler.h"
+#include "Core/Window.h"
 
 #include <evk/evk.h>
+#include <imgui/imnodes.h>
 
 ImGuiRenderer::ImGuiRenderer() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImNodes::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
                                                                 //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -41,6 +44,7 @@ ImGuiRenderer::ImGuiRenderer() {
 ImGuiRenderer::~ImGuiRenderer() {
     ImGui_ImplEvk_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImNodes::DestroyContext();
     ImGui::DestroyContext();
 }
 
