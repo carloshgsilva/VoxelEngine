@@ -16,6 +16,7 @@ void Engine::StartEngine() {
     while (!Window::Get().ShouldClose()) {
         Update();
         Profiler::AdvanceFrame();
+        PROFILE_FRAME();
     }
     _layerStack.Clear();
 }
@@ -29,7 +30,7 @@ void Engine::Update() {
         PROFILE_SCOPE("Update");
 
         {
-            PROFILE_SCOPE("PollEvents")
+            PROFILE_SCOPE("PollEvents");
             glfwPollEvents();
         }
 

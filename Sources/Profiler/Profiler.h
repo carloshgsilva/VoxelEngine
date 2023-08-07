@@ -2,9 +2,13 @@
 
 #include "Core/Module.h"
 
+
 #include <map>
 
 #define ACTIVATE_PROFILER 1
+
+#define TRACY_ENABLE 1
+#include <tracy/Tracy.hpp>
 
 struct FrameScopeCapture {
     static constexpr uint32 MAX_ENTRY_COUNT = 1024;
@@ -86,11 +90,13 @@ private:
 };
 
 #if ACTIVATE_PROFILER
-    #define PROFILE_FUNC() ProfileScope __profile##__LINE__(__FUNCTION__);
-    #define PROFILE_SCOPE(name) ProfileScope __profile##__LINE__(name);
+    #define PROFILE_FUNC() ZoneScoped
+    #define PROFILE_SCOPE(name) ZoneScopedN(name)
+    #define PROFILE_FRAME() FrameMark
 #else
     #define PROFILE_FUNC()
     #define PROFILE_SCOPE(name)
+    #define PROFILE_FRAME()
 #endif
 
 struct RuntimeProfiler {

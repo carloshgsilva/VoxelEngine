@@ -41,6 +41,12 @@ include_directories(${CMAKE_SOURCE_DIR}/Vendor/wren ${CMAKE_SOURCE_DIR}/Vendor/w
 add_library(wren ${WREN_SOURCE})
 target_link_libraries(VoxelEngine PUBLIC wren)
 
+# tracy
+include_directories(${CMAKE_SOURCE_DIR}/Vendor/tracy)
+add_library(tracy ${CMAKE_SOURCE_DIR}/Vendor/tracy/TracyClient.cpp)
+target_compile_definitions(tracy PRIVATE "TRACY_ENABLE=1")
+target_link_libraries(VoxelEngine PUBLIC tracy)
+
 # imgui
 file(GLOB_RECURSE IMGUI_SOURCE ${CMAKE_SOURCE_DIR}/Vendor/imgui/*.cpp)
 include_directories(${CMAKE_SOURCE_DIR}/Vendor/imgui)

@@ -225,6 +225,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     }
 
     {
+        PROFILE_SCOPE("TLAS Update");
         int i = 0;
         world.GetRegistry().group<VoxRenderer>(entt::get_t<Transform>()).each([&](const entt::entity e, VoxRenderer& v, Transform& t) {
             if (v.Vox.IsValid() && v.Pallete.IsValid()) {

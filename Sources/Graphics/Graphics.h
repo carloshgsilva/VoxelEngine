@@ -64,9 +64,4 @@ struct GBuffer {
 class Graphics : public ModuleDef<Graphics> {
    public:
     Graphics();
-
-    template <typename T>
-    static void Frame(T callback) {
-        evk::Submit();
-    }
 };

@@ -200,35 +200,27 @@ void EditorLayer::OnGui() {
 
     ImGui::Begin("Script");
         ImNodes::BeginNodeEditor();
+        ImNodes::Link(1, 2, 3);
 
         ImNodes::BeginNode(1);
-            ImGui::Text("Idle");
-            ImNodes::BeginInputAttribute(1);
-            // in between Begin|EndAttribute calls, you can call ImGui
-            // UI functions
-            ImGui::Text("input pin");
-            ImNodes::EndInputAttribute();
-            ImNodes::BeginOutputAttribute(2);
-            // in between Begin|EndAttribute calls, you can call ImGui
-            // UI functions
-            ImGui::Text("output pin");
-            ImNodes::EndOutputAttribute();
-        ImGui::Dummy(ImVec2(180.0f, 45.0f));
+            ImNodes::BeginNodeTitleBar();
+                ImNodes::BeginOutputAttribute(2, ImNodesPinShape_Triangle);
+                ImGui::Text("On Start");
+                ImNodes::EndOutputAttribute();
+            ImNodes::EndNodeTitleBar();
+            ImGui::Dummy(ImVec2(180.0f, 0.0f));
         ImNodes::EndNode();
-
+        
         
         ImNodes::BeginNode(2);
-            ImGui::Text("Chasing");
-            ImNodes::BeginInputAttribute(3);
-            // in between Begin|EndAttribute calls, you can call ImGui
-            // UI functions
-            ImGui::Text("input pin");
+            ImNodes::BeginNodeTitleBar();
+                ImNodes::BeginInputAttribute(3, ImNodesPinShape_Triangle);
+                ImGui::Text("Print");
+                ImNodes::EndInputAttribute();
+            ImNodes::EndNodeTitleBar();
+            ImNodes::BeginInputAttribute(4);
+                ImGui::Text("Text");
             ImNodes::EndInputAttribute();
-            ImNodes::BeginOutputAttribute(4);
-            // in between Begin|EndAttribute calls, you can call ImGui
-            // UI functions
-            ImGui::Text("output pin");
-            ImNodes::EndOutputAttribute();
         ImGui::Dummy(ImVec2(180.0f, 45.0f));
         ImNodes::EndNode();
 
@@ -240,7 +232,7 @@ void EditorLayer::OnGui() {
     _Hierarchy->OnGUI();
     _Properties->OnGUI();
     for (auto viewport : Viewports) {
-        viewport->OnGUI();
+       viewport->OnGUI();
     }
 
     ImGui::PopStyleColor();
@@ -252,14 +244,14 @@ void EditorLayer::OnUpdate(float dt) {
     AutoAssetImporter::CheckForImport();
 
     {
-        PROFILE_SCOPE("Update Viewports")
+        PROFILE_SCOPE("Update Viewports");
 
         for (auto vp : Viewports) {
             vp->OnUpdate(dt);
         }
     }
     {
-        PROFILE_SCOPE("Render Windows")
+        PROFILE_SCOPE("Render Windows");
 
         if (Window::Get().GetWidth() != 0 && Window::Get().GetHeight() != 0) {
             if (this->Viewport != nullptr) this->Viewport->RenderWorld();
@@ -270,6 +262,9 @@ void EditorLayer::OnUpdate(float dt) {
                 });
             });
         }
+    }
+    {
+        PROFILE_SCOPE("evk::Submit");
         evk::Submit();
     }
 }
