@@ -15,8 +15,6 @@
 void Engine::StartEngine() {
     while (!Window::Get().ShouldClose()) {
         Update();
-        Profiler::AdvanceFrame();
-        PROFILE_FRAME();
     }
     _layerStack.Clear();
 }
@@ -45,10 +43,13 @@ void Engine::Update() {
         }
     }
 
+    PROFILE_FRAME();
+    cpuProfiler.MarkFrame();
+    gpuProfiler.MarkFrame();
+
     if (sleepMS > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepMS));
     }
-    Profiler::Get().GetCurrentCapture().Clear();
 }
 
 void Engine::Create() {
@@ -62,7 +63,6 @@ void Engine::Create() {
         Window::Initialize();
         Graphics::Initialize();
         PalleteCache::Initialize();
-        Profiler::Initialize();
         ModLoader::Initialize();
     }
     // Assets::Initialize()

@@ -6,7 +6,9 @@
 #include "Profiler/Profiler.h"
 
 class Engine {
-    RuntimeProfiler profiler = {};
+    RuntimeProfiler cpuProfiler = {};
+    RuntimeProfiler gpuProfiler = {};
+
     CallbackQueue<void> _PostInitialize_Callbacks;
     CallbackQueue<Event&> _OnEvent_Callbacks;
     CallbackQueue<void> _OnBeforeUpdate_Callbacks;
@@ -47,7 +49,8 @@ class Engine {
     static void PopOverlay() {
     }
 
-    static RuntimeProfiler& GetRuntimeProfiler() { return Get().profiler; }
+    static RuntimeProfiler& GetGPUProfiler() { return Get().gpuProfiler; }
+    static RuntimeProfiler& GetCPUProfiler() { return Get().cpuProfiler; }
 
     static void Run();
 

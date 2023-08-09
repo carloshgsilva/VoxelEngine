@@ -126,7 +126,7 @@ void WorldRenderer::RecreateFramebuffer(uint32 Width, uint32 Height) {
 
 double lastReloadShaders = 0.0f;
 void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
-    PROFILE_FUNC();
+    PROFILE_SCOPE("WorldRenderer");
     if (view.Width == 0 || view.Height == 0) return;
     if (timeFlow) {
         timeOfDay += dt * 0.1f;

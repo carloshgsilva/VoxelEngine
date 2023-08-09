@@ -49,8 +49,6 @@ ImGuiRenderer::~ImGuiRenderer() {
 }
 
 void ImGuiRenderer::OnGUI(std::function<void()> cb) {
-    PROFILE_FUNC();
-
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
@@ -122,7 +120,7 @@ void ImGuiRenderer::SetStyle() {
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.000f, 0.000f, 0.000f, 0.586f);
 
     style->ChildRounding = 0.0f;
-    style->IndentSpacing = 13.0f;
+    style->IndentSpacing = 10.0f;
     style->FrameBorderSize = 0.0f;
     style->FrameRounding = 2.0f;
     style->GrabMinSize = 7.0f;

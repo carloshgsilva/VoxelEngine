@@ -12,8 +12,6 @@
 
 #include <imgui/imnodes.h>
 
-static RuntimeProfiler timestamps = {};
-
 EditorLayer::EditorLayer() : Layer("Editor") {
     _Commands.SetOnCmd([this]() { this->Viewport->SetDirty(); });
 
@@ -68,10 +66,13 @@ void EditorLayer::OpenAsset(AssetGUID guid) {
 float totalTime = 0.0f;
 float count = 0.0f;
 void EditorLayer::OnGui() {
-    PROFILE_FUNC();
-    
+    float gpuTime = 0.0f;
+    if(!evk::GetTimestamps().empty()) {
+        gpuTime = evk::GetTimestamps().back().end - evk::GetTimestamps()[0].start;
+    }
     for(auto& ts : evk::GetTimestamps()) {
-        timestamps.Measure(ts.name, float(ts.end-ts.start));
+        uint32_t id = Engine::GetGPUProfiler().Begin(ts.name, ts.start);
+        Engine::GetGPUProfiler().End(id, ts.end);
     }
 
     if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Z))) {
@@ -114,43 +115,12 @@ void EditorLayer::OnGui() {
         }
     }
     ImGui::EndMainMenuBar();
-
     ImGui::Begin(ICON_FA_ROCKET "  Performance");
     {
-        /*
-        auto& cap = Profiler::GetPreviousCapture();
-        float start = float(cap.entries[0].begin);
-        float finish = float(cap.entries[0].end);
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        float SCALE = ImGui::GetContentRegionAvail().x / (finish - start);
-        cap.Iterate([&](auto& e){
-            ImVec2 a = {p.x + float(e.begin - start)*SCALE, p.y};
-            ImVec2 b = {a.x + float(e.end - e.begin)*SCALE, a.y + ImGui::GetTextLineHeight()};
-            ImGui::GetWindowDrawList()->AddRectFilled(a, b, ImGui::GetColorU32(ImGuiRenderer::Accent));
-            
-            
-            ImVec2 oldCursor = ImGui::GetCursorScreenPos();
-            ImVec2 t = {a.x + 4.0f, a.y};
-            ImGui::SetCursorScreenPos(t);
-            ImGui::Text("%s %.2f", e.name, float(e.end - e.begin));
-            ImGui::SetCursorScreenPos(oldCursor);
-            p.y += ImGui::GetTextLineHeight() + 2.0f;
-            // ImGui::Text("%s %f -> %f", e.name, e.begin, e.end);
-            // ImGui::Indent();
-        }, [&](){
-            p.y -= ImGui::GetTextLineHeight() + 2.0f;
-            // ImGui::Unindent();
-        });
-        p.y += 150.0f;
-        ImGui::SetCursorScreenPos(p);
-        */
-        
-        Profiler::GetPreviousCapture().Clear();
-
         if(ImGui::BeginChild("CPU", {450.0f, 0.0f}, true)){
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_CheckMark]);
             ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiRenderer::Border);
-            ImGui::Text("CPU");
+            ImGui::Text("CPU (%.2fms %.0fFPS)", Engine::GetDt() * 1000.0f, 1.0f / Engine::GetDt());
             ImGui::Separator();
             ImGui::PopStyleColor(2);
             {
@@ -162,23 +132,22 @@ void EditorLayer::OnGui() {
                     totalTime = 0.0f;
                     count = 0.0f;
                 }
-                ImGui::Text("%.2fms (%.0fFPS)", Engine::GetDt() * 1000.0f, 1.0f / Engine::GetDt());
                 if (count > 0) {
                     ImGui::Text("Average: %.2fms (%.0ffps)", totalTime / count, 1000.0f * count / totalTime);
                 }
             }
 
-            Engine::GetRuntimeProfiler().OnImGui(200.0f);
+            Engine::GetCPUProfiler().OnImGui(50.0f, 250.0f);
         }
         ImGui::EndChild();
         ImGui::SameLine();
         if(ImGui::BeginChild("GPU", {300.0f, 0.0f}, true)){
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_CheckMark]);
             ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiRenderer::Border);
-            ImGui::Text("GPU");
+            ImGui::Text("GPU (%.2fms)", gpuTime);
             ImGui::Separator();
             ImGui::PopStyleColor(2);
-            timestamps.OnImGui(100.0f);
+            Engine::GetGPUProfiler().OnImGui(200.00f, 150.0f);
         }
         ImGui::EndChild();
 
@@ -239,23 +208,22 @@ void EditorLayer::OnGui() {
 }
 
 void EditorLayer::OnUpdate(float dt) {
-    PROFILE_FUNC();
+    PROFILE_SCOPE("Editor");
 
     AutoAssetImporter::CheckForImport();
 
     {
-        PROFILE_SCOPE("Update Viewports");
-
         for (auto vp : Viewports) {
             vp->OnUpdate(dt);
         }
     }
     {
-        PROFILE_SCOPE("Render Windows");
-
         if (Window::Get().GetWidth() != 0 && Window::Get().GetHeight() != 0) {
             if (this->Viewport != nullptr) this->Viewport->RenderWorld();
-            _imguiRenderer.OnGUI([&] { OnGui(); });
+            {
+                PROFILE_SCOPE("ImGui");
+                _imguiRenderer.OnGUI([&] { OnGui(); });
+            }
             CmdTimestamp("ImGui", [&]{
                 CmdPresent([&] {
                     _imguiRenderer.Draw();

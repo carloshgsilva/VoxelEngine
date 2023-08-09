@@ -46,17 +46,14 @@ public:
 		pc.ViewBufferRID = GetRID(viewBuffer);
 		pc.GBufferRID = GetRID(gbuffer.packed);
 
-		{
-			PROFILE_SCOPE("Cmd Build");
-			//Upload the buffered draw data
-			for (auto& c : instances) {
-				pc.VolumeRID = c.VolumeRID;
-				pc.WorldMatrix = c.WorldMatrix;
-				pc.Color = c.Color;
+		//Upload the buffered draw data
+		for (auto& c : instances) {
+			pc.VolumeRID = c.VolumeRID;
+			pc.WorldMatrix = c.WorldMatrix;
+			pc.Color = c.Color;
 
-				CmdPush(pc);
-				CmdDraw(36, 1, 0, 0);
-			}
+			CmdPush(pc);
+			CmdDraw(36, 1, 0, 0);
 		}
 	}
 
