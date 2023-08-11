@@ -57,7 +57,7 @@ WorldRenderer::WorldRenderer() {
     Cmds = std::make_shared<RenderCmds>();
     _BlueNoise = Assets::Load("default/LDR_RGBA_0.png");
     //_DefaultSkyBox = Assets::Load("default/immenstadter_horn_4k.hdr");
-    _ViewBuffer = CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::CPU_TO_GPU});
+    _ViewBuffer = CreateBuffer({.size = sizeof(ViewData), .usage = BufferUsage::Storage, .memoryType = MemoryType::GPU});
     constexpr uint64 RESERVOIR_SIZE = 24 * sizeof(float);
     radianceCacheBuffer = CreateBuffer({
         .name = "Radiance Cache",
@@ -182,7 +182,6 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     if (tlasCount != blasCount) {
         tlasCount = blasCount;
 
-        lastReloadShaders = Engine::GetTime();
         blasInstances.clear();
         voxInstances.clear();
         holdVox.clear();
@@ -357,7 +356,9 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 // DenoiserAtrousPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
 #elif 1
                 DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 1);
-                DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 1);
+                DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 2);
+                DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer, 4);
+                DenoiserSpecularPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer, 8);
 #else
                 DenoiserDiscPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
                 DenoiserDiscPass::Get().Use(specularBufferA, specularBufferB, gbuffer, _ViewBuffer);

@@ -45,9 +45,11 @@ class DenoiserAtrousPass {
             GetRID(inRadiance),
             GetRID(gbuffer.packed),
             GetRID(viewBuffer),
+            extent.width,
+            extent.height,
             size,
         });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+        CmdDispatch((extent.width + 15) / 16, (extent.height + 7) / 8, 1);
     }
 
     static DenoiserAtrousPass& Get() {

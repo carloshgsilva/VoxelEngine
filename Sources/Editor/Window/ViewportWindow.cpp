@@ -20,7 +20,7 @@ ViewportWindow::ViewportWindow() {
     Selection.SetWorld(_World.get());
 
     _Camera = NewUnique<EditorCamera>();
-    _Camera->position = {26, 15, 25};
+    _Camera->position = {32, 10, 32};
     _Camera->yaw = 0.81f;
     _Camera->pitch = -0.43f;
 

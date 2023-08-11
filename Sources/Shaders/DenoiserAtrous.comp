@@ -5,6 +5,8 @@ PUSH(
     int InRadianceTextureRID;
     int GBufferRID;
     int _ViewBufferRID;
+    int Width;
+    int Height;
     int Size;
 )
 
@@ -36,10 +38,11 @@ float CalculateVariance(ivec2 pixel) {
     return max(Luminance(mean2) - meanLum * meanLum, 0) / ((KernelSize*2+1)*(KernelSize*2+1));
 }
 
-COMPUTE(8, 8, 1)
+COMPUTE(16, 8, 1)
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    vec2 uv = vec2(pixel)*GetiRes();
+    vec2 iRes = vec2(1.0)/vec2(Width, Height);
+    vec2 uv = vec2(pixel)*iRes;
     if(uv.x > 1.0 || uv.y > 1.0)return;
     vec3 o = GetCameraPosition();
     vec3 d = UVToRayDir(uv);
@@ -69,7 +72,7 @@ void main() {
             ivec2 nPixel = pixel + offset;
 
             uvec4 nGBuffer = GBufferFetch(GBufferRID, nPixel);
-            vec2 nUV = vec2(nPixel)*GetiRes();
+            vec2 nUV = vec2(nPixel)*iRes;
             vec3 nDir = UVToRayDir(nUV);
             float nT = GBufferGetDepth(nGBuffer);
             vec3 nPos = o + nDir * nT;
@@ -82,7 +85,6 @@ void main() {
             float w = GAUSSIAN[abs(x)] * GAUSSIAN[abs(y)];
             // float luminanceWeight = 0.01*pow(Size, 4.0)*min(abs(luminance - nLuminance), abs(luminance - nLuminance)/max(luminance, 0.001));
             float luminanceWeight = 0.0001*pow(Size, 4.0)*abs(luminance - nLuminance)/max(luminance, 0.001);
-            w *= max(exp(-luminanceWeight), 0.0);
             w *= max(exp(-luminanceWeight), 0.0);
             w *= IsInsideScreenWeight(uv);
             w *= NormalWeight(normal, nNormal, nT);

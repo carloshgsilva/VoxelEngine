@@ -20,7 +20,9 @@ uint32_t OnImGuiRecursive(RuntimeProfiler::Sample* samples, uint32_t index, uint
         ImVec2 b = {cursor.x + min * scale, a.y + 2.0f};
         ImGui::GetWindowDrawList()->AddRectFilled(a, b, IM_COL32(0, 255, 0, 255));
 
-        bool open = ImGui::TreeNodeEx(sample.name, recurse ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_Leaf , "%s", sample.name);
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanFullWidth;
+        flags |= recurse ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_Leaf;
+        bool open = ImGui::TreeNodeEx(sample.name, flags, "%s", sample.name);
 
         ImGui::SameLine(width);
         ImGui::Text("%6.2fms", min);

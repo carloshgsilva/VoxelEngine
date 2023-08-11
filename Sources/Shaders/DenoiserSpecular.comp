@@ -36,11 +36,10 @@ void main() {
 
     vec3 acc = radiance;
     float total = 1.0;
-    float radius = 1.0;
     vec2 offsetRnd = texelFetch(Sampler2D[ViewBuffer[_ViewBufferRID].BlueNoiseRID], (pixel+GetFrame()*10)%512, 0).xy*2.0 - 1.0;
-    for(int x = -2; x <= 2; x++) {
-        for(int y = -2; y <= 2; y++) {
-            ivec2 offset = ivec2((vec2(x, y) + offsetRnd) * clamp(20.0*pow(roughness, 0.2)*hitdist/(hitdist+t), 0, 8));
+    for(int x = -1; x <= 1; x++) {
+        for(int y = -1; y <= 1; y++) {
+            ivec2 offset = ivec2((vec2(x, y) + offsetRnd) * Size * (clamp(4.0*pow(roughness, 0.2)*hitdist/(hitdist+t), 0, 8)));
             ivec2 nPixel = ivec2(pixel + offset);
             vec2 nUV = vec2(nPixel)*GetiRes();
 
