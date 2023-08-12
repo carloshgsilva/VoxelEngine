@@ -3,32 +3,6 @@
 #include "Graphics/Graphics.h"
 #include "Util/FileUtil.h"
 
-class DenoiserDiscPass {
-    Pipeline pipeline;
-
-   public:
-    DenoiserDiscPass() {
-        pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/DenoiserDisc.comp.spv")});
-    }
-
-    void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer) {
-        Extent extent = GetDesc(gbuffer.packed).extent;
-        CmdBind(pipeline);
-        CmdPush(Constant{
-            GetRID(outRadiance),
-            GetRID(inRadiance),
-            GetRID(gbuffer.packed),
-            GetRID(viewBuffer),
-        });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
-    }
-
-    static DenoiserDiscPass& Get() {
-        static DenoiserDiscPass Instance;
-        return Instance;
-    }
-};
-
 class DenoiserAtrousPass {
     Pipeline pipeline;
 
@@ -66,17 +40,43 @@ class DenoiserSpecularPass {
         pipeline = CreatePipeline({.CS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/DenoiserSpecular.comp.spv")});
     }
 
-    void Use(Image& outRadiance, Image& inRadiance, GBuffer& gbuffer, Buffer& viewBuffer, int size) {
+    void Use(Image& tempRadiance, Image& inoutRadiance, GBuffer& gbuffer, Buffer& viewBuffer) {
         Extent extent = GetDesc(gbuffer.packed).extent;
+        uint32_t dispatchWidth = (extent.width + 7) / 8;
+        uint32_t dispatchHeight = (extent.height + 7) / 8;
         CmdBind(pipeline);
         CmdPush(Constant{
-            GetRID(outRadiance),
-            GetRID(inRadiance),
+            GetRID(tempRadiance),
+            GetRID(inoutRadiance),
             GetRID(gbuffer.packed),
             GetRID(viewBuffer),
-            size,
+            1,
         });
-        CmdDispatch((extent.width + 7) / 8, (extent.height + 7) / 8, 1);
+        CmdDispatch(dispatchWidth, dispatchHeight, 1);
+        CmdPush(Constant{
+            GetRID(inoutRadiance),
+            GetRID(tempRadiance),
+            GetRID(gbuffer.packed),
+            GetRID(viewBuffer),
+            2,
+        });
+        CmdDispatch(dispatchWidth, dispatchHeight, 1);
+        CmdPush(Constant{
+            GetRID(tempRadiance),
+            GetRID(inoutRadiance),
+            GetRID(gbuffer.packed),
+            GetRID(viewBuffer),
+            4,
+        });
+        CmdDispatch(dispatchWidth, dispatchHeight, 1);
+        CmdPush(Constant{
+            GetRID(inoutRadiance),
+            GetRID(tempRadiance),
+            GetRID(gbuffer.packed),
+            GetRID(viewBuffer),
+            8,
+        });
+        CmdDispatch(dispatchWidth, dispatchHeight, 1);
     }
 
     static DenoiserSpecularPass& Get() {
