@@ -34,7 +34,7 @@ float dot2(vec2 v) {
 }
 bool lineTest(vec2 p, vec2 A, vec2 B) {
     int cs = int(A.y < p.y) * 2 + int(B.y < p.y);
-    if(cs == 0 || cs == 3){
+    if(cs == 0 || cs == 3) {
         return false;
     } // trivial reject
 
@@ -113,16 +113,13 @@ float udBezier(vec2 pos, vec2 A, vec2 B, vec2 C ) {
     float p3 = p*p*p;
     float q = kx*(2.0*kx*kx-3.0*ky) + kz;
     float h = q*q + 4.0*p3;
-    if( h >= 0.0)
-    {
+    if( h >= 0.0) {
         h = sqrt(h);
         vec2 x = (vec2(h,-h)-q)/2.0;
         vec2 uv = sign(x)*pow(abs(x), vec2(1.0/3.0));
         float t = clamp( uv.x+uv.y-kx, 0.0, 1.0 );
         res = dot2(d + (c + b*t)*t);
-    }
-    else
-    {
+    } else {
         float z = sqrt(-p);
         float v = acos( q/(p*z*2.0) ) / 3.0;
         float m = cos(v);
@@ -164,7 +161,7 @@ void main() {
     }
 
     float alpha = 1.0-clamp(s*d+0.5, 0.0, 1.0);
-    out_Color = vec4(vec3(1.0), alpha);
+    out_Color = vec4(vec3(mix(0.0, 1.0, alpha)), 1.0);
 
     if(overlay.w != 0) {
         out_Color = overlay;

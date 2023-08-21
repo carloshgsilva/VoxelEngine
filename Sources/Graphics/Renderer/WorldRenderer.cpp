@@ -376,7 +376,9 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         // });
     }
     CmdTimestamp("Color", [&] {
-        canvas.DrawGlyph(CurrentGlyph, glm::vec2(0.0f));
+        for(int i = 0; i < 8; i++) {
+            canvas.DrawGlyph(CurrentGlyph+i, glm::vec2(i*55.0f, 0.0f));
+        }
         CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
             if (outputImage == OutputImage::Composed) {
                 ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
