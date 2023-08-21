@@ -22,7 +22,13 @@ vec2 Bezier2(vec2 a, vec2 b, vec2 c, float t) {
     vec2 s2 = b*(1.0-t) + c*t;
     return t*t*(a - 2*b + c) + t*2*(b - a) + a;
 }
-
+// Projection of b onto a.
+vec2 proj(vec2 a, vec2 b) {
+    return normalize(a) * dot(a,b) / length(a);
+}
+vec2 orth(vec2 a, vec2 b) {
+    return b - proj(a, b);
+}
 float dot2(vec2 v) {
     return dot(v,v);
 }
@@ -57,12 +63,17 @@ bool bezierTest(vec2 p, vec2 A, vec2 B, vec2 C) {
 
     return u*u < v;
 }
+float sdLine(vec2 p, vec2 a, vec2 b) {
+    float d = length(orth(b-a, p-a));
+    mat2 M = mat2(b-a, p-a);
+    return determinant(M) >= 0 ? d : -d;
+}
 float sdBezier2(vec2 uv, vec2 p0, vec2 p1, vec2 p2) {
     const mat2 trf1 = mat2(vec2(-1, 2), vec2(1, 2));
     mat2 M = mat2(p0-p1, p2-p1);
-    // if (determinant(M) == 0.0) {
-    //     return sdLine(uv, p0, p2);
-    // }
+    if (determinant(M) == 0.0) {
+        return sdLine(uv, p0, p2);
+    }
 
     mat2 trf2 = inverse(M);
     mat2 trf=trf1*trf2;
