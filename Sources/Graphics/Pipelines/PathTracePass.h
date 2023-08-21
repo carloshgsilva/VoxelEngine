@@ -234,3 +234,38 @@ class ReSTIRGIResolvePass {
         return Instance;
     }
 };
+
+class GlyphPass {
+    Pipeline pipeline;
+
+public:
+    GlyphPass() {
+        pipeline = CreatePipeline({
+            .VS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Glyph.vert.spv"),
+            .FS = FileUtil::ReadBytes("Assets/Mods/default/Shaders/Glyph.frag.spv"),
+            .bindings = {{Format::RG32Sfloat}},
+            .attachments = {Format::BGRA8Unorm},
+            .blends = {Blend::Alpha},
+        });
+    }
+
+    void Use(Buffer& glyphsBuffer, glm::vec2 screenSize, glm::vec2 position, glm::vec2 scale, float time, int offsetCoords, int numCoords) {
+        CmdBind(pipeline);
+        CmdPush(Constant{
+            screenSize,
+            position,
+            scale,
+            time,
+            GetRID(glyphsBuffer),
+            offsetCoords,
+            numCoords
+        });
+        CmdDraw(6, 1, 0, 0);
+    }
+
+    static GlyphPass& Get() {
+        static GlyphPass Instance;
+        return Instance;
+    }
+
+};

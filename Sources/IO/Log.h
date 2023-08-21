@@ -3,7 +3,6 @@
 #define FMT_USE_WINDOWS_H 0
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <iostream>
 
 #define TC_red    "\033[0;31m"
 #define TC_RED    "\033[1;31m"
@@ -20,23 +19,18 @@
 class Log {
 
 public:
-
-    template<typename FormatString, typename... Args>
-    static inline void info(const FormatString& fmt, Args&&...args) {
-        std::cout << "[" TC_BLUE "info" TC_NC "] " << fmt::format(fmt, std::forward<Args>(args)...) << std::endl;
+    template<typename... T>
+    static inline void info(fmt::format_string<T...> fmt, T&&...args) {
+        printf("[" TC_BLUE "info" TC_NC "] %s\n", fmt::vformat(fmt, fmt::make_format_args(args...)).c_str());
     }
 
-    template<typename FormatString, typename... Args>
-    static inline void warn(const FormatString& fmt, Args&&...args) {
-        std::cout << "[" TC_YELLOW "warn" TC_NC "] " << fmt::format(fmt, std::forward<Args>(args)...) << std::endl;
+    template<typename... T>
+    static inline void warn(fmt::format_string<T...> fmt, T&&...args) {
+        printf("[" TC_YELLOW "warn" TC_NC "] %s\n", fmt::vformat(fmt, fmt::make_format_args(args...)).c_str());
     }
 
-    template<typename FormatString, typename... Args>
-    static inline void error(const FormatString& fmt, Args&&...args) {
-        std::cout << "[" TC_RED "error" TC_NC "] " << fmt::format(fmt, std::forward<Args>(args)...) << std::endl;
+    template<typename... T>
+    static inline void error(fmt::format_string<T...> fmt, T&&... args) {
+        printf("[" TC_RED "error" TC_NC "] %s\n", fmt::vformat(fmt, fmt::make_format_args(args...)).c_str());
     }
-
-    template<typename T> static inline void info(const T& msg) { info("{}", msg); }
-    template<typename T> static inline void warn(const T& msg) { warn("{}", msg); }
-    template<typename T> static inline void error(const T& msg) { error("{}", msg); }
 };

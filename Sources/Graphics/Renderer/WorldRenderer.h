@@ -6,6 +6,7 @@
 
 #include "Graphics/Renderer/BVH.h"
 #include "Graphics/Renderer/View.h"
+#include "Graphics/Canvas.h"
 
 #include "Asset/ImageAsset.h"
 #include "Asset/SkyBoxAsset.h"
@@ -15,6 +16,8 @@
 
 // Handles all the state required to Render a World
 class WorldRenderer {
+    Canvas canvas = {};
+
     View lastView = {};
 
     AssetRefT<ImageAsset> _BlueNoise;
@@ -84,6 +87,9 @@ class WorldRenderer {
 
     WorldRenderer();
     ~WorldRenderer() { }
+
+    int CurrentGlyph = 0;
+    void SelectGlyph(int i);
 
     void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
 

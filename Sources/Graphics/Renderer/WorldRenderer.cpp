@@ -4,6 +4,7 @@
 #include "Core/Input.h"
 
 #include "Profiler/Profiler.h"
+#include "IO/TTFile.h"
 
 #include "World/World.h"
 #include "World/Components.h"
@@ -50,6 +51,7 @@ Image CreateColorImage(uint32 width, uint32 height) {
     });
 }
 
+TTFFile ttf;
 WorldRenderer::WorldRenderer() {
     // Create Initial Framebuffers
     RecreateFramebuffer(320, 240);  // Small Initial buffer allocation
@@ -64,6 +66,15 @@ WorldRenderer::WorldRenderer() {
         .size = 65536 * (3 * sizeof(uint32) + (8 + 1) * RESERVOIR_SIZE),
         .usage = BufferUsage::Storage
     });
+    
+    FileReader fr = FileReader("Assets/Roboto-Medium.ttf");
+    ttf = TTFFile();
+    ttf.Load(fr);
+    SelectGlyph(0);
+}
+
+void WorldRenderer::SelectGlyph(int i) {
+    CurrentGlyph = clamp(i, 0, int(ttf.glyphs.size())-1);
 }
 
 void WorldRenderer::CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color) {
@@ -145,7 +156,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     _LastComposeBuffer.swap(_TAAComposeBuffer);
 
     // Crtl to reload shaders
-    if (Input::IsKeyPressed(Key::LeftControl) && (Engine::GetTime() - lastReloadShaders) > 1.0) {
+    if (Input::IsKeyPressed(Key::LeftControl) && (Engine::GetTime() - lastReloadShaders) > 1000.0) {
         lastReloadShaders = Engine::GetTime();
 
         OutlineVoxelPipeline::Get() = OutlineVoxelPipeline();
@@ -166,6 +177,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         ReSTIRGISpatialPass::Get() = ReSTIRGISpatialPass();
         ReSTIRGIResolvePass::Get() = ReSTIRGIResolvePass();
         SpecularTracePass::Get() = SpecularTracePass();
+        GlyphPass::Get() = GlyphPass();
         // Rest VoxSlot
         world.GetRegistry().view<VoxRenderer>().each([](const entt::entity e, VoxRenderer& vr) { vr.VoxSlot = -1; });
         Log::info("Shaders Reloaded!");
@@ -346,7 +358,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
                 DenoiserSpecularPass::Get().Use(specularBufferB, specularBufferA, gbuffer, _ViewBuffer);
             });
         }
-
+        
         CmdTimestamp("Compose", [&] { ComposePass::Get().Use(_CurrentComposeBuffer, lightBufferA, specularBufferA, gbuffer, _ViewBuffer, voxInstancesBuffer); });
         if (enableTAA) {
             CmdTimestamp("TAA", [&] { TAAPass::Get().Use(_TAAComposeBuffer, _CurrentComposeBuffer, _LastComposeBuffer, gbuffer, _ViewBuffer); });
@@ -364,6 +376,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         // });
     }
     CmdTimestamp("Color", [&] {
+        canvas.DrawGlyph(CurrentGlyph, glm::vec2(0.0f));
         CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
             if (outputImage == OutputImage::Composed) {
                 ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);
@@ -376,6 +389,7 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
             } else if (outputImage == OutputImage::Specular) {
                 ColorWorldPipeline::Get().Use(specularBufferA, _OutlineBuffer);
             }
+            canvas.Draw(glm::vec2(view.Width, view.Height));
         });
     });
 
