@@ -161,7 +161,8 @@ void main() {
     }
 
     float alpha = 1.0-clamp(s*d+0.5, 0.0, 1.0);
-    out_Color = vec4(vec3(mix(0.0, 1.0, alpha)), 1.0);
+    // out_Color = vec4(vec3(mix(0.0, 1.0, alpha)), 1.0);
+    out_Color = vec4(vec3(1.0), alpha);
 
     if(overlay.w != 0) {
         out_Color = overlay;

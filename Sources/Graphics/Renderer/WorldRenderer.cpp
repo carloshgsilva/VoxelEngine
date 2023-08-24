@@ -376,8 +376,9 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
         // });
     }
     CmdTimestamp("Color", [&] {
-        for(int i = 0; i < 8; i++) {
-            canvas.DrawGlyph(CurrentGlyph+i, glm::vec2(i*55.0f, 0.0f));
+        float x = 0.0f;
+        for(int i = 0; i < 32; i++) {
+            x += canvas.DrawGlyph(CurrentGlyph+i, glm::vec2(x, 30.0f), (cosf(Engine::GetTime()*0.001f)+1.5f)*60.0f);
         }
         CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
             if (outputImage == OutputImage::Composed) {

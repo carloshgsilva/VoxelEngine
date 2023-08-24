@@ -10,6 +10,6 @@ struct Canvas {
     ~Canvas();
 
     void LoadFont(const std::string& file);
-    void DrawGlyph(uint32_t glyph, glm::vec2 position);
+    float DrawGlyph(uint32_t glyph, glm::vec2 position, float size);
     void Draw(glm::vec2 screenSize);
 };

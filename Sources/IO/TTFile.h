@@ -277,18 +277,16 @@ struct TTFFile {
             s.Serialize(numberOfHMetrics);
         }
         { // hmtx
+            s.SetPointer(tbHMTX.offset);
             for(int i = 0; i < numberOfHMetrics; i++) {
                 uint16_t advanceWidth;
                 s.Serialize(advanceWidth);
                 int16_t leftSideBearing;
                 s.Serialize(leftSideBearing);
-                glyphs[i].advanceWidth = advanceWidth / float(head.unitsPerEm);
-                glyphs[i].leftSideBearing = leftSideBearing / float(head.unitsPerEm);
+                auto& g = glyphs[i];
+                g.leftSideBearing = leftSideBearing / float(head.unitsPerEm);
+                g.advanceWidth = advanceWidth / float(head.unitsPerEm);
             }
-            // for(int i = 0; i < maxp.numGlyphs - numberOfHMetrics; i++) {
-            //     int16_t leftSideBearing;
-            //     s.Serialize(leftSideBearing);
-            // }
         }
 
     }

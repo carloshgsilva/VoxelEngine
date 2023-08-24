@@ -52,9 +52,8 @@ Canvas::~Canvas() {
 void Canvas::LoadFont(const std::string& file) {
 }
 
-void Canvas::DrawGlyph(uint32_t g, glm::vec2 position) {
-    auto& glyph = impl->font.glyphs[g];
-    glm::vec2 scale = glm::vec2(glyph.max.x-glyph.min.x, glyph.max.y-glyph.min.y);
+float Canvas::DrawGlyph(uint32_t g, glm::vec2 position, float size) {
+    const auto& glyph = impl->font.glyphs[g];
 
     PrimitiveDrawCmd cmd;
     cmd.vertexOffset = uint32_t(impl->vertices.size());
@@ -62,7 +61,7 @@ void Canvas::DrawGlyph(uint32_t g, glm::vec2 position) {
     cmd.coordsOffset = impl->glyphOffsets[g];
     cmd.coordsCount = int(glyph.coords.size());
     cmd.position = position;
-    cmd.scale = glm::vec2(60.0f);
+    cmd.scale = glm::vec2(size);
     
     glm::vec2 p00 = glyph.min;
     glm::vec2 p01 = glm::vec2(glyph.min.x, glyph.max.y);
@@ -76,6 +75,7 @@ void Canvas::DrawGlyph(uint32_t g, glm::vec2 position) {
     impl->vertices.push_back(p11);
     CmdCopy(impl->vertices.data(), impl->vertexBuffer, impl->vertices.size()*sizeof(glm::vec2));
     impl->cmds.push_back(cmd);
+    return glyph.advanceWidth*size;
 }
 
 void Canvas::Draw(glm::vec2 screenSize) {
