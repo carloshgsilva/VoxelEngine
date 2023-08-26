@@ -36,7 +36,7 @@ ImGuiRenderer::ImGuiRenderer() {
     icons_config.GlyphMaxAdvanceX = 12;
     icons_config.GlyphMinAdvanceX = 12;
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    ImGui::GetIO().Fonts->AddFontFromFileTTF("Assets/Font Awesome 5 Free-Solid-900.otf", 13.0f, &icons_config, icons_ranges);
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("Assets/fa-solid-900.ttf", 13.0f, &icons_config, icons_ranges);
 
     ImGui_ImplEvk_Init();
 }

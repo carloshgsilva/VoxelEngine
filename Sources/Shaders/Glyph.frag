@@ -139,7 +139,6 @@ void main() {
     
     float d = 100000.0;
     float s = 1.0;
-
     for(int i = OffsetCoords; i < OffsetCoords+NumCoords; i+=3) {
         vec2 p1 = GlyphsBuffer[GlyphsBufferRID].at[i+0]*Scale+Position;
         vec2 p2 = GlyphsBuffer[GlyphsBufferRID].at[i+1]*Scale+Position;

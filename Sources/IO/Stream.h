@@ -7,16 +7,14 @@
 #include "Log.h"
 
 // Stream of Values
-// Used to Write to File, Memory Buffers and for Garbage Collection
+// Used to Write to File, Memory Buffers
 class Stream {
 protected:
-    //If true the Stream may create/allocate data
-    //if false is usually writing or reference counting by GC
     uint8 StreamIsLoading : 1;
-
+    uint8 StreamIsLittleEndian : 1 = 1;
 
 public:
-
+    void SetIsLittleEndian(bool v) { StreamIsLittleEndian = v; }
     bool IsLoading() { return StreamIsLoading; }
 
     virtual bool HasData() { assert(false); return true; }
@@ -32,37 +30,22 @@ public:
         SetPointer(GetPointer() + bytes);
     }
 
-    template <typename T>
-    T swap_endian(T u)
-    {
-        static_assert (CHAR_BIT == 8, "CHAR_BIT != 8");
-
-        union
-        {
-            T u;
-            unsigned char u8[sizeof(T)];
-        } source, dest;
-
-        source.u = u;
-
-        for (size_t k = 0; k < sizeof(T); k++)
-            dest.u8[k] = source.u8[sizeof(T) - k - 1];
-
-        return dest.u;
-    }
-
     template <typename T, typename = std::enable_if_t<std::is_fundamental_v<T>>>
     void Serialize(T& Value) {
         if(StreamIsLoading) {
-            union {
-                T v;
-                uint8_t u8[sizeof(T)];
-            } src, dst;
-            Serialize(&src, sizeof(T));
-            for (size_t i = 0; i < sizeof(T); i++) {
-                dst.u8[i] = src.u8[sizeof(T) - i - 1];
+            if(StreamIsLittleEndian) {
+                Serialize(&Value, sizeof(T));
+            } else {
+                union {
+                    T v;
+                    uint8_t u8[sizeof(T)];
+                } src, dst;
+                Serialize(&src, sizeof(T));
+                for (size_t i = 0; i < sizeof(T); i++) {
+                    dst.u8[i] = src.u8[sizeof(T) - i - 1];
+                }
+                Value = dst.v;
             }
-            Value = dst.v;
         } else {
             assert(false);
         }

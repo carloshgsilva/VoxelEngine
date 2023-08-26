@@ -117,9 +117,11 @@ void EditorLayer::OnGui() {
     ImGui::EndMainMenuBar();
     ImGui::Begin(ICON_FA_ROCKET "  Performance");
     {
+        ImGui::Text("float Canvas::DrawText(const char* txt, glm::vec2 position, float size) {");
         if(ImGui::InputInt("Glyph", &Viewport->GetWorldRenderer()->CurrentGlyph)) {
             Viewport->GetWorldRenderer()->SelectGlyph(Viewport->GetWorldRenderer()->CurrentGlyph);
         }
+        ImGui::SliderFloat("Font Size", &Viewport->GetWorldRenderer()->fontSize, 5.0f, 60.0f);
         if(ImGui::BeginChild("CPU", {450.0f, 0.0f}, true)){
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_CheckMark]);
             ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiRenderer::Border);

@@ -2,6 +2,7 @@
 
 #include <glm/vec2.hpp>
 #include <vector>
+#include <unordered_map>
 
 struct TableHEAD {
     uint16_t majorVersion;
@@ -86,6 +87,7 @@ struct TTFFile {
     TableMAXP maxp;
     uint16_t numberOfHMetrics;
     std::vector<uint32_t> offsets;
+    std::unordered_map<uint32_t, uint32_t> remap;
 
     struct Glyph {
         std::vector<glm::vec2> coords;
@@ -107,9 +109,10 @@ struct TTFFile {
     };
 
     void Load(Stream& s) {
+        s.SetIsLittleEndian(false);
         uint32_t sfntType = 0u;
         s.Serialize(sfntType);
-        assert(sfntType == 0x00010000u); // 0x00010000 = TrueType, 0x4F54544F = CFF (version 1 or 2)
+        assert(sfntType == 0x00010000u || sfntType == 'OTTO'); // 0x00010000 = TrueType, 0x4F54544F 'OTTO' = CFF (version 1 or 2)
         uint16_t numTables = 0u;
         s.Serialize(numTables);
         uint16_t searchRange = 0u;
@@ -137,6 +140,7 @@ struct TTFFile {
         Table tbMAXP;
         Table tbLOCA;
         Table tbGLYF;
+        Table tbCMAP;
         Table tbHHEA;
         Table tbHMTX;
         for(int i = 0; i < numTables; i++) {
@@ -150,9 +154,11 @@ struct TTFFile {
                 tbLOCA = t;
             } else if(t.tag == 'glyf') {
                 tbGLYF = t;
+            } else if(t.tag == 'cmap') {
+                tbCMAP = t;
             } else if(t.tag == 'hhea') {
                 tbHHEA = t;
-            }else if(t.tag == 'hmtx') {
+            } else if(t.tag == 'hmtx') {
                 tbHMTX = t;
             }
         }
@@ -184,7 +190,6 @@ struct TTFFile {
         { // glyf
             for(int i = 0; i < maxp.numGlyphs; i++) {
                 glyphs.push_back({});
-                // if(i != 10)continue;
                 uint32_t offset = offsets[i];
                 s.SetPointer(tbGLYF.offset + offset);
                 int16 numContours;
@@ -206,7 +211,11 @@ struct TTFFile {
                 uint16_t instructionLength;
                 s.Serialize(instructionLength);
                 s.Skip(instructionLength);
-
+                
+                // empty character
+                if(i+1 < maxp.numGlyphs && offsets[i+1] == offset) {
+                    continue;
+                }
                 if(numContours < 0) {
                     continue;
                 }
@@ -270,6 +279,58 @@ struct TTFFile {
                 }
                 
             }
+        }
+        { // cmap
+            s.SetPointer(tbCMAP.offset);
+            uint16_t version;
+            s.Serialize(version);
+            uint16_t numTables;
+            s.Serialize(numTables);
+            struct Encoding {
+                uint16_t platformID;
+                uint16_t encodingID;
+                uint32_t offset;
+            };
+            std::vector<Encoding> encodings = {};
+            for(int i = 0; i < numTables; i++) {
+                Encoding e;
+                s.Serialize(e.platformID);
+                s.Serialize(e.encodingID);
+                s.Serialize(e.offset);
+                encodings.push_back(e);
+            }
+            
+            bool foundFormat12 = false;
+            for(const auto& e : encodings) {
+                s.SetPointer(tbCMAP.offset + e.offset);
+                uint16_t format;
+                s.Serialize(format);
+                if(format == 12) {
+                    foundFormat12 = true;
+                    break;
+                }
+            }
+            assert(foundFormat12);
+
+            s.Skip(sizeof(uint16_t)); // reserved
+            s.Skip(sizeof(uint32_t)); // length
+            s.Skip(sizeof(uint32_t)); // language
+            uint32_t numGroups;
+            s.Serialize(numGroups);
+            
+            for(int i = 0; i < numGroups; i++) {
+                uint32_t startCharCode;
+                uint32_t endCharCode;
+                uint32_t startGlyphId;
+                s.Serialize(startCharCode);
+                s.Serialize(endCharCode);
+                s.Serialize(startGlyphId);
+                Log::info("Range {}-{} Size = {}, glyphId = {}", startCharCode, endCharCode, endCharCode-startCharCode+1, startGlyphId);
+                for(uint32_t j = 0; j <= endCharCode-startCharCode; j++) {
+                    remap.emplace(startCharCode+j, startGlyphId+j);
+                }
+            }
+
         }
         { // hhea
             s.SetPointer(tbHHEA.offset);

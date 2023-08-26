@@ -63,10 +63,12 @@ float Canvas::DrawGlyph(uint32_t g, glm::vec2 position, float size) {
     cmd.position = position;
     cmd.scale = glm::vec2(size);
     
-    glm::vec2 p00 = glyph.min;
-    glm::vec2 p01 = glm::vec2(glyph.min.x, glyph.max.y);
-    glm::vec2 p10 = glm::vec2(glyph.max.x, glyph.min.y);
-    glm::vec2 p11 = glyph.max;
+    glm::vec2 gmin = glyph.min - 1.5f/size;
+    glm::vec2 gmax = glyph.max + 1.5f/size;
+    glm::vec2 p00 = gmin;
+    glm::vec2 p01 = glm::vec2(gmin.x, gmax.y);
+    glm::vec2 p10 = glm::vec2(gmax.x, gmin.y);
+    glm::vec2 p11 = gmax;
     impl->vertices.push_back(p00);
     impl->vertices.push_back(p10);
     impl->vertices.push_back(p01);
@@ -76,6 +78,19 @@ float Canvas::DrawGlyph(uint32_t g, glm::vec2 position, float size) {
     CmdCopy(impl->vertices.data(), impl->vertexBuffer, impl->vertices.size()*sizeof(glm::vec2));
     impl->cmds.push_back(cmd);
     return glyph.advanceWidth*size;
+}
+float Canvas::DrawText(const char* txt, glm::vec2 position, float size) {
+    // TODO: support unicode https://github.com/s22h/cutils/blob/master/src/unicode.h
+    int i = 0;
+    while(true) {
+        uint32_t c = txt[i];
+        if(c == 0u)break;
+        uint32_t g = impl->font.remap[c];
+        position.x += DrawGlyph(g, position, size);
+        i++;
+    }
+
+    return position.x;
 }
 
 void Canvas::Draw(glm::vec2 screenSize) {

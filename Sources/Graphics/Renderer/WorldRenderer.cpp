@@ -67,7 +67,7 @@ WorldRenderer::WorldRenderer() {
         .usage = BufferUsage::Storage
     });
     
-    FileReader fr = FileReader("Assets/Roboto-Medium.ttf");
+    FileReader fr = FileReader("Assets/fa-regular-400.ttf");
     ttf = TTFFile();
     ttf.Load(fr);
     SelectGlyph(0);
@@ -378,8 +378,10 @@ void WorldRenderer::DrawWorld(float dt, View& view, World& world) {
     CmdTimestamp("Color", [&] {
         float x = 0.0f;
         for(int i = 0; i < 32; i++) {
-            x += canvas.DrawGlyph(CurrentGlyph+i, glm::vec2(x, 30.0f), (cosf(Engine::GetTime()*0.001f)+1.5f)*60.0f);
+            float size = 14.0f;//(cosf(Engine::GetTime()*0.001f)+1.5f)*30.0f;
+            x += canvas.DrawGlyph(CurrentGlyph+i, glm::vec2(x+30.0f, 30.0f), size);
         }
+        x += canvas.DrawText("float Canvas::DrawText(const char* txt, glm::vec2 position, float size) {", glm::vec2(0.0f, 100.0f), fontSize);
         CmdRender({_ColorBuffer}, {ClearColor{}}, [&] {
             if (outputImage == OutputImage::Composed) {
                 ColorWorldPipeline::Get().Use(_TAAComposeBuffer, _OutlineBuffer);

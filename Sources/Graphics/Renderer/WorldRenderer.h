@@ -89,6 +89,7 @@ class WorldRenderer {
     ~WorldRenderer() { }
 
     int CurrentGlyph = 0;
+    float fontSize = 14.0f;
     void SelectGlyph(int i);
 
     void CmdOutline(const glm::mat4& matrix, Image& vox, glm::vec3 color);
