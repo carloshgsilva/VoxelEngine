@@ -31,4 +31,5 @@ struct ViewData {
     int PalleteMaterialRID;
     int BlueNoiseRID;
     float TimeOfDay;
+    
 };

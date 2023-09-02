@@ -8,24 +8,12 @@
 
 #include "World/World.h"
 #include "World/Components.h"
-#include "World/Systems/TransformSystem.h"
-#include "World/Systems/CameraSystem.h"
-
-#include "Editor/Importer/AssetImporter.h"
 
 #include "Graphics/Graphics.h"
 #include "Graphics/BLASManager.h"
-#include "Graphics/Pipelines/LightBloomStep.h"
-#include "Graphics/Pipelines/LightBlur.h"
-#include "Graphics/Pipelines/OutlineVoxelPipeline.h"
-#include "Graphics/Pipelines/ColorWorldPipeline.h"
-#include "Graphics/Pipelines/PathTracePass.h"
-#include "Graphics/Pipelines/GBufferPass.h"
-#include "Graphics/Pipelines/DenoiserPass.h"
-#include "Graphics/Pipelines/ComposePass.h"
+#include "Graphics/Pipelines.h"
 
 const int BLOOM_MIP_COUNT = 5;
-const int MAX_BVH_COUNT = 16384;
 
 struct RenderCmds {
     std::vector<OutlineVoxelPipeline::Cmd> outline;

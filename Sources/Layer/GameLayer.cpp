@@ -4,7 +4,7 @@
 #include "Core/Engine.h"
 #include "Core/Input.h"
 #include "Core/Window.h"
-#include "Graphics/Pipelines/PresentPipeline.h"
+#include "Graphics/Pipelines.h"
 #include "Graphics/Renderer/ImGuiRenderer.h"
 #include "World/Systems/PhysicsSystem.h"
 #include "Editor/Importer/VoxImporter.h"

@@ -2,7 +2,7 @@
 
 #include "Core/Engine.h"
 #include "IO/TTFile.h"
-#include "Graphics/Pipelines/PathTracePass.h"
+#include "Graphics/Pipelines.h"
 
 #include <evk/evk.h>
 #include <vector>
