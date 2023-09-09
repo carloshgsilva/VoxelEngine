@@ -84,7 +84,8 @@
 		"typeindex": "cpp",
 		"variant": "cpp",
 		"numeric": "cpp",
-		"stack": "cpp"
+		"stack": "cpp",
+		"ranges": "cpp"
 	},
 	"shaderc-lint.buildOnSave": true,
 	"shaderc-lint.shadercOutputDir": "Assets/Mods/default/Shaders",
@@ -97,5 +98,5 @@
 	"C_Cpp.default.cStandard": "c17",
 	"C_Cpp.default.intelliSenseMode": "windows-msvc-x64",
 	"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-	"shaderc-lint.glslcArgs": "-I Sources/Shaders/lib",
+	"shaderc-lint.glslcArgs": "-I Sources/Shaders/lib -g",
 }

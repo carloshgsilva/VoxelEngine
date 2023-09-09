@@ -318,15 +318,14 @@ struct TTFFile {
             uint32_t numGroups;
             s.Serialize(numGroups);
             
-            for(int i = 0; i < numGroups; i++) {
+            for(uint32_t i = 0; i < numGroups; i++) {
                 uint32_t startCharCode;
                 uint32_t endCharCode;
                 uint32_t startGlyphId;
                 s.Serialize(startCharCode);
                 s.Serialize(endCharCode);
                 s.Serialize(startGlyphId);
-                Log::info("Range {}-{} Size = {}, glyphId = {}", startCharCode, endCharCode, endCharCode-startCharCode+1, startGlyphId);
-                for(uint32_t j = 0; j <= endCharCode-startCharCode; j++) {
+                 for(uint32_t j = 0; j <= endCharCode-startCharCode; j++) {
                     remap.emplace(startCharCode+j, startGlyphId+j);
                 }
             }
